@@ -1,0 +1,19 @@
+{
+  "name": "sitepulse",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs",
+    "test": "node --test",
+    "test:e2e": "playwright test",
+    "reset-db": "node scripts/reset-db.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  }
+}
