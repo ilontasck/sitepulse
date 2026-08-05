@@ -120,6 +120,7 @@ Important project files verified in Git:
 ```text
 .env.example
 .gitignore
+.node-version
 MIGRATION.md
 MACHINE_SETUP.md
 README.md
@@ -223,4 +224,3 @@ git add .
 git commit -m "Prepare complete Mac migration docs"
 git push
 ```
-

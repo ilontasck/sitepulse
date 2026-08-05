@@ -16,9 +16,11 @@ brew install git
 Configure on the new Mac:
 
 ```bash
-git config --global user.name "ilontasck"
-git config --global user.email "stefanio2021@gmail.com"
+git config --global user.name "Your Name"
+git config --global user.email "you@example.com"
 ```
+
+Use the Git name and email you want attached to your commits.
 
 GitHub auth options:
 
@@ -73,6 +75,8 @@ Version used for verification in Codex:
 ```text
 v24.14.0
 ```
+
+The repository includes `.node-version` with `24.14.0` for Node version managers. The app itself accepts any Node.js version satisfying `>=22.5`.
 
 Install with Homebrew:
 
@@ -255,4 +259,3 @@ cd sitepulse
 ./setup.sh
 pnpm start
 ```
-

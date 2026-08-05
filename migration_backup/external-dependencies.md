@@ -22,6 +22,8 @@ Codex verification pnpm: 11.9.0
 Playwright CLI: 1.61.1
 ```
 
+The repository includes `.node-version` with `24.14.0`. Any Node.js version `>=22.5` is supported by `package.json`.
+
 Observed Homebrew leaves:
 
 ```text
@@ -85,4 +87,3 @@ These are not required to run SitePulse, but they may affect your Codex workflow
 ```
 
 Restore these through sign-in, connector setup, or a private manual backup outside Git.
-

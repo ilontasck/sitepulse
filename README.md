@@ -123,6 +123,7 @@ coverage/
 ## Requirements
 
 - Node.js `22.5+`
+- Recommended Node version from `.node-version`: `24.14.0`
 - pnpm
 - Chromium for Playwright e2e tests
 
