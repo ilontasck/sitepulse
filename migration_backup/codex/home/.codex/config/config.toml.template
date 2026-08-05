@@ -1,0 +1,50 @@
+# Safe Codex config template derived from the old Mac.
+# Do not copy this file over ~/.codex/config.toml blindly.
+# Use it as a checklist after installing/opening Codex on the new Mac.
+
+service_tier = "default"
+model = "gpt-5.6-sol"
+model_reasoning_effort = "low"
+
+[plugins."documents@openai-primary-runtime"]
+enabled = true
+
+[plugins."pdf@openai-primary-runtime"]
+enabled = true
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = true
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = true
+
+[plugins."chrome@openai-bundled"]
+enabled = true
+
+[plugins."template-creator@openai-primary-runtime"]
+enabled = true
+
+[plugins."visualize@openai-bundled"]
+enabled = true
+
+[plugins."sites@openai-bundled"]
+enabled = true
+
+[plugins."browser@openai-bundled"]
+enabled = true
+
+[features]
+js_repl = false
+
+[desktop]
+conversationDetailMode = "STEPS_COMMANDS"
+ambient-suggestions-enabled = false
+followUpQueueMode = "queue"
+dock-icon-preference = "codex-system"
+
+# On the new Mac, let Codex regenerate:
+# - marketplace source paths
+# - MCP server binary paths
+# - CODEX_HOME and node_repl paths
+# - trusted project absolute paths
+# - auth, sessions, logs, memories, and connector state

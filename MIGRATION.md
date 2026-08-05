@@ -77,6 +77,7 @@ setup.sh                    New-machine setup script
 MIGRATION.md                Migration instructions
 MACHINE_SETUP.md            Machine-level development environment notes
 migration_backup/           Safe restore notes and exported non-secret templates
+migration_backup/codex/     Local Codex/agent skill export and restore instructions
 ```
 
 ## Install And Run On A New Mac
@@ -206,6 +207,7 @@ Important notes:
 - Open Codex and sign in.
 - Reconnect any Codex connectors/plugins you use.
 - Reinstall or copy personal Codex/agent skills if you rely on them.
+- Restore exported local Codex/agent skills from `migration_backup/codex/RESTORE.md` if you want the same Codex workflow.
 - Copy `data/sitepulse.sqlite` manually only if you need old local audit history.
 
 ## One Prompt For Codex On The New Mac
