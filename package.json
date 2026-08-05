@@ -3,11 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "start": "node server.mjs",
-    "dev": "node server.mjs",
+    "setup": "sh ./setup.sh",
+    "start": "node --env-file=.env server.mjs",
+    "dev": "node --env-file=.env server.mjs",
     "test": "node --test",
+    "test:unit": "node --test",
     "test:e2e": "playwright test",
+    "test:all": "pnpm test && pnpm test:e2e",
     "reset-db": "node scripts/reset-db.mjs"
   },
   "engines": {

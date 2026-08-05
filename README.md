@@ -110,10 +110,14 @@ node_modules/
 test-results/
 playwright-report/
 .env
+.env.*
 data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 data/*.json
+coverage/
+*.log
+.DS_Store
 ```
 
 ## Requirements
@@ -122,12 +126,19 @@ data/*.json
 - pnpm
 - Chromium for Playwright e2e tests
 
+For a full new-Mac restore, read:
+
+- [MIGRATION.md](MIGRATION.md): project restore guide, environment variables, ignored files, and one-prompt Codex restore flow.
+- [MACHINE_SETUP.md](MACHINE_SETUP.md): machine-level Git, Homebrew, Node, pnpm, Playwright, SQLite, VS Code, CLI, and Codex notes.
+- [migration_backup/](migration_backup/): safe non-secret restore notes and templates.
+
 ## Install
 
 ```bash
-pnpm install
-pnpm exec playwright install chromium
+pnpm setup
 ```
+
+This runs `setup.sh`, which checks Node.js, installs dependencies, installs Playwright Chromium, creates local runtime files, and runs unit tests.
 
 ## Run Locally
 
@@ -146,6 +157,68 @@ Development alias:
 ```bash
 pnpm dev
 ```
+
+## Move To A New Mac
+
+The repository is prepared so the new Mac setup is:
+
+```bash
+git clone https://github.com/ilontasck/sitepulse.git
+cd sitepulse
+./setup.sh
+pnpm start
+```
+
+Before moving, push the project from the old Mac:
+
+```bash
+git status --short --ignored
+pnpm test
+git add .
+git commit -m "Prepare complete Mac migration docs"
+git push
+```
+
+Current `origin`:
+
+```text
+https://github.com/ilontasck/sitepulse.git
+```
+
+Files intentionally not moved through Git:
+
+```text
+node_modules/
+.env
+.env.*
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+data/*.json
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+coverage/
+.pnpm-store/
+.npm/
+.yarn/
+.yarn-cache/
+dist/
+build/
+.cache/
+.parcel-cache/
+.vite/
+.turbo/
+*.log
+tmp/
+temp/
+.DS_Store
+.vscode/
+.idea/
+```
+
+If the local SQLite database contains work you need to preserve, export or copy `data/sitepulse.sqlite` separately. It is intentionally ignored because it is runtime state, not source code.
 
 ## Demo Script
 
@@ -195,10 +268,22 @@ Unit and API tests:
 pnpm test
 ```
 
+Alias for the same unit/API test suite:
+
+```bash
+pnpm test:unit
+```
+
 Browser e2e tests:
 
 ```bash
 pnpm test:e2e
+```
+
+All tests:
+
+```bash
+pnpm test:all
 ```
 
 Reset local SQLite database:
@@ -209,7 +294,7 @@ pnpm reset-db
 
 ## Environment Variables
 
-Local startup works without `.env`. Copy `.env.example` only when you want custom settings.
+`setup.sh` creates `.env` from `.env.example` when `.env` does not exist. Keep real secrets only in `.env`; it is ignored by Git.
 
 ```text
 HOST=127.0.0.1
@@ -331,6 +416,7 @@ Run this quick checklist:
 
 ```bash
 git status
+pnpm setup
 pnpm test
 pnpm test:e2e
 pnpm reset-db

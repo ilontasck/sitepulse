@@ -1,9 +1,59 @@
+# Dependencies
 node_modules/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data
+data/*
+!data/.gitkeep
+
+# Test and browser artifacts
 test-results/
 playwright-report/
-.env
+blob-report/
+playwright/.cache/
+coverage/
+.nyc_output/
 
-data/*.sqlite
-data/*.sqlite-shm
-data/*.sqlite-wal
-data/*.json
+# Package-manager caches
+.pnpm-store/
+.npm/
+.yarn/
+.yarn-cache/
+
+# Build and framework output
+dist/
+build/
+.cache/
+.parcel-cache/
+.vite/
+.turbo/
+
+# Logs and diagnostics
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# macOS and editor metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+.vscode/
+.idea/
