@@ -132,6 +132,7 @@ For a full new-Mac restore, read:
 - [MIGRATION.md](MIGRATION.md): project restore guide, environment variables, ignored files, and one-prompt Codex restore flow.
 - [MACHINE_SETUP.md](MACHINE_SETUP.md): machine-level Git, Homebrew, Node, pnpm, Playwright, SQLite, VS Code, CLI, and Codex notes.
 - [migration_backup/](migration_backup/): safe non-secret restore notes and templates.
+- [PROJECT_HEALTH_REPORT.md](PROJECT_HEALTH_REPORT.md): latest environment, Git, test, security, performance, architecture, and technical-debt verification.
 
 ## Install
 

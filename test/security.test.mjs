@@ -42,9 +42,9 @@ describe("security hardening", () => {
   });
 
   it("rate limits API calls", async () => {
-    await fetch(`${baseUrl}/api/health`);
-    await fetch(`${baseUrl}/api/health`);
-    const response = await fetch(`${baseUrl}/api/health`);
+    await fetch(`${baseUrl}/api/health`, { headers: { "X-Forwarded-For": "198.51.100.1" } });
+    await fetch(`${baseUrl}/api/health`, { headers: { "X-Forwarded-For": "198.51.100.2" } });
+    const response = await fetch(`${baseUrl}/api/health`, { headers: { "X-Forwarded-For": "198.51.100.3" } });
     const body = await response.json();
 
     assert.equal(response.status, 429);

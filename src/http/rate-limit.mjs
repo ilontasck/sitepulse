@@ -1,12 +1,8 @@
 import { HttpError } from "./http-error.mjs";
 
 function getClientKey(request) {
-  const forwardedFor = request.headers["x-forwarded-for"];
-
-  if (typeof forwardedFor === "string" && forwardedFor.length > 0) {
-    return forwardedFor.split(",")[0].trim();
-  }
-
+  // No trusted reverse proxy is configured. A caller-controlled forwarding
+  // header must not be able to select a fresh rate-limit bucket.
   return request.socket.remoteAddress || "unknown";
 }
 
@@ -17,6 +13,14 @@ export function createRateLimiter({ windowMs, max }) {
     const now = Date.now();
     const key = getClientKey(request);
     const current = buckets.get(key);
+
+    if (buckets.size > 1_000) {
+      for (const [bucketKey, bucket] of buckets) {
+        if (bucket.resetAt <= now) {
+          buckets.delete(bucketKey);
+        }
+      }
+    }
 
     if (!current || current.resetAt <= now) {
       buckets.set(key, {

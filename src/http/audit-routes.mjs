@@ -45,6 +45,11 @@ function toAuditSummary(audit) {
 export async function handleAuditApi({ request, response, config, store, url, auditGenerator = generateAudit }) {
   if (url.pathname === "/api/audits" && request.method === "POST") {
     const body = await readJsonBody(request, config.requestBodyLimitBytes);
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      throw new HttpError(400, "Request body must be a JSON object.", "INVALID_REQUEST_BODY");
+    }
+
     const websiteUrl = body.websiteUrl ?? body.url;
     const audit = await auditGenerator(websiteUrl);
     const record = await store.create(audit);

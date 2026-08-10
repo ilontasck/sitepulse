@@ -99,6 +99,18 @@ describe("audit API", () => {
     assert.match(body.audit.id, /^[0-9a-f-]{36}$/);
   });
 
+  it("rejects JSON primitives as invalid request bodies", async () => {
+    const response = await fetch(`${baseUrl}/api/audits`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "null"
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.equal(body.error.code, "INVALID_REQUEST_BODY");
+  });
+
   it("returns a safe error when scanner fails unexpectedly", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sitepulse-api-error-"));
     const config = loadConfig({

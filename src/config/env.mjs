@@ -12,6 +12,16 @@ function parsePort(value) {
   return port;
 }
 
+function parsePositiveInteger(name, value, fallback) {
+  const parsed = Number(value ?? fallback);
+
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+
+  return parsed;
+}
+
 export function loadConfig(overrides = {}) {
   const databaseFilePath =
     overrides.DATABASE_FILE_PATH ||
@@ -25,8 +35,16 @@ export function loadConfig(overrides = {}) {
     projectRoot,
     adminApiKey: overrides.ADMIN_API_KEY || process.env.ADMIN_API_KEY || "",
     databaseFilePath,
-    requestBodyLimitBytes: Number(overrides.REQUEST_BODY_LIMIT_BYTES || process.env.REQUEST_BODY_LIMIT_BYTES || 32_768),
-    rateLimitWindowMs: Number(overrides.RATE_LIMIT_WINDOW_MS || process.env.RATE_LIMIT_WINDOW_MS || 60_000),
-    rateLimitMax: Number(overrides.RATE_LIMIT_MAX || process.env.RATE_LIMIT_MAX || 60)
+    requestBodyLimitBytes: parsePositiveInteger(
+      "REQUEST_BODY_LIMIT_BYTES",
+      overrides.REQUEST_BODY_LIMIT_BYTES ?? process.env.REQUEST_BODY_LIMIT_BYTES,
+      32_768
+    ),
+    rateLimitWindowMs: parsePositiveInteger(
+      "RATE_LIMIT_WINDOW_MS",
+      overrides.RATE_LIMIT_WINDOW_MS ?? process.env.RATE_LIMIT_WINDOW_MS,
+      60_000
+    ),
+    rateLimitMax: parsePositiveInteger("RATE_LIMIT_MAX", overrides.RATE_LIMIT_MAX ?? process.env.RATE_LIMIT_MAX, 60)
   };
 }
