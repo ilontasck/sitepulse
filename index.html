@@ -140,6 +140,10 @@
       .signalGrid { margin-top: 14px; }
       .signal { flex: 1 1 130px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.05); border-radius: 8px; padding: 11px; color: #cbd5e1; font-size: 13px; }
       .signal b { display: block; color: white; font-size: 17px; margin-top: 4px; }
+      .labMetric { flex: 1 1 170px; }
+      .labMetric p { color: #94a3b8; line-height: 1.4; margin: 7px 0 0; }
+      .labSummary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 0; color: #cbd5e1; }
+      .labIssues { margin-top: 16px; }
       .warningBox { margin-top: 16px; border: 1px solid rgba(255,204,102,.35); background: rgba(255,204,102,.1); color: #fff0cc; border-radius: 8px; padding: 12px 14px; line-height: 1.55; }
       .spinner { width: 18px; height: 18px; border-radius: 50%; border: 3px solid rgba(255,255,255,.2); border-top-color: var(--cyan); animation: spin .7s linear infinite; }
       @keyframes spin { to { transform: rotate(360deg); } }
@@ -165,6 +169,7 @@
         .actions, .btn { width: 100%; }
         .btn { justify-content: center; }
         summary { align-items: flex-start; gap: 12px; }
+        .labMetric { flex-basis: 100%; }
       }
       @media print {
         @page { size: A4; margin: 14mm; }
@@ -334,12 +339,25 @@
         };
       }
       async function requestAudit(websiteUrl) {
-        const response = await fetch("/api/audits", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ websiteUrl })
-        });
-        const payload = await response.json();
+        let response;
+
+        try {
+          response = await fetch("/api/audits", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ websiteUrl })
+          });
+        } catch {
+          throw new Error("SitePulse audit service is unavailable. Start the SitePulse server and try again.");
+        }
+
+        let payload;
+
+        try {
+          payload = await response.json();
+        } catch {
+          throw new Error("SitePulse received an invalid server response. Please try again.");
+        }
 
         if (!response.ok) {
           throw new Error(payload.error?.message || "Audit request failed.");
@@ -357,6 +375,18 @@
         if (mode === "fallback") return "Fallback scanner";
         return mode || "Unknown scanner";
       }
+      function scannerStatus(status) {
+        const statuses = {
+          "full-rendered-completed": ["Full rendered audit completed", "good"],
+          "rendered-audit-temporarily-unavailable": ["Rendered audit temporarily unavailable", "warning"],
+          "rendered-audit-timed-out": ["Rendered audit timed out", "warning"],
+          "partial-audit-completed": ["Partial audit completed", "warning"],
+          "html-fallback-used": ["HTML fallback used", "warning"],
+          "html-audit-completed": ["HTML audit completed", "good"]
+        };
+        const [label, tone] = statuses[status] || ["Audit completed", "good"];
+        return `<span class="status ${tone}">${escapeHtml(label)}</span>`;
+      }
       function priorityRank(priority) {
         return priority === "high" ? 0 : priority === "medium" ? 1 : 2;
       }
@@ -371,6 +401,12 @@
         return "Nice polish item that strengthens the report once bigger issues are handled.";
       }
       function recommendationAction(text) {
+        if (/LCP|main content/i.test(text)) return "Inspect the reported LCP element first, then prioritize its image, font, or text request.";
+        if (/unused JavaScript/i.test(text)) return "Remove unused code or split it so the initial page downloads only what it needs.";
+        if (/render-blocking/i.test(text)) return "Defer non-critical scripts and styles while keeping essential above-the-fold CSS available.";
+        if (/oversized images|modern images/i.test(text)) return "Resize and compress the images Lighthouse identified; prefer AVIF or WebP where supported.";
+        if (/layout|CLS|shifts/i.test(text)) return "Reserve dimensions for images, banners, embeds, and content inserted after load.";
+        if (/main thread|blocking time|TBT/i.test(text)) return "Split long JavaScript tasks and delay non-essential third-party execution.";
         if (/meta description/i.test(text)) return "Write a concise description of the offer, location, and reason to click.";
         if (/title/i.test(text)) return "Rewrite the browser title around the business name, service, and location.";
         if (/H1/i.test(text)) return "Use one clear page headline that matches the main service or offer.";
@@ -476,6 +512,45 @@
           `;
         }).join("");
       }
+      function renderLabMetrics(lab) {
+        if (!lab?.metrics || !lab?.scores) return "";
+        const lowerStatus = (value, good, poor) => {
+          if (value === null) return { label: "Not measured", tone: "warning" };
+          if (value <= good) return { label: "Good", tone: "good" };
+          if (value <= poor) return { label: "Needs improvement", tone: "warning" };
+          return { label: "Poor", tone: "critical" };
+        };
+        const performanceStatus = lab.scores.performance === null
+          ? { label: "Not measured", tone: "warning" }
+          : lab.scores.performance >= 90
+            ? { label: "Good", tone: "good" }
+            : lab.scores.performance >= 50
+              ? { label: "Needs improvement", tone: "warning" }
+              : { label: "Poor", tone: "critical" };
+        const milliseconds = value => value === null ? "N/A" : `${(value / 1000).toFixed(value >= 1000 ? 1 : 2)}s`;
+        const metric = (label, explanation, value, display, good, poor) => {
+          const status = lowerStatus(value, good, poor);
+          return `<div class="signal labMetric"><span class="status ${status.tone}">${status.label}</span><b>${escapeHtml(label)} · ${escapeHtml(display)}</b><p>${escapeHtml(explanation)}</p></div>`;
+        };
+        const issues = (lab.findings || []).slice(0, 3);
+
+        return `
+          <section class="glass panel" style="margin-top:16px">
+            <h2>Real Page Performance</h2>
+            <div class="labSummary"><span class="status ${performanceStatus.tone}">${performanceStatus.label}</span><b>Lighthouse performance ${lab.scores.performance ?? "N/A"}/100</b></div>
+            <p style="color:#94a3b8">Measured in a real browser under consistent lab conditions. TBT is a responsiveness proxy; real-user INP is not measured.</p>
+            <div class="signalGrid">
+              ${metric("Main content", "How quickly the largest visible content appears (LCP).", lab.metrics.lcpMs, milliseconds(lab.metrics.lcpMs), 2500, 4000)}
+              ${metric("Visual stability", "How much the layout moves unexpectedly while loading (CLS).", lab.metrics.cls, lab.metrics.cls === null ? "N/A" : lab.metrics.cls.toFixed(3), 0.1, 0.25)}
+              ${metric("First content", "How quickly the first text or image becomes visible (FCP).", lab.metrics.fcpMs, milliseconds(lab.metrics.fcpMs), 1800, 3000)}
+              ${metric("Visual loading", "How quickly the visible page fills in (Speed Index).", lab.metrics.speedIndexMs, milliseconds(lab.metrics.speedIndexMs), 3400, 5800)}
+              ${metric("Responsiveness proxy", "Main-thread blocking during load (TBT), used as a lab clue for responsiveness.", lab.metrics.tbtMs, lab.metrics.tbtMs === null ? "N/A" : `${Math.round(lab.metrics.tbtMs)}ms`, 200, 600)}
+            </div>
+            ${issues.length ? `<div class="labIssues"><h3>Fix first</h3>${issues.map(item => `<div class="fix"><b>${escapeHtml(item.title)}</b><p>${escapeHtml(item.action)}</p></div>`).join("")}</div>` : ""}
+            <p style="color:#94a3b8;margin-top:14px">SitePulse blends this lab evidence into the matching Performance, Accessibility, SEO, and Trust categories; the eight main categories remain equally weighted.</p>
+          </section>
+        `;
+      }
       function render(result) {
         const sorted = [...result.cats].sort((a,b) => a.score - b.score);
         const safeDomain = escapeHtml(result.domain);
@@ -491,10 +566,11 @@
           <section class="dashboard">
             <article class="glass panel">
               <div class="scoreRow"><div class="ring" style="--score:${result.overall}"><strong>${result.overall}</strong></div><div><span class="badge">Commercial readiness snapshot</span><h2>Your site has a ${result.overall > 80 ? "standout" : result.overall > 68 ? "solid" : "fixable"} foundation.</h2><p style="color:#cbd5e1;line-height:1.7">SitePulse estimates design, conversion, content, and technical signals from your URL.</p><div class="metricGrid"><div class="metric">Brand<br><b>${Math.round((result.cats[0].score+result.cats[7].score+result.cats[5].score)/3)}</b></div><div class="metric">Conversion<br><b>${Math.round((result.cats[5].score+result.cats[6].score+result.cats[1].score)/3)}</b></div><div class="metric">Technical<br><b>${Math.round((result.cats[2].score+result.cats[3].score+result.cats[4].score)/3)}</b></div></div></div></div>
-              <div class="scannerNote"><b>Scanner:</b> ${escapeHtml(scannerLabel(result.scanner?.mode))} <span style="color:#94a3b8">(${scannerMode})</span><div class="adapterList">${scannerAdapters}</div>${renderWarnings(result.warnings)}</div>
+              <div class="scannerNote">${scannerStatus(result.scanner?.status)} <b style="margin-left:6px">Scanner:</b> ${escapeHtml(scannerLabel(result.scanner?.mode))} <span style="color:#94a3b8">(${scannerMode})</span><div class="adapterList">${scannerAdapters}</div>${renderWarnings(result.warnings)}</div>
             </article>
             <article class="glass panel"><h2>Readiness mix</h2>${result.cats.slice(0,5).map(c => `<div class="mini">${escapeHtml(c.name)}<b style="float:right">${c.score}</b><div class="bar"><div class="fill" style="width:${c.score}%"></div></div></div>`).join("")}</article>
           </section>
+          ${renderLabMetrics(result.signals?.lab)}
           <section class="mainGrid">
             <article class="glass panel"><h2>Priority fixes</h2>${sorted.slice(0,4).map((c,i)=>`<div class="fix"><span class="priorityBadge ${(c.recommendationDetails[0]?.priority || (c.score < 64 ? "high" : "medium"))}">${priorityText(c.recommendationDetails[0]?.priority || (c.score < 64 ? "high" : "medium"))}</span><b style="display:block;margin-top:8px">${i+1}. ${escapeHtml(c.recs[0])}</b><p>${escapeHtml(c.text)}</p><span class="status ${statusTone(c.status, c.score)}">${escapeHtml(c.name)}</span></div>`).join("")}</article>
             <article class="glass panel"><h2>Before / after potential</h2><div class="compare">${sorted.slice(0,4).map(c=>`<div class="compareLine"><span>${escapeHtml(c.name)}</span><div class="bar"><div class="fill" style="width:${Math.min(100,c.score+18)}%"></div></div><b>${Math.min(100,c.score+18)}</b></div>`).join("")}</div></article>

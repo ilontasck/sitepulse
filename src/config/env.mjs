@@ -22,6 +22,16 @@ function parsePositiveInteger(name, value, fallback) {
   return parsed;
 }
 
+function parseBoolean(name, value, fallback = false) {
+  const normalized = String(value ?? fallback).toLowerCase();
+
+  if (normalized !== "true" && normalized !== "false") {
+    throw new Error(`${name} must be true or false.`);
+  }
+
+  return normalized === "true";
+}
+
 export function loadConfig(overrides = {}) {
   const databaseFilePath =
     overrides.DATABASE_FILE_PATH ||
@@ -45,6 +55,22 @@ export function loadConfig(overrides = {}) {
       overrides.RATE_LIMIT_WINDOW_MS ?? process.env.RATE_LIMIT_WINDOW_MS,
       60_000
     ),
-    rateLimitMax: parsePositiveInteger("RATE_LIMIT_MAX", overrides.RATE_LIMIT_MAX ?? process.env.RATE_LIMIT_MAX, 60)
+    rateLimitMax: parsePositiveInteger("RATE_LIMIT_MAX", overrides.RATE_LIMIT_MAX ?? process.env.RATE_LIMIT_MAX, 60),
+    renderedAuditEnabled: parseBoolean(
+      "RENDERED_AUDIT_ENABLED",
+      overrides.RENDERED_AUDIT_ENABLED ?? process.env.RENDERED_AUDIT_ENABLED,
+      false
+    ),
+    renderedAuditTimeoutMs: parsePositiveInteger(
+      "RENDERED_AUDIT_TIMEOUT_MS",
+      overrides.RENDERED_AUDIT_TIMEOUT_MS ?? process.env.RENDERED_AUDIT_TIMEOUT_MS,
+      45_000
+    ),
+    renderedAuditMaxConcurrency: parsePositiveInteger(
+      "RENDERED_AUDIT_MAX_CONCURRENCY",
+      overrides.RENDERED_AUDIT_MAX_CONCURRENCY ?? process.env.RENDERED_AUDIT_MAX_CONCURRENCY,
+      1
+    ),
+    telemetryEnabled: parseBoolean("TELEMETRY_ENABLED", overrides.TELEMETRY_ENABLED ?? process.env.TELEMETRY_ENABLED, true)
   };
 }

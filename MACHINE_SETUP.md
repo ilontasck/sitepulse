@@ -67,7 +67,7 @@ Required.
 Project requirement:
 
 ```text
-Node.js >=22.5
+Node.js >=22.19
 ```
 
 Version used for verification in Codex:
@@ -76,7 +76,7 @@ Version used for verification in Codex:
 v24.14.0
 ```
 
-The repository includes `.node-version` with `24.14.0` for Node version managers. The app itself accepts any Node.js version satisfying `>=22.5`.
+The repository includes `.node-version` with `24.14.0` for Node version managers. The app itself accepts any Node.js version satisfying `>=22.19`, which also satisfies Lighthouse 13.
 
 Install with Homebrew:
 
@@ -121,6 +121,9 @@ Project dependency:
 
 ```text
 @playwright/test ^1.61.1
+playwright 1.61.1
+lighthouse ^13.4.1
+chrome-launcher ^1.2.1
 ```
 
 Install browser binaries:
@@ -140,6 +143,8 @@ Run e2e tests:
 ```bash
 pnpm test:e2e
 ```
+
+Rendered audits default to one active Chromium process per SitePulse process. Keep `RENDERED_AUDIT_MAX_CONCURRENCY=1` on development laptops and small beta machines; local sampling reached roughly 1.5 GiB aggregate Chromium RSS and 1.3 CPU cores. Audit telemetry is emitted as structured JSON when `TELEMETRY_ENABLED=true`.
 
 ## SQLite
 

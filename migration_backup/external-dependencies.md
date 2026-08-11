@@ -6,7 +6,7 @@ This is a safe inventory of dependencies found outside the SitePulse repository.
 
 ```text
 git
-node >=22.5
+node >=22.19
 pnpm 11.9.0-compatible
 Playwright Chromium browser installed by pnpm exec playwright install chromium
 ```
@@ -22,7 +22,7 @@ Codex verification pnpm: 11.9.0
 Playwright CLI: 1.61.1
 ```
 
-The repository includes `.node-version` with `24.14.0`. Any Node.js version `>=22.5` is supported by `package.json`.
+The repository includes `.node-version` with `24.14.0`. Any Node.js version `>=22.19` is supported by `package.json` and Lighthouse 13.
 
 Observed Homebrew leaves:
 

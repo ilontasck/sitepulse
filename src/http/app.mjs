@@ -1,6 +1,8 @@
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { createAuditStore } from "../storage/audit-store.mjs";
+import { createRenderedAuditLimiter } from "../audit/rendered-audit-limiter.mjs";
+import { createAuditTelemetry } from "../telemetry/audit-telemetry.mjs";
 import { handleAuditApi } from "./audit-routes.mjs";
 import { HttpError } from "./http-error.mjs";
 import { isHttpError } from "./http-error.mjs";
@@ -13,6 +15,8 @@ export function createApp(config, dependencies = {}) {
   const publicRoot = config.projectRoot;
   const store = dependencies.store || createAuditStore(config.databaseFilePath);
   const auditGenerator = dependencies.auditGenerator;
+  const renderedAuditLimiter = dependencies.renderedAuditLimiter || createRenderedAuditLimiter(config.renderedAuditMaxConcurrency);
+  const telemetry = dependencies.telemetry || createAuditTelemetry({ enabled: config.telemetryEnabled && config.env !== "test" });
   const enforceRateLimit =
     dependencies.enforceRateLimit ||
     createRateLimiter({
@@ -36,7 +40,7 @@ export function createApp(config, dependencies = {}) {
           });
         }
 
-        const handled = await handleAuditApi({ request, response, config, store, url, auditGenerator });
+        const handled = await handleAuditApi({ request, response, config, store, url, auditGenerator, renderedAuditLimiter, telemetry });
 
         if (handled === false) {
           throw new HttpError(404, "API endpoint was not found.", "API_NOT_FOUND");

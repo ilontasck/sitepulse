@@ -4,7 +4,7 @@ Final verification date: 2026-08-10
 
 Repository: `https://github.com/ilontasck/sitepulse.git`
 
-Verified runtime: Node.js `v24.14.0`, pnpm `11.9.0`, Playwright `1.61.1`
+Verified runtime: Node.js `v24.14.0`, pnpm `11.9.0`, Playwright `1.61.1`, Lighthouse `13.4.1`
 
 ## ✅ Environment — PASS
 
@@ -18,7 +18,7 @@ Verified runtime: Node.js `v24.14.0`, pnpm `11.9.0`, Playwright `1.61.1`
 
 - `pnpm install --frozen-lockfile --offline` succeeds and the lockfile matches `package.json`.
 - `pnpm audit --prod` reports no known vulnerabilities.
-- The dependency surface is minimal: Playwright is the only npm development dependency; runtime uses Node built-ins.
+- Rendered auditing dependencies are explicit and lockfile-pinned: Lighthouse, Chrome Launcher, Playwright, and Playwright Test.
 
 ## ✅ Git — PASS
 
@@ -29,11 +29,13 @@ Verified runtime: Node.js `v24.14.0`, pnpm `11.9.0`, Playwright `1.61.1`
 
 ## ✅ Tests — PASS
 
-- Unit/integration: 32 passed, 0 failed across 8 suites.
-- E2E: 3 Chromium tests passed, 0 failed.
+- Unit/integration: 48 passed, 0 failed across 12 suites.
+- E2E: 4 Chromium tests passed, 0 failed, including mobile rendered-metric UX.
 - All `.mjs` entrypoints, source files, tests, and Playwright configuration pass `node --check`.
 - `data/sitepulse.sqlite` and `data/e2e-sitepulse.sqlite` both return `ok` from `PRAGMA integrity_check`.
 - Regression coverage was added for JSON primitive rejection, invalid numeric configuration, and forwarded-header rate-limit bypass.
+- Lighthouse result mapping, feature flag/fallback, and rendered HTTP/WebSocket destination policies have dedicated tests.
+- Concurrency rejection, slot release after crash/timeout, simultaneous API requests, telemetry redaction/counters, and additional special IP ranges have dedicated tests.
 
 ## ✅ Security — WARNING
 
@@ -44,11 +46,16 @@ Verified runtime: Node.js `v24.14.0`, pnpm `11.9.0`, Playwright `1.61.1`
 - Express is not used; the smaller Node HTTP surface has CSP, clickjacking, MIME-sniffing, referrer, and permissions headers, bounded JSON bodies, and rate limiting.
 - Fixed during this audit: JSON primitives now return a safe 400; caller-controlled `X-Forwarded-For` can no longer evade the local rate limiter; stale limiter buckets are pruned; numeric security limits are validated at startup.
 - Remaining deployment risk: DNS is validated before `fetch`, but the connection is not pinned to the validated address. A production Internet-facing scanner should use a pinned-address transport or isolated egress proxy to eliminate DNS-rebinding TOCTOU risk.
+- Rendered audits repeat destination validation for browser requests, redirects, subresources, final URL, and WebSockets. The feature remains off by default; production should still isolate Chromium behind restricted egress because browser/service-worker behavior and DNS TOCTOU cannot be completely contained at the application layer.
+- Chromium uses a fresh profile, reduced background networking, blocked service-worker registration, and an in-process concurrency limit. Required deployment controls are documented in `PRODUCTION_BROWSER_SECURITY.md`.
 - Current CSP needs `'unsafe-inline'` because the single-file frontend contains inline CSS/JS. Extract these assets and adopt nonces/hashes before a public production launch.
 
 ## ✅ Performance — WARNING
 
 - Scanner fetches have a 4.5-second timeout and 250 KB response cap; redirects are bounded.
+- Lighthouse has a separate 45-second default timeout and gracefully falls back to the completed HTML audit.
+- Latest local benchmark on `example.com`: HTML-only averaged about 0.08s over three runs (0.16s cold), and the complete rendered audit took about 6.34-6.48s. One excess simultaneous request returned an HTML report in 0.22s without launching a second Chromium process.
+- One Chromium audit peaked near 1.5 GiB aggregate RSS and 129% sampled CPU (about 1.3 cores), which justifies the beta concurrency default of `1`.
 - API request bodies and list result sizes are bounded; SQLite has WAL, busy timeout, and useful indexes.
 - No unnecessary runtime dependencies or obvious repeated network requests were found.
 - SQLite is opened, initialized, and closed for each store operation. This is simple and safe for the local MVP, but a persistent connection/queue or external database is recommended before meaningful concurrency.
@@ -59,7 +66,8 @@ Verified runtime: Node.js `v24.14.0`, pnpm `11.9.0`, Playwright `1.61.1`
 - Clear seams separate configuration, HTTP routing/security, audit orchestration, scanner adapters, scoring/report generation, and persistence.
 - Imports resolve, module direction is coherent, and no circular imports, duplicate implementations, dead exports, TODOs, or FIXMEs were found.
 - The project intentionally uses JavaScript ESM rather than TypeScript or Express; there is no dormant TypeScript/Express layer to maintain.
-- The scanner adapter boundary is suitable for adding Lighthouse, axe, rendered-browser, or queue-backed scanners later.
+- The scanner seam now supports the optional asynchronous `lighthouse-playwright` adapter without changing the HTTP interface.
+- Process-wide limiter and structured telemetry modules have small injectable interfaces and no external infrastructure dependency.
 
 ## ✅ Documentation — PASS
 
@@ -70,7 +78,8 @@ Verified runtime: Node.js `v24.14.0`, pnpm `11.9.0`, Playwright `1.61.1`
 ## ✅ Technical Debt — WARNING
 
 - Production hardening items: eliminate DNS-rebinding TOCTOU, remove inline-script/style CSP exceptions, replace process-local rate limiting for horizontal scaling, and revisit per-operation SQLite connections.
-- Product-quality limitations are documented: HTML heuristics are not Lighthouse/Core Web Vitals, rendered accessibility, contrast, or JS-generated-content analysis.
+- Lighthouse lab data is variable and does not provide field INP; SitePulse reports TBT explicitly as an INP diagnostic proxy. Median runs and CrUX/RUM remain future work.
+- Real smoke audits succeeded for static `example.com` and JS-heavy `react.dev`; observed values are environment-specific and are not committed as performance guarantees.
 - These items do not block continued local development or the current portfolio MVP.
 
 ## Final Assessment

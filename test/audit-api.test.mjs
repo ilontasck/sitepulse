@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
 import { loadConfig } from "../src/config/env.mjs";
 import { createApp } from "../src/http/app.mjs";
+import { generateAudit } from "../src/audit/audit-engine.mjs";
 
 let server;
 let baseUrl;
@@ -195,6 +196,72 @@ describe("audit API", () => {
     assert.equal(response.status, 400);
     assert.equal(body.error.code, "UNSAFE_URL");
     assert.doesNotMatch(body.error.message, /stack|fetch|scanner exploded/i);
+  });
+
+  it("keeps simultaneous API requests bounded to one rendered audit", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sitepulse-api-concurrency-"));
+    const config = loadConfig({
+      NODE_ENV: "test",
+      PORT: 0,
+      DATABASE_FILE_PATH: join(dir, "sitepulse.sqlite"),
+      RENDERED_AUDIT_ENABLED: true,
+      RENDERED_AUDIT_MAX_CONCURRENCY: 1
+    });
+    let releaseFirst;
+    let markStarted;
+    const gate = new Promise((resolve) => {
+      releaseFirst = resolve;
+    });
+    const started = new Promise((resolve) => {
+      markStarted = resolve;
+    });
+    const concurrencyServer = createApp(config, {
+      auditGenerator: (websiteUrl, options) =>
+        generateAudit(websiteUrl, {
+          ...options,
+          htmlScanner: async (target) => ({
+            target,
+            html: "<html><title>Beta</title><h1>Beta</h1></html>",
+            responseHeaders: {},
+            signals: { https: true, deterministicOffsets: {} },
+            checks: {},
+            warnings: []
+          }),
+          adapters: [],
+          renderedAdapter: async () => {
+            markStarted();
+            await gate;
+            return {
+              adapter: "lighthouse-playwright",
+              signals: { lighthouse: { metrics: {}, scores: {} }, rendered: { status: "completed" } },
+              checks: {},
+              warnings: []
+            };
+          }
+        })
+    });
+
+    await new Promise((resolve) => concurrencyServer.listen(0, "127.0.0.1", resolve));
+    const address = concurrencyServer.address();
+    const endpoint = `http://127.0.0.1:${address.port}/api/audits`;
+    const request = (websiteUrl) => fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ websiteUrl })
+    });
+    const firstResponsePromise = request("first.example");
+    await started;
+    const secondResponse = await request("second.example");
+    const secondBody = await secondResponse.json();
+
+    assert.equal(secondResponse.status, 201);
+    assert.equal(secondBody.audit.scanner.status, "rendered-audit-temporarily-unavailable");
+    releaseFirst();
+    const firstResponse = await firstResponsePromise;
+    const firstBody = await firstResponse.json();
+    await new Promise((resolve) => concurrencyServer.close(resolve));
+
+    assert.equal(firstBody.audit.scanner.status, "full-rendered-completed");
   });
 
   it("rejects non-json audit requests", async () => {

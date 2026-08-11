@@ -3,9 +3,18 @@ import { isIP } from "node:net";
 import { HttpError } from "../http/http-error.mjs";
 
 const allowedProtocols = new Set(["http:", "https:"]);
-const blockedHostnames = new Set(["localhost", "localhost.localdomain"]);
+const blockedHostnames = new Set([
+  "localhost",
+  "localhost.localdomain",
+  "metadata.google.internal",
+  "metadata.google.internal."
+]);
+const blockedHostnameSuffixes = [".localhost", ".local", ".internal", ".lan", ".home", ".home.arpa"];
 const defaultMaxRedirects = 3;
-const defaultMaxHtmlBytes = 250_000;
+// Modern application homepages commonly inline framework/bootstrap data well above
+// 250 KB. Keep a hard cap, but leave enough room to audit representative JS-heavy
+// pages such as react.dev without treating ordinary HTML as an attack payload.
+const defaultMaxHtmlBytes = 1_500_000;
 const defaultTimeoutMs = 4500;
 
 function isPrivateIpv4(address) {
@@ -15,7 +24,7 @@ function isPrivateIpv4(address) {
     return true;
   }
 
-  const [a, b] = parts;
+  const [a, b, c] = parts;
 
   return (
     a === 0 ||
@@ -25,49 +34,71 @@ function isPrivateIpv4(address) {
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 168) ||
-    (a === 192 && b === 0) ||
+    (a === 192 && b === 0 && c === 0) ||
+    (a === 192 && b === 0 && c === 2) ||
+    (a === 192 && b === 88 && c === 99) ||
     (a === 198 && (b === 18 || b === 19)) ||
+    (a === 198 && b === 51 && c === 100) ||
+    (a === 203 && b === 0 && c === 113) ||
     a >= 224
   );
 }
 
-function expandIpv4MappedIpv6(address) {
-  const mapped = address.toLowerCase().match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  return mapped ? mapped[1] : "";
+function parseIpv6(address) {
+  let normalized = address.toLowerCase().replace(/^\[|\]$/g, "").split("%")[0];
+  const ipv4Tail = normalized.match(/(\d+\.\d+\.\d+\.\d+)$/)?.[1];
+
+  if (ipv4Tail) {
+    const parts = ipv4Tail.split(".").map(Number);
+    if (parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+    normalized = normalized.slice(0, -ipv4Tail.length) + `${((parts[0] << 8) | parts[1]).toString(16)}:${((parts[2] << 8) | parts[3]).toString(16)}`;
+  }
+
+  const halves = normalized.split("::");
+  if (halves.length > 2) return null;
+  const left = halves[0] ? halves[0].split(":") : [];
+  const right = halves[1] ? halves[1].split(":") : [];
+  const missing = halves.length === 2 ? 8 - left.length - right.length : 0;
+  const groups = [...left, ...Array(Math.max(missing, 0)).fill("0"), ...right];
+
+  if (groups.length !== 8 || groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) return null;
+  return groups.map((group) => Number.parseInt(group, 16));
 }
 
 function isUnsafeIpv6(address) {
-  const normalized = address.toLowerCase();
+  const groups = parseIpv6(address);
+  if (!groups) return true;
+  const [first, second, third, fourth, fifth, sixth, seventh, eighth] = groups;
+  const isUnspecified = groups.every((group) => group === 0);
+  const isLoopback = groups.slice(0, 7).every((group) => group === 0) && eighth === 1;
+  const isIpv4Mapped = groups.slice(0, 5).every((group) => group === 0) && sixth === 0xffff;
+
+  if (isIpv4Mapped) {
+    return isPrivateIpv4(`${seventh >> 8}.${seventh & 255}.${eighth >> 8}.${eighth & 255}`);
+  }
 
   return (
-    normalized === "::1" ||
-    normalized === "::" ||
-    normalized.startsWith("fc") ||
-    normalized.startsWith("fd") ||
-    normalized.startsWith("fe8") ||
-    normalized.startsWith("fe9") ||
-    normalized.startsWith("fea") ||
-    normalized.startsWith("feb") ||
-    normalized.startsWith("2001:db8:") ||
-    normalized.startsWith("ff")
+    isUnspecified ||
+    isLoopback ||
+    (first & 0xfe00) === 0xfc00 ||
+    (first & 0xffc0) === 0xfe80 ||
+    (first & 0xff00) === 0xff00 ||
+    (first === 0x2001 && second === 0x0db8) ||
+    first === 0x2002 ||
+    (first === 0x0064 && second === 0xff9b && third === 0 && fourth === 0 && fifth === 0 && sixth === 0)
   );
 }
 
 export function isUnsafeIpAddress(address) {
-  const mappedIpv4 = expandIpv4MappedIpv6(address);
-
-  if (mappedIpv4) {
-    return isPrivateIpv4(mappedIpv4);
-  }
-
-  const type = isIP(address);
+  const normalizedAddress = address.replace(/^\[|\]$/g, "");
+  const type = isIP(normalizedAddress);
 
   if (type === 4) {
-    return isPrivateIpv4(address);
+    return isPrivateIpv4(normalizedAddress);
   }
 
   if (type === 6) {
-    return isUnsafeIpv6(address);
+    return isUnsafeIpv6(normalizedAddress);
   }
 
   return true;
@@ -86,12 +117,14 @@ export async function assertSafeUrl(url, options = {}) {
     throw new HttpError(400, "Only http and https website URLs are supported.", "UNSUPPORTED_URL_PROTOCOL");
   }
 
-  if (!hostname || blockedHostnames.has(hostname)) {
+  if (!hostname || blockedHostnames.has(hostname) || blockedHostnameSuffixes.some((suffix) => hostname.endsWith(suffix))) {
     throw new HttpError(400, "Localhost and internal URLs cannot be scanned.", "UNSAFE_URL");
   }
 
-  if (isIP(hostname)) {
-    if (isUnsafeIpAddress(hostname)) {
+  const addressHostname = hostname.replace(/^\[|\]$/g, "");
+
+  if (isIP(addressHostname)) {
+    if (isUnsafeIpAddress(addressHostname)) {
       throw new HttpError(400, "Private or internal IP addresses cannot be scanned.", "UNSAFE_URL");
     }
 

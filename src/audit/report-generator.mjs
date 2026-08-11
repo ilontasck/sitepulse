@@ -30,13 +30,27 @@ export function buildAuditReport(scanResult) {
     signals: {
       brandReadiness: Math.round((categories[0].score + categories[7].score + categories[5].score) / 3),
       conversionReadiness: Math.round((categories[5].score + categories[6].score + categories[1].score) / 3),
-      technicalHealth: Math.round((categories[2].score + categories[3].score + categories[4].score) / 3)
+      technicalHealth: Math.round((categories[2].score + categories[3].score + categories[4].score) / 3),
+      lab: scanResult.signals.lighthouse || null,
+      rendered: scanResult.signals.rendered || null
     },
     scanner: {
       mode: scanResult.mode,
       adapters: scanResult.adapters,
       checkedAt: scanResult.checkedAt,
-      warnings: scanResult.warnings
+      warnings: scanResult.warnings,
+      status:
+        scanResult.mode === "fallback"
+          ? "html-fallback-used"
+          : scanResult.renderedStatus === "completed"
+            ? "full-rendered-completed"
+            : scanResult.renderedStatus === "partial"
+              ? "partial-audit-completed"
+              : scanResult.renderedStatus === "timed-out"
+                ? "rendered-audit-timed-out"
+                : scanResult.renderedStatus === "temporarily-unavailable"
+                  ? "rendered-audit-temporarily-unavailable"
+                  : "html-audit-completed"
     },
     warnings: scanResult.warnings
   };

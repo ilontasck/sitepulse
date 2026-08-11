@@ -42,7 +42,7 @@ function toAuditSummary(audit) {
   };
 }
 
-export async function handleAuditApi({ request, response, config, store, url, auditGenerator = generateAudit }) {
+export async function handleAuditApi({ request, response, config, store, url, auditGenerator = generateAudit, renderedAuditLimiter, telemetry }) {
   if (url.pathname === "/api/audits" && request.method === "POST") {
     const body = await readJsonBody(request, config.requestBodyLimitBytes);
 
@@ -51,8 +51,34 @@ export async function handleAuditApi({ request, response, config, store, url, au
     }
 
     const websiteUrl = body.websiteUrl ?? body.url;
-    const audit = await auditGenerator(websiteUrl);
-    const record = await store.create(audit);
+    const startedAt = Date.now();
+    let audit;
+    let record;
+
+    try {
+      audit = await auditGenerator(websiteUrl, {
+        renderedAuditEnabled: config.renderedAuditEnabled,
+        renderedAuditTimeoutMs: config.renderedAuditTimeoutMs,
+        renderedAuditLimiter,
+        telemetry
+      });
+      record = await store.create(audit);
+    } catch (error) {
+      telemetry?.record("audit_failed", {
+        auditMode: config.renderedAuditEnabled ? "rendered" : "html",
+        durationMs: Date.now() - startedAt,
+        outcome: "failure",
+        reason: error?.code || "audit-error"
+      });
+      throw error;
+    }
+
+    telemetry?.record("audit_completed", {
+      auditMode: audit.scanner?.adapters?.includes("lighthouse-playwright") ? "rendered" : "html",
+      durationMs: Date.now() - startedAt,
+      outcome: "success",
+      fallbackReason: ["html-audit-completed", "full-rendered-completed"].includes(audit.scanner?.status) ? "none" : audit.scanner?.status || "none"
+    });
 
     return sendJson(response, 201, {
       audit: record

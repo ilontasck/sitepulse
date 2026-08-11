@@ -54,7 +54,7 @@ Shows full-stack product execution: polished UI, backend API, secure scanner pip
 - Testing: Node test runner and Playwright
 - Security: SSRF-aware scanner fetch, API validation, rate limiting, security headers
 
-Node's `node:sqlite` module is currently marked experimental by Node, so this project requires Node.js `22.5+`.
+Node's `node:sqlite` module is currently marked experimental by Node. Lighthouse 13 sets the effective project minimum to Node.js `22.19+`.
 
 ## Portfolio Value
 
@@ -76,6 +76,7 @@ Current scanner mode:
 
 - `html-real-checks`: safely fetches target HTML and runs adapter-based checks.
 - `fallback`: used when live HTML scanning fails for non-safety reasons.
+- Rendered checks are additive and feature-flagged; a Lighthouse failure retains the completed HTML audit.
 
 Active adapters:
 
@@ -84,8 +85,13 @@ Active adapters:
 - `accessibility`: image alt attributes, form labels, button names, document language, and heading structure.
 - `performance-hints`: response time, HTML size, script/style count, large inline script/style, and caching headers.
 - `security-headers`: HTTPS plus Content-Security-Policy, frame protection, X-Content-Type-Options, Referrer-Policy, and Permissions-Policy checks.
+- `lighthouse-playwright` (optional): rendered Chromium audit with LCP, CLS, FCP, Speed Index, TBT, and Lighthouse category scores.
 
-Honest limitation: this is not Lighthouse yet. It does not measure Core Web Vitals, rendered contrast, JS-generated content, mixed content after rendering, or mobile layout from a real browser. Those are planned future adapters.
+The rendered adapter uses Playwright network routing to revalidate public destinations for page requests, redirects, subresources, and WebSockets before Lighthouse connects. It is disabled by default because a browser audit is materially slower and more resource-intensive than the HTML scanner.
+
+The report presents rendered results under **Real Page Performance**. It summarizes five user-facing measurements with `Good`, `Needs improvement`, and `Poor` bands, then shows up to three fixes backed by Lighthouse diagnostics. Detailed category checks retain the full scores and metric evidence without overloading the main summary.
+
+Lighthouse cannot honestly measure INP during a load-only lab run because there is no representative user interaction. SitePulse exposes TBT as `inpLabProxy: "TBT"`; it does not label TBT as INP. Real INP requires field/RUM data or a defined interactive user flow.
 
 ## Project Structure
 
@@ -122,7 +128,7 @@ coverage/
 
 ## Requirements
 
-- Node.js `22.5+`
+- Node.js `22.19+`
 - Recommended Node version from `.node-version`: `24.14.0`
 - pnpm
 - Chromium for Playwright e2e tests
@@ -307,12 +313,20 @@ ADMIN_API_KEY=
 REQUEST_BODY_LIMIT_BYTES=32768
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX=60
+RENDERED_AUDIT_ENABLED=false
+RENDERED_AUDIT_TIMEOUT_MS=45000
+RENDERED_AUDIT_MAX_CONCURRENCY=1
+TELEMETRY_ENABLED=true
 ```
 
 Notes:
 
 - `DATABASE_FILE_PATH` controls the SQLite database location.
 - `ADMIN_API_KEY` enables protected `GET /api/audits` summaries.
+- `RENDERED_AUDIT_ENABLED=true` enables the slower Lighthouse/Playwright adapter. The default keeps the original HTML audit behavior.
+- `RENDERED_AUDIT_TIMEOUT_MS` bounds the Lighthouse phase. Navigation or Chromium failures become scanner warnings and keep the HTML result.
+- `RENDERED_AUDIT_MAX_CONCURRENCY` limits active Chromium audits per Node process. The beta default is `1`; excess requests complete with HTML findings instead of waiting in an unbounded queue.
+- `TELEMETRY_ENABLED` controls privacy-safe JSON audit events on stdout. Test environments keep the collector active but suppress output unless explicitly injected.
 - `.env` is ignored and should not be committed.
 
 ## API Overview
@@ -352,6 +366,8 @@ It returns summaries only, not full category/recommendation payloads.
 - Rejects invalid, unsupported, localhost, and private/internal URLs.
 - Resolves hostnames before scanning and blocks private/internal IP ranges.
 - Manually validates redirect targets instead of blindly following redirects.
+- Revalidates rendered-browser requests and WebSockets with the same public-destination policy.
+- Starts rendered audits with a fresh profile, reduced Chrome background networking, and blocked service-worker registration.
 - Limits redirects, request time, and downloaded HTML size.
 - Requires JSON request bodies.
 - Applies JSON body size limits.
@@ -360,6 +376,16 @@ It returns summaries only, not full category/recommendation payloads.
 - Serves static files through an allowlist.
 - Keeps audit history private unless `ADMIN_API_KEY` is configured.
 - Returns safe JSON errors without stack traces.
+
+Rendered-browser application checks are defense in depth, not a network sandbox. Before an Internet-facing production launch, follow [PRODUCTION_BROWSER_SECURITY.md](PRODUCTION_BROWSER_SECURITY.md) and enforce public-only egress outside Chromium.
+
+## Audit Telemetry
+
+With `TELEMETRY_ENABLED=true`, SitePulse writes one JSON object per audit event to stdout. Events cover total audit duration and outcome, Lighthouse duration, HTML/rendered fallback reason, timeout, Chromium crash, and concurrency rejection. The collector also maintains in-process counters through its `snapshot()` interface so a future monitoring adapter can export them without changing the audit pipeline.
+
+Telemetry uses an explicit field allowlist. It does not emit target URLs, HTML, request headers, cookies, environment values, secrets, tokens, or report contents.
+
+Local beta measurements on the bundled Chromium build showed roughly 1.5 GiB peak aggregate Chromium RSS and about 1.3 CPU cores at the busiest sample for one `example.com` audit. Keep concurrency at `1` unless the deployment has measured headroom.
 
 ## Storage
 
@@ -408,7 +434,7 @@ Before production:
 - Add authenticated user accounts.
 - Move slow scans into a background job queue.
 - Add hosted file/report export.
-- Add Lighthouse, Playwright rendering, and axe-core adapters.
+- Run rendered audits in an isolated worker/egress sandbox and add axe-core user-flow checks.
 - Add monitoring and structured logs.
 - Configure production `ADMIN_API_KEY`, `DATABASE_FILE_PATH` or Postgres env vars, and stricter rate limits.
 
@@ -435,8 +461,8 @@ Then verify:
 
 ## Roadmap
 
-- Lighthouse performance adapter
-- Playwright rendering/mobile adapter
+- Median-of-three Lighthouse runs and historical trends
+- Field Core Web Vitals through CrUX/RUM
 - axe-core accessibility adapter
 - Authenticated report history
 - Branded PDF export

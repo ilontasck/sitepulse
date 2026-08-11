@@ -2,7 +2,7 @@
 set -eu
 
 MIN_NODE_MAJOR=22
-MIN_NODE_MINOR=5
+MIN_NODE_MINOR=19
 
 info() {
   printf '%s\n' "$1"

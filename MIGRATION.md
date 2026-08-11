@@ -5,11 +5,13 @@ Use this file when moving SitePulse to a new Mac. The goal is to clone the repos
 ## Verified Tool Versions
 
 - Node.js used for verification in this Codex environment: `v24.14.0`
-- Project minimum Node.js version: `>=22.5`
+- Project minimum Node.js version: `>=22.19`
 - pnpm used for verification: `11.9.0`
 - npm: not required directly by this project; use pnpm
 - Playwright package: `@playwright/test ^1.61.1`
 - Playwright CLI verified version: `1.61.1`
+- Lighthouse runtime: `13.4.1`
+- Chrome Launcher runtime: `1.2.1`
 - Git observed on old Mac/session: `2.15.0`
 - Homebrew observed on old Mac/session: `6.0.2`
 - SQLite CLI observed on old Mac/session: `3.37.0`
@@ -50,6 +52,10 @@ ADMIN_API_KEY=
 REQUEST_BODY_LIMIT_BYTES=32768
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX=60
+RENDERED_AUDIT_ENABLED=false
+RENDERED_AUDIT_TIMEOUT_MS=45000
+RENDERED_AUDIT_MAX_CONCURRENCY=1
+TELEMETRY_ENABLED=true
 ```
 
 Manual restore:
@@ -106,7 +112,7 @@ pnpm test:all
 ## What setup.sh Does
 
 1. Checks that `node` exists.
-2. Requires Node.js `22.5+`.
+2. Requires Node.js `22.19+`.
 3. Enables Corepack if `pnpm` is missing and Corepack exists.
 4. Creates `data/`.
 5. Creates `.env` from `.env.example` if needed.

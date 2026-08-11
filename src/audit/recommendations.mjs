@@ -48,6 +48,16 @@ export function buildRecommendations(category, scanResult) {
   }
 
   if (category.id === "performance") {
+    const lab = signals.lighthouse;
+
+    if (lab?.metrics.lcpMs > 4_000) {
+      recommendations.push(`Main content appears slowly: LCP was ${(lab.metrics.lcpMs / 1_000).toFixed(1)}s. Inspect the LCP element and prioritize its request before tuning less important assets.`);
+    } else if (lab?.metrics.lcpMs > 2_500) {
+      recommendations.push(`Improve main-content loading: LCP was ${(lab.metrics.lcpMs / 1_000).toFixed(1)}s; aim for 2.5s or faster.`);
+    }
+    if (lab?.metrics.cls > 0.25) recommendations.push(`The page shifts significantly while loading (CLS ${lab.metrics.cls.toFixed(2)}). Reserve stable space for images, banners, and injected content.`);
+    if (lab?.metrics.tbtMs > 600) recommendations.push(`The main thread was blocked for ${Math.round(lab.metrics.tbtMs)}ms. Break up long JavaScript tasks and delay non-essential scripts.`);
+    for (const finding of lab?.findings || []) recommendations.push(finding.action);
     if (signals.responseTimeMs > 1800) recommendations.push("Investigate slow server response time and cache static pages.");
     if (signals.htmlBytes > 120_000) recommendations.push("Reduce initial HTML weight and defer non-critical markup.");
     if (signals.scriptCount > 20) recommendations.push(`Reduce script count; ${signals.scriptCount} script tags were found in the HTML.`);

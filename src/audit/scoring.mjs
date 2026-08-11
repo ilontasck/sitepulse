@@ -52,6 +52,7 @@ function scoreResponseTime(responseTimeMs) {
 export function scoreCategories(scanResult) {
   const signals = scanResult.signals;
   const offsets = signals.deterministicOffsets || {};
+  const lighthouseScores = signals.lighthouse?.scores || {};
 
   const categoryScores = {
     design: 72 + (offsets.design || 0) + scoreBoolean(signals.titleLength > 0, 4, -4) + scoreBoolean((signals.imageCount || 0) > 0, 4, -2),
@@ -69,8 +70,8 @@ export function scoreCategories(scanResult) {
     accessibility:
       74 +
       (offsets.accessibility || 0) +
-      (signals.imagesMissingAlt === 0 ? 8 : signals.imagesMissingAlt === null ? 0 : -Math.min(12, signals.imagesMissingAlt * 2)) +
-      (signals.inputsWithoutLabels === 0 ? 6 : signals.inputsWithoutLabels === null ? 0 : -Math.min(12, signals.inputsWithoutLabels * 3)),
+      (signals.imagesMissingAlt === 0 ? 8 : signals.imagesMissingAlt == null ? 0 : -Math.min(12, signals.imagesMissingAlt * 2)) +
+      (signals.inputsWithoutLabels === 0 ? 6 : signals.inputsWithoutLabels == null ? 0 : -Math.min(12, signals.inputsWithoutLabels * 3)),
     trust:
       66 +
       (offsets.trust || 0) +
@@ -91,6 +92,22 @@ export function scoreCategories(scanResult) {
       (signals.h1Count === 1 ? 6 : 0) +
       (signals.metaDescriptionLength > 0 ? 5 : -5)
   };
+
+  if (Number.isFinite(lighthouseScores.performance)) {
+    categoryScores.performance = Math.round(categoryScores.performance * 0.35 + lighthouseScores.performance * 0.65);
+  }
+
+  if (Number.isFinite(lighthouseScores.seo)) {
+    categoryScores.seo = Math.round(categoryScores.seo * 0.45 + lighthouseScores.seo * 0.55);
+  }
+
+  if (Number.isFinite(lighthouseScores.accessibility)) {
+    categoryScores.accessibility = Math.round(categoryScores.accessibility * 0.35 + lighthouseScores.accessibility * 0.65);
+  }
+
+  if (Number.isFinite(lighthouseScores.bestPractices)) {
+    categoryScores.trust = Math.round(categoryScores.trust * 0.6 + lighthouseScores.bestPractices * 0.4);
+  }
 
   return categoryTemplates.map((template) => {
     const score = clamp(Math.round(categoryScores[template.id] ?? template.base));
