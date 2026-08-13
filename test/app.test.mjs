@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { before, after, describe, it } from "node:test";
 import { loadConfig } from "../src/config/env.mjs";
 import { createApp } from "../src/http/app.mjs";
@@ -8,7 +11,8 @@ let baseUrl;
 
 describe("backend core", () => {
   before(async () => {
-    const config = loadConfig({ PORT: 0, NODE_ENV: "test" });
+    const dir = mkdtempSync(join(tmpdir(), "sitepulse-app-"));
+    const config = loadConfig({ PORT: 0, NODE_ENV: "test", DATABASE_FILE_PATH: join(dir, "sitepulse.sqlite") });
     server = createApp(config);
 
     await new Promise((resolve) => {

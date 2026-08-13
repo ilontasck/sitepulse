@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
@@ -11,7 +11,7 @@ let baseUrl;
 
 describe("security hardening", () => {
   before(async () => {
-    const dir = await mkdtemp(join(tmpdir(), "sitepulse-security-"));
+    const dir = mkdtempSync(join(tmpdir(), "sitepulse-security-"));
     const config = loadConfig({
       NODE_ENV: "test",
       PORT: 0,

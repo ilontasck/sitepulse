@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
@@ -42,7 +42,7 @@ function fakeAudit(domain = "luna-cafe.com") {
 
 describe("audit API", () => {
   before(async () => {
-    const dir = await mkdtemp(join(tmpdir(), "sitepulse-api-"));
+    const dir = mkdtempSync(join(tmpdir(), "sitepulse-api-"));
     const config = loadConfig({
       NODE_ENV: "test",
       PORT: 0,
@@ -113,7 +113,7 @@ describe("audit API", () => {
   });
 
   it("returns a safe error when scanner fails unexpectedly", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "sitepulse-api-error-"));
+    const dir = mkdtempSync(join(tmpdir(), "sitepulse-api-error-"));
     const config = loadConfig({
       NODE_ENV: "test",
       PORT: 0,
@@ -175,7 +175,7 @@ describe("audit API", () => {
   });
 
   it("returns safe errors for private IP audit targets", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "sitepulse-api-unsafe-"));
+    const dir = mkdtempSync(join(tmpdir(), "sitepulse-api-unsafe-"));
     const config = loadConfig({
       NODE_ENV: "test",
       PORT: 0,
@@ -199,7 +199,7 @@ describe("audit API", () => {
   });
 
   it("keeps simultaneous API requests bounded to one rendered audit", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "sitepulse-api-concurrency-"));
+    const dir = mkdtempSync(join(tmpdir(), "sitepulse-api-concurrency-"));
     const config = loadConfig({
       NODE_ENV: "test",
       PORT: 0,

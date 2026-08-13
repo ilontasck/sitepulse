@@ -5,11 +5,13 @@ import { tmpdir } from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { describe, it } from "node:test";
 import { createAuditStore } from "../src/storage/audit-store.mjs";
+import { runMigrations } from "../src/storage/migrations.mjs";
 
 describe("audit store", () => {
   it("creates SQLite audit records, lists summaries, and finds full reports", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sitepulse-store-"));
     const databasePath = join(dir, "sitepulse.sqlite");
+    runMigrations(databasePath);
     const store = createAuditStore(databasePath);
 
     const created = await store.create({
@@ -52,7 +54,9 @@ describe("audit store", () => {
 
   it("returns null for unknown IDs", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sitepulse-store-"));
-    const store = createAuditStore(join(dir, "sitepulse.sqlite"));
+    const databasePath = join(dir, "sitepulse.sqlite");
+    runMigrations(databasePath);
+    const store = createAuditStore(databasePath);
 
     assert.equal(await store.findById("missing"), null);
   });

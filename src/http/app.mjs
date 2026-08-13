@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { createAuditStore } from "../storage/audit-store.mjs";
+import { runMigrations } from "../storage/migrations.mjs";
 import { createRenderedAuditLimiter } from "../audit/rendered-audit-limiter.mjs";
 import { createAuditTelemetry } from "../telemetry/audit-telemetry.mjs";
 import { handleAuditApi } from "./audit-routes.mjs";
@@ -13,6 +14,7 @@ import { serveStaticFile } from "./static-files.mjs";
 
 export function createApp(config, dependencies = {}) {
   const publicRoot = config.projectRoot;
+  (dependencies.runMigrations || runMigrations)(config.databaseFilePath);
   const store = dependencies.store || createAuditStore(config.databaseFilePath);
   const auditGenerator = dependencies.auditGenerator;
   const renderedAuditLimiter = dependencies.renderedAuditLimiter || createRenderedAuditLimiter(config.renderedAuditMaxConcurrency);

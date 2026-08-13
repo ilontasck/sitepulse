@@ -1,47 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-
-function openDatabase(databaseFilePath) {
-  mkdirSync(dirname(databaseFilePath), { recursive: true });
-  const database = new DatabaseSync(databaseFilePath);
-
-  database.exec("PRAGMA foreign_keys = ON;");
-  database.exec("PRAGMA journal_mode = WAL;");
-  database.exec("PRAGMA busy_timeout = 5000;");
-
-  return database;
-}
-
-function initializeDatabase(database) {
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS audits (
-      id TEXT PRIMARY KEY,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      normalized_url TEXT NOT NULL,
-      domain TEXT NOT NULL,
-      overall_score INTEGER NOT NULL,
-      scanner_mode TEXT NOT NULL,
-      report_json TEXT NOT NULL
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_audits_created_at ON audits (created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_audits_domain ON audits (domain);
-  `);
-}
-
-function withDatabase(databaseFilePath, callback) {
-  const database = openDatabase(databaseFilePath);
-
-  try {
-    initializeDatabase(database);
-    return callback(database);
-  } finally {
-    database.close();
-  }
-}
+import { createAuditRecord, insertAuditRecord } from "./audit-record.mjs";
+import { withDatabase } from "./sqlite-database.mjs";
 
 function parseReportJson(value) {
   if (typeof value !== "string" || value.length === 0) {
@@ -71,38 +30,8 @@ export function createAuditStore(databaseFilePath) {
     async create(audit) {
       return withDatabase(databaseFilePath, (database) => {
         const now = new Date().toISOString();
-        const record = {
-          id: randomUUID(),
-          createdAt: now,
-          updatedAt: now,
-          ...audit
-        };
-        const scannerMode = record.scanner?.mode || "unknown";
-
-        database.prepare(`
-          INSERT INTO audits (
-            id,
-            created_at,
-            updated_at,
-            normalized_url,
-            domain,
-            overall_score,
-            scanner_mode,
-            report_json
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          record.id,
-          record.createdAt,
-          record.updatedAt,
-          record.normalizedUrl,
-          record.domain,
-          record.overallScore,
-          scannerMode,
-          JSON.stringify(record)
-        );
-
-        return record;
+        const record = createAuditRecord(audit, { id: randomUUID(), now });
+        return insertAuditRecord(database, record);
       });
     },
 
