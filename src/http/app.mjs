@@ -1,8 +1,8 @@
 import { createServer } from "node:http";
 import { join } from "node:path";
+import { createAuditJobStore } from "../storage/audit-job-store.mjs";
 import { createAuditStore } from "../storage/audit-store.mjs";
 import { runMigrations } from "../storage/migrations.mjs";
-import { createRenderedAuditLimiter } from "../audit/rendered-audit-limiter.mjs";
 import { createAuditTelemetry } from "../telemetry/audit-telemetry.mjs";
 import { handleAuditApi } from "./audit-routes.mjs";
 import { HttpError } from "./http-error.mjs";
@@ -16,8 +16,7 @@ export function createApp(config, dependencies = {}) {
   const publicRoot = config.projectRoot;
   (dependencies.runMigrations || runMigrations)(config.databaseFilePath);
   const store = dependencies.store || createAuditStore(config.databaseFilePath);
-  const auditGenerator = dependencies.auditGenerator;
-  const renderedAuditLimiter = dependencies.renderedAuditLimiter || createRenderedAuditLimiter(config.renderedAuditMaxConcurrency);
+  const jobStore = dependencies.jobStore || createAuditJobStore(config.databaseFilePath);
   const telemetry = dependencies.telemetry || createAuditTelemetry({ enabled: config.telemetryEnabled && config.env !== "test" });
   const enforceRateLimit =
     dependencies.enforceRateLimit ||
@@ -42,7 +41,16 @@ export function createApp(config, dependencies = {}) {
           });
         }
 
-        const handled = await handleAuditApi({ request, response, config, store, url, auditGenerator, renderedAuditLimiter, telemetry });
+        const handled = await handleAuditApi({
+          request,
+          response,
+          config,
+          store,
+          jobStore,
+          url,
+          telemetry,
+          initialUrlSafetyValidator: dependencies.initialUrlSafetyValidator
+        });
 
         if (handled === false) {
           throw new HttpError(404, "API endpoint was not found.", "API_NOT_FOUND");

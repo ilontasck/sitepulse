@@ -1,4 +1,5 @@
-import { generateAudit } from "../audit/audit-engine.mjs";
+import { assertSafeUrl } from "../audit/url-safety.mjs";
+import { normalizeWebsiteUrl } from "../audit/url-validation.mjs";
 import { HttpError } from "./http-error.mjs";
 import { readJsonBody } from "./body.mjs";
 import { sendJson } from "./respond.mjs";
@@ -42,7 +43,46 @@ function toAuditSummary(audit) {
   };
 }
 
-export async function handleAuditApi({ request, response, config, store, url, auditGenerator = generateAudit, renderedAuditLimiter, telemetry }) {
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function auditJobNotFound() {
+  return new HttpError(404, "Audit job was not found.", "AUDIT_JOB_NOT_FOUND");
+}
+
+function toPublicJob(job) {
+  const publicJob = {
+    id: job.id,
+    status: job.status,
+    createdAt: job.createdAt
+  };
+
+  if (job.status === "running") {
+    publicJob.startedAt = job.startedAt;
+  } else if (job.status === "completed") {
+    publicJob.completedAt = job.completedAt;
+    publicJob.auditId = job.auditId;
+    publicJob.auditUrl = `/api/audits/${job.auditId}`;
+  } else if (job.status === "failed") {
+    publicJob.failedAt = job.failedAt;
+    publicJob.error = {
+      code: job.errorCode || "AUDIT_FAILED",
+      message: job.errorMessage || "The website could not be audited. Please try again."
+    };
+  }
+
+  return publicJob;
+}
+
+export async function handleAuditApi({
+  request,
+  response,
+  config,
+  store,
+  jobStore,
+  url,
+  telemetry,
+  initialUrlSafetyValidator = assertSafeUrl
+}) {
   if (url.pathname === "/api/audits" && request.method === "POST") {
     const body = await readJsonBody(request, config.requestBodyLimitBytes);
 
@@ -51,38 +91,45 @@ export async function handleAuditApi({ request, response, config, store, url, au
     }
 
     const websiteUrl = body.websiteUrl ?? body.url;
-    const startedAt = Date.now();
-    let audit;
-    let record;
+    const target = normalizeWebsiteUrl(websiteUrl);
+    await initialUrlSafetyValidator(target.normalizedUrl);
+    const job = jobStore.enqueue({ normalizedUrl: target.normalizedUrl });
+    const statusUrl = `/api/audit-jobs/${job.id}`;
+    telemetry?.record("audit_job_enqueued", { jobId: job.id, outcome: "queued" });
 
-    try {
-      audit = await auditGenerator(websiteUrl, {
-        renderedAuditEnabled: config.renderedAuditEnabled,
-        renderedAuditTimeoutMs: config.renderedAuditTimeoutMs,
-        renderedAuditLimiter,
-        telemetry
-      });
-      record = await store.create(audit);
-    } catch (error) {
-      telemetry?.record("audit_failed", {
-        auditMode: config.renderedAuditEnabled ? "rendered" : "html",
-        durationMs: Date.now() - startedAt,
-        outcome: "failure",
-        reason: error?.code || "audit-error"
-      });
-      throw error;
+    return sendJson(
+      response,
+      202,
+      {
+        job: {
+          id: job.id,
+          status: job.status,
+          createdAt: job.createdAt,
+          statusUrl
+        }
+      },
+      { Location: statusUrl, "Retry-After": "1" }
+    );
+  }
+
+  const jobPathMatch = url.pathname.match(/^\/api\/audit-jobs\/([^/]+)$/);
+
+  if (jobPathMatch) {
+    if (request.method !== "GET") {
+      throw new HttpError(405, "Method is not allowed for this endpoint.", "METHOD_NOT_ALLOWED");
     }
 
-    telemetry?.record("audit_completed", {
-      auditMode: audit.scanner?.adapters?.includes("lighthouse-playwright") ? "rendered" : "html",
-      durationMs: Date.now() - startedAt,
-      outcome: "success",
-      fallbackReason: ["html-audit-completed", "full-rendered-completed"].includes(audit.scanner?.status) ? "none" : audit.scanner?.status || "none"
-    });
+    if (!uuidPattern.test(jobPathMatch[1])) {
+      throw auditJobNotFound();
+    }
 
-    return sendJson(response, 201, {
-      audit: record
-    });
+    const job = jobStore.findById(jobPathMatch[1]);
+
+    if (!job) {
+      throw auditJobNotFound();
+    }
+
+    return sendJson(response, 200, { job: toPublicJob(job) });
   }
 
   if (url.pathname === "/api/audits" && request.method === "GET") {
@@ -110,6 +157,10 @@ export async function handleAuditApi({ request, response, config, store, url, au
 
   if (url.pathname.startsWith("/api/audits")) {
     throw new HttpError(405, "Method is not allowed for this endpoint.", "METHOD_NOT_ALLOWED");
+  }
+
+  if (url.pathname.startsWith("/api/audit-jobs")) {
+    throw auditJobNotFound();
   }
 
   return false;
