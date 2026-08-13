@@ -150,8 +150,16 @@ This runs `setup.sh`, which checks Node.js, installs dependencies, installs Play
 
 ## Run Locally
 
+Start the web process in terminal 1:
+
 ```bash
 pnpm start
+```
+
+Start the audit worker in terminal 2, using the same `.env` and `DATABASE_FILE_PATH`:
+
+```bash
+pnpm worker
 ```
 
 Open:
@@ -160,7 +168,7 @@ Open:
 http://localhost:3000
 ```
 
-Development alias:
+Development alias for the web process:
 
 ```bash
 pnpm dev
@@ -230,18 +238,19 @@ If the local SQLite database contains work you need to preserve, export or copy 
 
 ## Demo Script
 
-1. Start the app with `pnpm start`.
-2. Open `http://localhost:3000`.
-3. Enter `https://example.com/`.
-4. Run the audit.
-5. Review the report:
+1. In terminal 1, start the web process with `pnpm start`.
+2. In terminal 2, start the audit worker with `pnpm worker`.
+3. Open `http://localhost:3000`.
+4. Enter `https://example.com/`.
+5. Run the audit and observe the queued/running state before the report opens.
+6. Review the report:
    - Overall score
    - Category cards
    - Live checks
    - Priority recommendations
    - Scanner metadata and adapters
-6. Try `not a website` and confirm a friendly validation error.
-7. Try `http://127.0.0.1:3000` and confirm private/internal URLs are blocked before scanning.
+7. Try `not a website` and confirm a friendly validation error.
+8. Try `http://127.0.0.1:3000` and confirm private/internal URLs are blocked before enqueue.
 
 ## Suggested Screenshots
 
@@ -316,6 +325,9 @@ RATE_LIMIT_MAX=60
 RENDERED_AUDIT_ENABLED=false
 RENDERED_AUDIT_TIMEOUT_MS=45000
 RENDERED_AUDIT_MAX_CONCURRENCY=1
+AUDIT_WORKER_POLL_INTERVAL_MS=500
+AUDIT_JOB_LEASE_MS=30000
+AUDIT_JOB_HEARTBEAT_MS=10000
 TELEMETRY_ENABLED=true
 ```
 
@@ -326,6 +338,8 @@ Notes:
 - `RENDERED_AUDIT_ENABLED=true` enables the slower Lighthouse/Playwright adapter. The default keeps the original HTML audit behavior.
 - `RENDERED_AUDIT_TIMEOUT_MS` bounds the Lighthouse phase. Navigation or Chromium failures become scanner warnings and keep the HTML result.
 - `RENDERED_AUDIT_MAX_CONCURRENCY` limits active Chromium audits per Node process. The beta default is `1`; excess requests complete with HTML findings instead of waiting in an unbounded queue.
+- `AUDIT_WORKER_POLL_INTERVAL_MS` controls how often the worker looks for queued jobs while idle.
+- `AUDIT_JOB_LEASE_MS` and `AUDIT_JOB_HEARTBEAT_MS` protect running jobs from duplicate completion; the heartbeat must be shorter than the lease.
 - `TELEMETRY_ENABLED` controls privacy-safe JSON audit events on stdout. Test environments keep the collector active but suppress output unless explicitly injected.
 - `.env` is ignored and should not be committed.
 
@@ -337,7 +351,7 @@ Returns service health.
 
 ### `POST /api/audits`
 
-Creates an audit report.
+Validates the URL, creates a persistent audit job, and returns immediately with `202 Accepted`.
 
 ```json
 {
@@ -345,7 +359,22 @@ Creates an audit report.
 }
 ```
 
-Response includes `audit`, `categories`, `checks`, `recommendations`, `scanner`, and `warnings`.
+The response contains a queued job and its polling URL:
+
+```json
+{
+  "job": {
+    "id": "...",
+    "status": "queued",
+    "createdAt": "...",
+    "statusUrl": "/api/audit-jobs/..."
+  }
+}
+```
+
+### `GET /api/audit-jobs/:id`
+
+Returns the safe public job status. A completed job includes `auditId` and `auditUrl`; a failed job includes only a safe error code and message.
 
 ### `GET /api/audits/:id`
 

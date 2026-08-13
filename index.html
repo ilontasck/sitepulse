@@ -226,7 +226,7 @@
             <button class="btn" id="runBtn" type="submit">Run audit →</button>
           </form>
           <div class="error" id="errorBox" role="alert">Use a valid website address, like studio.example.com.</div>
-          <div class="loading" id="loading" aria-live="polite"><span class="spinner"></span> Auditing website signals...</div>
+          <div class="loading" id="loading" aria-live="polite"><span class="spinner"></span><span id="loadingText">Starting your audit…</span></div>
           <div class="examples">
             <button class="pill" onclick="setExample('roseandneedle.studio')">roseandneedle.studio</button>
             <button class="pill" onclick="setExample('northsidebarber.co')">northsidebarber.co</button>
@@ -264,7 +264,12 @@
       const form = document.getElementById("auditForm");
       const errorBox = document.getElementById("errorBox");
       const loading = document.getElementById("loading");
+      const loadingText = document.getElementById("loadingText");
       const report = document.getElementById("report");
+      const POLL_INTERVAL_MS = 1000;
+      const POLL_MAX_WAIT_MS = 90000;
+      const POLL_MAX_NETWORK_FAILURES = 3;
+      let activeAuditRun = null;
       function setExample(value) { input.value = value; input.focus(); }
       function isBlockedClientHost(hostname) {
         const host = hostname.toLowerCase();
@@ -338,16 +343,32 @@
           warnings: audit.warnings || audit.scanner?.warnings || []
         };
       }
-      async function requestAudit(websiteUrl) {
+      function isAbortError(error) {
+        return error?.name === "AbortError";
+      }
+      function assertActiveRun(run) {
+        if (run.controller.signal.aborted || activeAuditRun !== run) {
+          throw new DOMException("Audit polling was superseded.", "AbortError");
+        }
+      }
+      function cancelActiveAuditRun() {
+        if (activeAuditRun) {
+          activeAuditRun.controller.abort();
+          activeAuditRun = null;
+        }
+      }
+      async function requestAudit(websiteUrl, { signal } = {}) {
         let response;
 
         try {
           response = await fetch("/api/audits", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ websiteUrl })
+            body: JSON.stringify({ websiteUrl }),
+            signal
           });
-        } catch {
+        } catch (error) {
+          if (isAbortError(error)) throw error;
           throw new Error("SitePulse audit service is unavailable. Start the SitePulse server and try again.");
         }
 
@@ -363,7 +384,150 @@
           throw new Error(payload.error?.message || "Audit request failed.");
         }
 
-        return toReportViewModel(payload.audit);
+        if (!payload.job?.statusUrl || payload.job.status !== "queued") {
+          throw new Error("SitePulse received an invalid server response. Please try again.");
+        }
+
+        return payload.job;
+      }
+      function wait(milliseconds, signal) {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            signal?.removeEventListener("abort", onAbort);
+            resolve();
+          }, milliseconds);
+          const onAbort = () => {
+            clearTimeout(timer);
+            reject(new DOMException("Audit polling was superseded.", "AbortError"));
+          };
+
+          if (signal?.aborted) {
+            onAbort();
+            return;
+          }
+
+          signal?.addEventListener("abort", onAbort, { once: true });
+        });
+      }
+      async function fetchAuditReport(auditUrl, { signal } = {}) {
+        let response;
+
+        try {
+          response = await fetch(auditUrl, { signal });
+        } catch (error) {
+          if (isAbortError(error)) throw error;
+          throw new Error("The audit finished, but the report could not be loaded. Please try again.");
+        }
+
+        let payload;
+
+        try {
+          payload = await response.json();
+        } catch {
+          throw new Error("The audit finished, but the report could not be loaded. Please try again.");
+        }
+
+        if (!response.ok || !payload.audit) {
+          throw new Error(payload.error?.message || "The audit finished, but the report could not be loaded. Please try again.");
+        }
+
+        return payload.audit;
+      }
+      async function pollAuditJob(statusUrl, options = {}) {
+        const intervalMs = options.intervalMs || POLL_INTERVAL_MS;
+        const maxWaitMs = options.maxWaitMs || POLL_MAX_WAIT_MS;
+        const parentSignal = options.signal;
+        const isCurrent = options.isCurrent || (() => true);
+        const pollingController = new AbortController();
+        let deadlineReached = false;
+        let consecutiveNetworkFailures = 0;
+        const onParentAbort = () => pollingController.abort();
+        const deadlineTimer = setTimeout(() => {
+          deadlineReached = true;
+          pollingController.abort();
+        }, maxWaitMs);
+
+        if (parentSignal?.aborted) {
+          onParentAbort();
+        } else {
+          parentSignal?.addEventListener("abort", onParentAbort, { once: true });
+        }
+
+        const signal = pollingController.signal;
+
+        try {
+          while (true) {
+            await wait(intervalMs, signal);
+
+            if (signal.aborted || !isCurrent()) {
+              throw new DOMException("Audit polling was superseded.", "AbortError");
+            }
+
+            let response;
+
+            try {
+              response = await fetch(statusUrl, { signal });
+            } catch (error) {
+              if (isAbortError(error)) throw error;
+              consecutiveNetworkFailures += 1;
+
+              if (consecutiveNetworkFailures >= POLL_MAX_NETWORK_FAILURES) {
+                throw new Error("SitePulse could not check the audit status. Please try again.");
+              }
+
+              loadingText.textContent = "Reconnecting to audit status…";
+              continue;
+            }
+
+            consecutiveNetworkFailures = 0;
+
+            let payload;
+
+            try {
+              payload = await response.json();
+            } catch {
+              throw new Error("SitePulse received an invalid audit status. Please try again.");
+            }
+
+            if (signal.aborted || !isCurrent()) {
+              throw new DOMException("Audit polling was superseded.", "AbortError");
+            }
+
+            if (!response.ok || !payload.job?.status) {
+              throw new Error(payload.error?.message || "SitePulse received an invalid audit status. Please try again.");
+            }
+
+            if (payload.job.status === "queued") {
+              loadingText.textContent = "Your audit is queued…";
+              continue;
+            }
+
+            if (payload.job.status === "running") {
+              loadingText.textContent = "Analyzing your website…";
+              continue;
+            }
+
+            if (payload.job.status === "completed" && payload.job.auditUrl) {
+              clearTimeout(deadlineTimer);
+              return fetchAuditReport(payload.job.auditUrl, { signal });
+            }
+
+            if (payload.job.status === "failed") {
+              throw new Error(payload.job.error?.message || "The website could not be audited. Please try again.");
+            }
+
+            throw new Error("SitePulse received an invalid audit status. Please try again.");
+          }
+        } catch (error) {
+          if (isAbortError(error) && deadlineReached && !parentSignal?.aborted && isCurrent()) {
+            throw new Error("The audit is taking longer than expected. Please try again shortly.");
+          }
+
+          throw error;
+        } finally {
+          clearTimeout(deadlineTimer);
+          parentSignal?.removeEventListener("abort", onParentAbort);
+        }
       }
       function statusTone(status, score) {
         if (score >= 78 || status === "Excellent" || status === "Strong") return "good";
@@ -588,8 +752,12 @@
       }
       form.addEventListener("submit", async event => {
         event.preventDefault();
+        cancelActiveAuditRun();
         errorBox.style.display = "none";
         input.removeAttribute("aria-invalid");
+        loading.style.display = "none";
+        const runButton = document.getElementById("runBtn");
+        runButton.disabled = false;
         const clientError = validateClientUrl(input.value);
 
         if (clientError) {
@@ -598,21 +766,36 @@
         }
 
         loading.style.display = "flex";
-        const runButton = document.getElementById("runBtn");
+        loadingText.textContent = "Starting your audit…";
         runButton.disabled = true;
+        const run = { controller: new AbortController(), job: null };
+        activeAuditRun = run;
 
         try {
-          const result = await requestAudit(input.value);
+          const job = await requestAudit(input.value, { signal: run.controller.signal });
+          assertActiveRun(run);
+          run.job = job;
+          loadingText.textContent = "Your audit is queued…";
+          const audit = await pollAuditJob(job.statusUrl, {
+            signal: run.controller.signal,
+            isCurrent: () => activeAuditRun === run
+          });
+          assertActiveRun(run);
+          const result = toReportViewModel(audit);
           loading.style.display = "none";
           runButton.disabled = false;
           render(result);
           input.removeAttribute("aria-invalid");
         } catch (error) {
+          if (isAbortError(error) || activeAuditRun !== run) return;
           loading.style.display = "none";
           runButton.disabled = false;
           showError(error.message || "Could not run the audit. Please try again.");
+        } finally {
+          if (activeAuditRun === run) activeAuditRun = null;
         }
       });
+      window.addEventListener("beforeunload", cancelActiveAuditRun);
       window.addEventListener("beforeprint", () => {
         document.querySelectorAll("#report details").forEach(details => {
           details.dataset.wasOpen = details.open ? "true" : "false";
