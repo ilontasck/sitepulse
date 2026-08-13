@@ -19,4 +19,18 @@ describe("configuration", () => {
     assert.throws(() => loadConfig({ RENDERED_AUDIT_MAX_CONCURRENCY: 0 }), /positive integer/);
     assert.throws(() => loadConfig({ TELEMETRY_ENABLED: "verbose" }), /true or false/);
   });
+
+  it("validates worker polling and keeps heartbeat shorter than the lease", () => {
+    const config = loadConfig();
+
+    assert.equal(config.auditWorkerPollIntervalMs, 500);
+    assert.equal(config.auditJobLeaseMs, 30_000);
+    assert.equal(config.auditJobHeartbeatMs, 10_000);
+    assert.throws(() => loadConfig({ AUDIT_WORKER_POLL_INTERVAL_MS: 0 }), /positive integer/);
+    assert.throws(() => loadConfig({ AUDIT_JOB_LEASE_MS: "soon" }), /positive integer/);
+    assert.throws(
+      () => loadConfig({ AUDIT_JOB_LEASE_MS: 10_000, AUDIT_JOB_HEARTBEAT_MS: 10_000 }),
+      /shorter than AUDIT_JOB_LEASE_MS/
+    );
+  });
 });

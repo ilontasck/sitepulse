@@ -38,6 +38,21 @@ export function loadConfig(overrides = {}) {
     process.env.DATABASE_FILE_PATH ||
     `${projectRoot}data/sitepulse.sqlite`;
 
+  const auditJobLeaseMs = parsePositiveInteger(
+    "AUDIT_JOB_LEASE_MS",
+    overrides.AUDIT_JOB_LEASE_MS ?? process.env.AUDIT_JOB_LEASE_MS,
+    30_000
+  );
+  const auditJobHeartbeatMs = parsePositiveInteger(
+    "AUDIT_JOB_HEARTBEAT_MS",
+    overrides.AUDIT_JOB_HEARTBEAT_MS ?? process.env.AUDIT_JOB_HEARTBEAT_MS,
+    10_000
+  );
+
+  if (auditJobHeartbeatMs >= auditJobLeaseMs) {
+    throw new Error("AUDIT_JOB_HEARTBEAT_MS must be shorter than AUDIT_JOB_LEASE_MS.");
+  }
+
   return {
     env: overrides.NODE_ENV || process.env.NODE_ENV || "development",
     host: overrides.HOST || process.env.HOST || "127.0.0.1",
@@ -71,6 +86,13 @@ export function loadConfig(overrides = {}) {
       overrides.RENDERED_AUDIT_MAX_CONCURRENCY ?? process.env.RENDERED_AUDIT_MAX_CONCURRENCY,
       1
     ),
+    auditWorkerPollIntervalMs: parsePositiveInteger(
+      "AUDIT_WORKER_POLL_INTERVAL_MS",
+      overrides.AUDIT_WORKER_POLL_INTERVAL_MS ?? process.env.AUDIT_WORKER_POLL_INTERVAL_MS,
+      500
+    ),
+    auditJobLeaseMs,
+    auditJobHeartbeatMs,
     telemetryEnabled: parseBoolean("TELEMETRY_ENABLED", overrides.TELEMETRY_ENABLED ?? process.env.TELEMETRY_ENABLED, true)
   };
 }

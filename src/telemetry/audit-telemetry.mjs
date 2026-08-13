@@ -1,4 +1,15 @@
-const allowedFields = new Set(["auditMode", "durationMs", "lighthouseDurationMs", "outcome", "fallbackReason", "reason"]);
+const allowedFields = new Set([
+  "auditMode",
+  "durationMs",
+  "lighthouseDurationMs",
+  "queueWaitMs",
+  "attempt",
+  "jobId",
+  "auditId",
+  "outcome",
+  "fallbackReason",
+  "reason"
+]);
 
 function safeFields(fields) {
   return Object.fromEntries(Object.entries(fields).filter(([key, value]) => allowedFields.has(key) && ["string", "number", "boolean"].includes(typeof value)));
