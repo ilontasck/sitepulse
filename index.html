@@ -206,6 +206,8 @@
       }
     </style>
     <link rel="stylesheet" href="/assets/noqori/module-01.css" />
+    <link rel="stylesheet" href="/assets/noqori/module-03.css" />
+    <script src="/assets/noqori/module-03.js"></script>
     <script src="/assets/noqori/module-02.js" defer></script>
   </head>
   <body class="noqori-public">
@@ -234,7 +236,7 @@
               <button class="btn" id="runBtn" type="submit">Run audit <span aria-hidden="true">→</span></button>
             </form>
             <div class="error" id="errorBox" role="alert">Use a valid website address, like studio.example.com.</div>
-            <div class="loading" id="loading" aria-live="polite"><span class="spinner"></span><span id="loadingText">Starting your audit…</span></div>
+            <div class="loading" id="loading" hidden aria-hidden="true"><span id="loadingText">Preparing analysis</span></div>
           </div>
           <div class="noqoriHeroVisual" data-hero-motion aria-hidden="true">
             <div class="noqoriDepthGrid"></div>
@@ -252,6 +254,43 @@
               </div>
             </div>
             <p class="noqoriMarkCaption">Focus / flow / future</p>
+          </div>
+        </section>
+        <section class="noqoriAnalysis" id="analysisExperience" hidden aria-labelledby="analysisTitle" data-analysis-state="preparing">
+          <div class="wrap noqoriAnalysisFrame">
+            <div class="noqoriAnalysisPanel">
+              <div class="noqoriAnalysisVisual" aria-hidden="true">
+                <div class="noqoriAnalysisGrid"></div>
+                <div class="noqoriAnalysisMark">
+                  <img class="noqoriAnalysisMarkGhost" src="/assets/noqori/noqori-mark-ink.png" alt="" />
+                  <span class="noqoriAnalysisMarkPart noqoriAnalysisMarkTop"><img src="/assets/noqori/noqori-mark-ink.png" alt="" /></span>
+                  <span class="noqoriAnalysisMarkPart noqoriAnalysisMarkRight"><img src="/assets/noqori/noqori-mark-ink.png" alt="" /></span>
+                  <span class="noqoriAnalysisMarkPart noqoriAnalysisMarkBottom"><img src="/assets/noqori/noqori-mark-ink.png" alt="" /></span>
+                  <span class="noqoriAnalysisMarkPart noqoriAnalysisMarkLeft"><img src="/assets/noqori/noqori-mark-ink.png" alt="" /></span>
+                  <span class="noqoriAnalysisEmberSignal"></span>
+                </div>
+                <span class="noqoriAnalysisAxis noqoriAnalysisAxisX"></span>
+                <span class="noqoriAnalysisAxis noqoriAnalysisAxisY"></span>
+              </div>
+              <div class="noqoriAnalysisCopy">
+                <p class="noqoriAnalysisKicker"><span class="noqoriAnalysisKickerSignal" aria-hidden="true"></span><span id="analysisKicker">REQUEST SUBMITTED</span></p>
+                <h2 id="analysisTitle">Preparing analysis.</h2>
+                <p class="noqoriAnalysisTarget" id="analysisTarget">example.com</p>
+                <div class="noqoriAnalysisStatus" role="status" aria-live="polite" aria-atomic="true">
+                  <span class="noqoriAnalysisStatusDot" aria-hidden="true"></span>
+                  <span id="analysisStatusText">Connecting to the audit service.</span>
+                </div>
+                <div class="noqoriAnalysisProgress" aria-hidden="true"><span></span></div>
+                <div class="noqoriAnalysisError" id="analysisError" role="alert" hidden>
+                  <p id="analysisErrorMessage"></p>
+                  <details id="analysisErrorDetails" hidden>
+                    <summary>Technical details</summary>
+                    <code id="analysisErrorCode"></code>
+                  </details>
+                  <button class="glassControl noqoriAnalysisRetry" id="analysisRetry" type="button">Try again <span class="controlArrow" aria-hidden="true">↗</span></button>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -274,6 +313,7 @@
       const loading = document.getElementById("loading");
       const loadingText = document.getElementById("loadingText");
       const report = document.getElementById("report");
+      const analysisExperience = window.NOQORIAnalysisExperience.create({ input });
       const POLL_INTERVAL_MS = 1000;
       const POLL_MAX_WAIT_MS = 90000;
       const POLL_MAX_NETWORK_FAILURES = 3;
@@ -354,6 +394,11 @@
       function isAbortError(error) {
         return error?.name === "AbortError";
       }
+      function createPublicError(message, code = "") {
+        const error = new Error(message);
+        error.code = code;
+        return error;
+      }
       function assertActiveRun(run) {
         if (run.controller.signal.aborted || activeAuditRun !== run) {
           throw new DOMException("Audit polling was superseded.", "AbortError");
@@ -377,7 +422,7 @@
           });
         } catch (error) {
           if (isAbortError(error)) throw error;
-          throw new Error("SitePulse audit service is unavailable. Start the SitePulse server and try again.");
+          throw createPublicError("The NOQORI audit service is unavailable. Please try again shortly.", "AUDIT_SERVICE_UNAVAILABLE");
         }
 
         let payload;
@@ -385,15 +430,15 @@
         try {
           payload = await response.json();
         } catch {
-          throw new Error("SitePulse received an invalid server response. Please try again.");
+          throw new Error("NOQORI received an invalid server response. Please try again.");
         }
 
         if (!response.ok) {
-          throw new Error(payload.error?.message || "Audit request failed.");
+          throw createPublicError(payload.error?.message || "Audit request failed.", payload.error?.code);
         }
 
         if (!payload.job?.statusUrl || payload.job.status !== "queued") {
-          throw new Error("SitePulse received an invalid server response. Please try again.");
+          throw new Error("NOQORI received an invalid server response. Please try again.");
         }
 
         return payload.job;
@@ -446,6 +491,7 @@
         const maxWaitMs = options.maxWaitMs || POLL_MAX_WAIT_MS;
         const parentSignal = options.signal;
         const isCurrent = options.isCurrent || (() => true);
+        const onStatus = options.onStatus || (() => {});
         const pollingController = new AbortController();
         let deadlineReached = false;
         let consecutiveNetworkFailures = 0;
@@ -480,10 +526,11 @@
               consecutiveNetworkFailures += 1;
 
               if (consecutiveNetworkFailures >= POLL_MAX_NETWORK_FAILURES) {
-                throw new Error("SitePulse could not check the audit status. Please try again.");
+                throw createPublicError("NOQORI could not check the audit status. Please try again.", "AUDIT_STATUS_UNAVAILABLE");
               }
 
               loadingText.textContent = "Reconnecting to audit status…";
+              onStatus("reconnecting");
               continue;
             }
 
@@ -494,7 +541,7 @@
             try {
               payload = await response.json();
             } catch {
-              throw new Error("SitePulse received an invalid audit status. Please try again.");
+              throw new Error("NOQORI received an invalid audit status. Please try again.");
             }
 
             if (signal.aborted || !isCurrent()) {
@@ -502,29 +549,35 @@
             }
 
             if (!response.ok || !payload.job?.status) {
-              throw new Error(payload.error?.message || "SitePulse received an invalid audit status. Please try again.");
+              throw new Error(payload.error?.message || "NOQORI received an invalid audit status. Please try again.");
             }
 
             if (payload.job.status === "queued") {
               loadingText.textContent = "Your audit is queued…";
+              onStatus("queued");
               continue;
             }
 
             if (payload.job.status === "running") {
               loadingText.textContent = "Analyzing your website…";
+              onStatus("running");
               continue;
             }
 
             if (payload.job.status === "completed" && payload.job.auditUrl) {
               clearTimeout(deadlineTimer);
+              onStatus("building");
               return fetchAuditReport(payload.job.auditUrl, { signal });
             }
 
             if (payload.job.status === "failed") {
-              throw new Error(payload.job.error?.message || "The website could not be audited. Please try again.");
+              throw createPublicError(
+                payload.job.error?.message || "The website could not be audited. Please try again.",
+                payload.job.error?.code
+              );
             }
 
-            throw new Error("SitePulse received an invalid audit status. Please try again.");
+            throw new Error("NOQORI received an invalid audit status. Please try again.");
           }
         } catch (error) {
           if (isAbortError(error) && deadlineReached && !parentSignal?.aborted && isCurrent()) {
@@ -773,32 +826,39 @@
           return;
         }
 
-        loading.style.display = "flex";
+        loading.style.display = "none";
         loadingText.textContent = "Starting your audit…";
         runButton.disabled = true;
         const run = { controller: new AbortController(), job: null };
         activeAuditRun = run;
+        analysisExperience.show(input.value);
 
         try {
           const job = await requestAudit(input.value, { signal: run.controller.signal });
           assertActiveRun(run);
           run.job = job;
           loadingText.textContent = "Your audit is queued…";
+          analysisExperience.setState("queued");
           const audit = await pollAuditJob(job.statusUrl, {
             signal: run.controller.signal,
-            isCurrent: () => activeAuditRun === run
+            isCurrent: () => activeAuditRun === run,
+            onStatus: status => {
+              if (activeAuditRun === run) analysisExperience.setState(status);
+            }
           });
           assertActiveRun(run);
           const result = toReportViewModel(audit);
           loading.style.display = "none";
           runButton.disabled = false;
+          await analysisExperience.complete();
+          assertActiveRun(run);
           render(result);
           input.removeAttribute("aria-invalid");
         } catch (error) {
           if (isAbortError(error) || activeAuditRun !== run) return;
           loading.style.display = "none";
           runButton.disabled = false;
-          showError(error.message || "Could not run the audit. Please try again.");
+          analysisExperience.fail(error.message || "Could not run the audit. Please try again.", { code: error.code });
         } finally {
           if (activeAuditRun === run) activeAuditRun = null;
         }

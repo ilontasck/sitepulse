@@ -1,0 +1,487 @@
+.landing.is-analysis-active .noqoriHero,
+.landing.is-analysis-active > :is(.cards, .pricing) {
+  display: none;
+}
+
+.noqoriAnalysis[hidden],
+.noqoriAnalysisError[hidden],
+.noqoriAnalysisErrorDetails[hidden] {
+  display: none;
+}
+
+.noqoriAnalysis {
+  min-height: calc(100vh - 5.5rem);
+  padding: clamp(2.5rem, 6vw, 5.5rem) 0;
+  color: var(--nq-ink);
+  font-family: var(--nq-display);
+}
+
+.noqoriAnalysisFrame {
+  display: grid;
+  min-height: min(42rem, calc(100vh - 10.5rem));
+  place-items: center;
+}
+
+.noqoriAnalysisPanel {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  width: min(100%, 62rem);
+  grid-template-columns: minmax(19rem, 0.86fr) minmax(20rem, 1.14fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: center;
+  overflow: hidden;
+  padding: clamp(2.2rem, 5vw, 4.75rem);
+  border: 1px solid rgba(11, 11, 12, 0.15);
+  border-radius: var(--nq-radius-lg);
+  background:
+    linear-gradient(138deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.54) 58%, rgba(229, 230, 226, 0.52)),
+    rgba(255, 255, 255, 0.62);
+  box-shadow:
+    0 2.2rem 6rem rgba(16, 17, 19, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  -webkit-backdrop-filter: blur(1.4rem) saturate(1.08);
+  backdrop-filter: blur(1.4rem) saturate(1.08);
+}
+
+.noqoriAnalysisPanel::before {
+  content: "ANALYSIS / LIVE";
+  position: absolute;
+  top: 1.25rem;
+  right: 1.5rem;
+  color: rgba(11, 11, 12, 0.38);
+  font-family: var(--nq-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+}
+
+.noqoriAnalysisVisual {
+  position: relative;
+  display: grid;
+  width: min(100%, 21rem);
+  aspect-ratio: 1;
+  place-items: center;
+  justify-self: center;
+}
+
+.noqoriAnalysisGrid {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(11, 11, 12, 0.09);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, transparent 31%, rgba(11, 11, 12, 0.055) 31.4% 31.8%, transparent 32.2%),
+    radial-gradient(circle, transparent 48%, rgba(11, 11, 12, 0.045) 48.4% 48.8%, transparent 49.2%),
+    linear-gradient(rgba(11, 11, 12, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 11, 12, 0.055) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 25% 25%, 25% 25%;
+  animation: noqoriAnalysisGridBreathe 8s ease-in-out infinite;
+}
+
+.noqoriAnalysisAxis {
+  position: absolute;
+  background: rgba(11, 11, 12, 0.12);
+}
+
+.noqoriAnalysisAxisX {
+  width: calc(100% + 2rem);
+  height: 1px;
+}
+
+.noqoriAnalysisAxisY {
+  width: 1px;
+  height: calc(100% + 2rem);
+}
+
+.noqoriAnalysisMark {
+  position: relative;
+  z-index: 2;
+  width: 68%;
+  aspect-ratio: 1;
+}
+
+.noqoriAnalysisMarkGhost,
+.noqoriAnalysisMarkPart,
+.noqoriAnalysisMarkPart img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.noqoriAnalysisMarkGhost,
+.noqoriAnalysisMarkPart img {
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  filter: grayscale(1) contrast(600%) brightness(1.12);
+}
+
+.noqoriAnalysisMarkGhost {
+  opacity: 0.1;
+}
+
+.noqoriAnalysisMarkPart {
+  will-change: transform, opacity;
+}
+
+.noqoriAnalysisMarkTop {
+  clip-path: polygon(18% 0, 82% 0, 72% 53%, 28% 53%);
+  animation: noqoriAnalysisTop 4.8s ease-in-out infinite;
+}
+
+.noqoriAnalysisMarkRight {
+  clip-path: polygon(55% 19%, 100% 24%, 100% 76%, 52% 75%);
+  animation: noqoriAnalysisRight 4.8s 0.34s ease-in-out infinite;
+}
+
+.noqoriAnalysisMarkBottom {
+  clip-path: polygon(27% 60%, 73% 60%, 77% 100%, 23% 100%);
+  animation: noqoriAnalysisBottom 4.8s 0.68s ease-in-out infinite;
+}
+
+.noqoriAnalysisMarkLeft {
+  clip-path: polygon(0 24%, 45% 19%, 48% 75%, 0 76%);
+  animation: noqoriAnalysisLeft 4.8s 1.02s ease-in-out infinite;
+}
+
+.noqoriAnalysisEmberSignal {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  width: 0.46rem;
+  height: 0.46rem;
+  margin: -0.23rem;
+  border-radius: 50%;
+  background: var(--nq-ember);
+  box-shadow:
+    0 0 0 0.24rem rgba(255, 74, 26, 0.1),
+    0 0 1.25rem rgba(255, 74, 26, 0.48);
+  animation: noqoriAnalysisSignal 5.2s var(--nq-ease) infinite;
+}
+
+.noqoriAnalysisCopy {
+  position: relative;
+  z-index: 3;
+  min-width: 0;
+}
+
+.noqoriAnalysisKicker {
+  display: flex;
+  align-items: center;
+  gap: var(--nq-space-3);
+  margin: 0;
+  color: var(--nq-graphite);
+  font-family: var(--nq-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.13em;
+}
+
+.noqoriAnalysisKickerSignal,
+.noqoriAnalysisStatusDot {
+  flex: 0 0 auto;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: var(--nq-ember);
+}
+
+.noqoriAnalysisKickerSignal {
+  box-shadow: 0 0 0 0.24rem rgba(255, 74, 26, 0.08);
+}
+
+.noqoriAnalysisCopy h2 {
+  max-width: 11ch;
+  margin: var(--nq-space-5) 0 0;
+  color: var(--nq-ink);
+  font-size: clamp(2.65rem, 5vw, 4.7rem);
+  font-weight: 520;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.noqoriAnalysisTarget {
+  overflow: hidden;
+  margin: var(--nq-space-4) 0 0;
+  color: var(--nq-muted);
+  font-family: var(--nq-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.noqoriAnalysisStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--nq-space-3);
+  min-height: 2.8rem;
+  margin-top: var(--nq-space-6);
+  border-top: 1px solid var(--nq-border);
+  color: var(--nq-graphite);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.noqoriAnalysisStatusDot {
+  width: 0.35rem;
+  height: 0.35rem;
+  animation: noqoriAnalysisStatusPulse 1.8s ease-in-out infinite;
+}
+
+.noqoriAnalysisProgress {
+  position: relative;
+  overflow: hidden;
+  height: 2px;
+  margin-top: var(--nq-space-4);
+  background: rgba(11, 11, 12, 0.1);
+}
+
+.noqoriAnalysisProgress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 34%;
+  background: linear-gradient(90deg, transparent, var(--nq-ember) 40%, var(--nq-ember) 68%, transparent);
+  transform: translateX(-110%);
+  animation: noqoriAnalysisProgress 2.4s var(--nq-ease) infinite;
+}
+
+.noqoriAnalysisError {
+  margin-top: var(--nq-space-5);
+  padding-top: var(--nq-space-5);
+  border-top: 1px solid rgba(255, 74, 26, 0.22);
+}
+
+.noqoriAnalysisError p {
+  margin: 0;
+  color: #67230f;
+  line-height: 1.6;
+}
+
+.noqoriAnalysisError details {
+  margin-top: var(--nq-space-4);
+  padding: 0;
+  color: var(--nq-muted);
+  font-family: var(--nq-mono);
+  font-size: 0.7rem;
+}
+
+.noqoriAnalysisError summary {
+  display: inline-flex;
+  font-weight: 500;
+}
+
+.noqoriAnalysisError code {
+  display: block;
+  margin-top: var(--nq-space-2);
+  color: var(--nq-graphite);
+}
+
+.noqoriAnalysisRetry {
+  margin-top: var(--nq-space-5);
+}
+
+.noqoriAnalysis[data-analysis-state="complete"] .noqoriAnalysisMarkPart {
+  animation-play-state: paused;
+  transform: none;
+}
+
+.noqoriAnalysis[data-analysis-state="complete"] .noqoriAnalysisEmberSignal {
+  opacity: 0;
+  animation: none;
+}
+
+.noqoriAnalysis[data-analysis-state="complete"] .noqoriAnalysisProgress span {
+  width: 100%;
+  background: var(--nq-ember);
+  transform: translateX(0);
+  animation: none;
+  transition: width 360ms var(--nq-ease);
+}
+
+.noqoriAnalysis[data-analysis-state="complete"] .noqoriAnalysisStatusDot {
+  animation: none;
+  box-shadow: 0 0 0 0.25rem rgba(255, 74, 26, 0.08);
+}
+
+.noqoriAnalysis[data-analysis-state="error"] .noqoriAnalysisVisual {
+  opacity: 0.7;
+}
+
+.noqoriAnalysis[data-analysis-state="error"] .noqoriAnalysisMarkPart,
+.noqoriAnalysis[data-analysis-state="error"] .noqoriAnalysisEmberSignal,
+.noqoriAnalysis[data-analysis-state="error"] .noqoriAnalysisProgress span,
+.noqoriAnalysis[data-analysis-state="error"] .noqoriAnalysisStatusDot {
+  animation-play-state: paused;
+}
+
+.noqoriAnalysis[data-analysis-state="error"] .noqoriAnalysisProgress span {
+  width: 18%;
+  background: var(--nq-ember);
+  transform: translateX(0);
+}
+
+@keyframes noqoriAnalysisTop {
+  0%, 100% { opacity: 0.95; transform: translate3d(0, -0.08rem, 0) scale(0.995); }
+  50% { opacity: 1; transform: translate3d(0, -0.28rem, 0) scale(1.008); }
+}
+
+@keyframes noqoriAnalysisRight {
+  0%, 100% { opacity: 0.95; transform: translate3d(0.08rem, 0, 0) scale(0.995); }
+  50% { opacity: 1; transform: translate3d(0.28rem, 0, 0) scale(1.008); }
+}
+
+@keyframes noqoriAnalysisBottom {
+  0%, 100% { opacity: 0.95; transform: translate3d(0, 0.08rem, 0) scale(0.995); }
+  50% { opacity: 1; transform: translate3d(0, 0.28rem, 0) scale(1.008); }
+}
+
+@keyframes noqoriAnalysisLeft {
+  0%, 100% { opacity: 0.95; transform: translate3d(-0.08rem, 0, 0) scale(0.995); }
+  50% { opacity: 1; transform: translate3d(-0.28rem, 0, 0) scale(1.008); }
+}
+
+@keyframes noqoriAnalysisSignal {
+  0%, 100% { opacity: 0.5; transform: translate3d(0, -4.9rem, 0) scale(0.8); }
+  24% { opacity: 1; transform: translate3d(5.4rem, -0.7rem, 0) scale(1); }
+  49% { opacity: 0.66; transform: translate3d(0.8rem, 5rem, 0) scale(0.86); }
+  74% { opacity: 1; transform: translate3d(-5.4rem, -0.5rem, 0) scale(1); }
+}
+
+@keyframes noqoriAnalysisGridBreathe {
+  0%, 100% { opacity: 0.66; transform: scale(0.99); }
+  50% { opacity: 0.95; transform: scale(1.012); }
+}
+
+@keyframes noqoriAnalysisStatusPulse {
+  0%, 100% { opacity: 0.48; transform: scale(0.82); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes noqoriAnalysisProgress {
+  0% { transform: translateX(-110%); }
+  65%, 100% { transform: translateX(330%); }
+}
+
+@media (max-width: 900px) {
+  .noqoriAnalysis {
+    min-height: calc(100vh - 5.5rem);
+    padding: var(--nq-space-6) 0 var(--nq-space-7);
+  }
+
+  .noqoriAnalysisFrame {
+    min-height: calc(100vh - 9.5rem);
+  }
+
+  .noqoriAnalysisPanel {
+    grid-template-columns: 1fr;
+    gap: var(--nq-space-5);
+    padding: clamp(1.8rem, 5vw, 3rem);
+  }
+
+  .noqoriAnalysisVisual {
+    width: min(14rem, 42vw);
+  }
+
+  .noqoriAnalysisCopy {
+    text-align: center;
+  }
+
+  .noqoriAnalysisKicker,
+  .noqoriAnalysisStatus {
+    justify-content: center;
+  }
+
+  .noqoriAnalysisCopy h2 {
+    max-width: none;
+  }
+
+  .noqoriAnalysisError {
+    text-align: center;
+  }
+}
+
+@media (max-width: 520px) {
+  .noqoriAnalysis {
+    min-height: calc(100vh - 4.6rem);
+    padding: var(--nq-space-4) 0;
+  }
+
+  .noqoriAnalysisFrame {
+    min-height: calc(100vh - 6.6rem);
+  }
+
+  .noqoriAnalysisPanel {
+    gap: var(--nq-space-4);
+    padding: 2.25rem 1.25rem 1.5rem;
+    border-radius: var(--nq-radius-md);
+  }
+
+  .noqoriAnalysisPanel::before {
+    top: 0.8rem;
+    right: 1rem;
+    font-size: 0.5rem;
+  }
+
+  .noqoriAnalysisVisual {
+    width: min(10rem, 46vw);
+  }
+
+  .noqoriAnalysisAxisX {
+    width: calc(100% + 1rem);
+  }
+
+  .noqoriAnalysisAxisY {
+    height: calc(100% + 1rem);
+  }
+
+  .noqoriAnalysisCopy h2 {
+    margin-top: var(--nq-space-3);
+    font-size: clamp(2.2rem, 11vw, 3rem);
+  }
+
+  .noqoriAnalysisTarget {
+    margin-top: var(--nq-space-3);
+  }
+
+  .noqoriAnalysisStatus {
+    min-height: 2.5rem;
+    margin-top: var(--nq-space-4);
+    font-size: 0.82rem;
+  }
+
+  .noqoriAnalysisRetry {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .noqoriAnalysisGrid,
+  .noqoriAnalysisMarkPart,
+  .noqoriAnalysisEmberSignal,
+  .noqoriAnalysisStatusDot,
+  .noqoriAnalysisProgress span {
+    animation: none !important;
+    transform: none !important;
+    will-change: auto;
+  }
+
+  .noqoriAnalysisEmberSignal {
+    top: 15%;
+    left: 50%;
+    opacity: 1;
+  }
+
+  .noqoriAnalysisProgress span {
+    width: 18%;
+    background: var(--nq-ember);
+  }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1rem)) or (backdrop-filter: blur(1rem))) {
+  .noqoriAnalysisPanel {
+    background: rgba(255, 255, 255, 0.96);
+  }
+}

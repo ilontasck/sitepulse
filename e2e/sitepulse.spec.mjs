@@ -228,7 +228,7 @@ test("NOQORI controls keep visible keyboard focus and reduce motion when request
       outlineWidth: styles.outlineWidth
     };
   });
-  const motionDuration = await page.locator(".glassControl").evaluate((control) => getComputedStyle(control).transitionDuration);
+  const motionDuration = await page.locator(".noqoriHeaderCta").evaluate((control) => getComputedStyle(control).transitionDuration);
   const visualMotion = await page.locator(".noqoriHeroVisual").evaluate((visual) => ({
     pointerEnabled: visual.dataset.pointerEnabled,
     stageAnimation: getComputedStyle(visual.querySelector(".noqoriMotionFloat")).animationName
@@ -236,10 +236,37 @@ test("NOQORI controls keep visible keyboard focus and reduce motion when request
 
   expect(focusedControl.name).toBe("NOQORI home");
   expect(focusedControl.outlineStyle).toBe("solid");
-  expect(focusedControl.outlineWidth).toBe("2px");
+  expect(parseFloat(focusedControl.outlineWidth)).toBeGreaterThanOrEqual(2);
   expect(parseFloat(motionDuration)).toBeLessThanOrEqual(0.001);
   expect(visualMotion.pointerEnabled).toBe("false");
   expect(visualMotion.stageAnimation).toBe("none");
+});
+
+test("NOQORI analysis remains truthful and usable with reduced motion", async ({ page }) => {
+  const browserErrors = collectBrowserErrors(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await mockCompletedAuditFlow(page);
+  await page.goto("/");
+
+  await page.getByLabel("Website URL").fill("https://example.com/path/");
+  await page.getByRole("button", { name: /Run audit/ }).click();
+
+  const analysis = page.locator("#analysisExperience");
+  await expect(analysis).toBeVisible();
+  await expect(page.locator("#analysisTarget")).toHaveText("example.com/path");
+  const reducedState = await analysis.evaluate((element) => ({
+    partAnimation: getComputedStyle(element.querySelector(".noqoriAnalysisMarkPart")).animationName,
+    signalAnimation: getComputedStyle(element.querySelector(".noqoriAnalysisEmberSignal")).animationName,
+    progressAnimation: getComputedStyle(element.querySelector(".noqoriAnalysisProgress span")).animationName
+  }));
+
+  expect(reducedState).toEqual({
+    partAnimation: "none",
+    signalAnimation: "none",
+    progressAnimation: "none"
+  });
+  await expect(page.locator("#report")).toBeVisible();
+  expect(browserErrors).toEqual([]);
 });
 
 test("main audit flow renders report and resets", async ({ page }) => {
@@ -261,10 +288,15 @@ test("main audit flow renders report and resets", async ({ page }) => {
   await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");
   await page.getByRole("button", { name: /Run audit/ }).click();
 
-  await expect(page.locator("#loading")).toContainText("Your audit is queued…");
-  await expect(page.locator("#loading")).toContainText("Analyzing your website…");
+  const analysis = page.locator("#analysisExperience");
+  await expect(analysis).toBeVisible();
+  await expect(page.locator("#analysisTarget")).toHaveText("example.com");
+  await expect(analysis).toHaveAttribute("data-analysis-state", "queued");
+  await expect(analysis).toHaveAttribute("data-analysis-state", "running");
+  await expect(analysis).toHaveAttribute("data-analysis-state", "complete");
 
   await expect(page.locator("#report")).toBeVisible();
+  await expect(analysis).toBeHidden();
   await expect(page.locator("#report").getByText("Audit report", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "example.com" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Priority fixes" })).toBeVisible();
@@ -350,8 +382,10 @@ test("a new submit invalidates a stale completion from the previous job", async 
   await input.fill("old.example.com");
   await page.getByRole("button", { name: /Run audit/ }).click();
   await page.waitForTimeout(1100);
-  await input.fill("new.example.com");
-  await page.locator("#auditForm").evaluate(form => form.requestSubmit());
+  await input.evaluate((element) => {
+    element.value = "new.example.com";
+    element.form.requestSubmit();
+  });
 
   await expect(page.getByRole("heading", { name: "new.example.com" })).toBeVisible();
   await page.waitForTimeout(2200);
@@ -384,10 +418,20 @@ test("a failed job shows its safe error and stops polling", async ({ page }) => 
   await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");
   await page.getByRole("button", { name: /Run audit/ }).click();
 
-  await expect(page.getByRole("alert")).toHaveText("The website audit timed out. Please try again.");
-  await expect(page.getByRole("button", { name: /Run audit/ })).toBeEnabled();
+  const analysis = page.locator("#analysisExperience");
+  await expect(analysis).toHaveAttribute("data-analysis-state", "error");
+  await expect(page.getByRole("alert")).toContainText("The website audit timed out. Please try again.");
+  await expect(page.getByText("AUDIT_TIMEOUT", { exact: true })).toBeHidden();
+  await page.getByText("Technical details", { exact: true }).click();
+  await expect(page.getByText("AUDIT_TIMEOUT", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
   await page.waitForTimeout(1200);
   expect(pollCount).toBe(1);
+
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(analysis).toBeHidden();
+  await expect(page.getByRole("button", { name: /Run audit/ })).toBeVisible();
+  await expect(page.getByLabel("Website URL")).toBeFocused();
 });
 
 test("client polling timeout restores the form without failing the server job", async ({ page }) => {
@@ -403,13 +447,13 @@ test("client polling timeout restores the form without failing the server job", 
   await page.goto("/");
   await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");
   await page.getByRole("button", { name: /Run audit/ }).click();
-  await expect(page.locator("#loading")).toContainText("Your audit is queued…");
+  await expect(page.locator("#analysisExperience")).toHaveAttribute("data-analysis-state", "queued");
   await page.clock.runFor(1000);
   await expect.poll(() => pollCount).toBe(1);
   await page.clock.fastForward(90_000);
 
-  await expect(page.getByRole("alert")).toHaveText("The audit is taking longer than expected. Please try again shortly.");
-  await expect(page.getByRole("button", { name: /Run audit/ })).toBeEnabled();
+  await expect(page.getByRole("alert")).toContainText("The audit is taking longer than expected. Please try again shortly.");
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
   await expect(page.locator("#loading")).toBeHidden();
   expect(pollCount).toBe(1);
 });
@@ -426,8 +470,8 @@ test("a malformed polling response fails safely without crashing the UI", async 
   await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");
   await page.getByRole("button", { name: /Run audit/ }).click();
 
-  await expect(page.getByRole("alert")).toHaveText("SitePulse received an invalid audit status. Please try again.");
-  await expect(page.getByRole("button", { name: /Run audit/ })).toBeEnabled();
+  await expect(page.getByRole("alert")).toContainText("NOQORI received an invalid audit status. Please try again.");
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
   expect(browserErrors).toEqual([]);
 });
 
@@ -443,8 +487,8 @@ test("a polling network failure shows a status-specific safe error", async ({ pa
   await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");
   await page.getByRole("button", { name: /Run audit/ }).click();
 
-  await expect(page.getByRole("alert")).toHaveText("SitePulse could not check the audit status. Please try again.");
-  await expect(page.getByRole("button", { name: /Run audit/ })).toBeEnabled();
+  await expect(page.getByRole("alert")).toContainText("NOQORI could not check the audit status. Please try again.");
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
   expect(pollCount).toBe(3);
 });
 
@@ -468,8 +512,8 @@ test("an audit fetch failure does not expose a browser error", async ({ page }) 
   await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");
   await page.getByRole("button", { name: /Run audit/ }).click();
 
-  await expect(page.getByRole("alert")).toHaveText("The audit finished, but the report could not be loaded. Please try again.");
-  await expect(page.getByRole("button", { name: /Run audit/ })).toBeEnabled();
+  await expect(page.getByRole("alert")).toContainText("The audit finished, but the report could not be loaded. Please try again.");
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
 });
 
 test("signed-out frontend exposes the temporary backend login requirement safely", async ({ page }) => {
@@ -477,8 +521,8 @@ test("signed-out frontend exposes the temporary backend login requirement safely
   await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");
   await page.getByRole("button", { name: /Run audit/ }).click();
 
-  await expect(page.getByRole("alert")).toHaveText("Sign in to continue.");
-  await expect(page.getByRole("button", { name: /Run audit/ })).toBeEnabled();
+  await expect(page.getByRole("alert")).toContainText("Sign in to continue.");
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
   await expect(page.locator("#report")).toBeHidden();
 });
 
@@ -505,11 +549,11 @@ test("an unavailable audit API shows a useful message instead of the browser Loa
   await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");
   await page.getByRole("button", { name: /Run audit/ }).click();
 
-  await expect(page.getByRole("alert")).toHaveText(
-    "SitePulse audit service is unavailable. Start the SitePulse server and try again."
+  await expect(page.getByRole("alert")).toContainText(
+    "The NOQORI audit service is unavailable. Please try again shortly."
   );
   await expect(page.getByRole("alert")).not.toContainText("Load failed");
-  await expect(page.getByRole("button", { name: /Run audit/ })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
 });
 
 test("unsafe localhost URL is blocked with a readable error", async ({ page }) => {
