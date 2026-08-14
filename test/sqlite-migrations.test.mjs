@@ -31,7 +31,7 @@ afterEach(async () => {
 });
 
 describe("SQLite migrations", () => {
-  it("migrates a clean database through audits and audit jobs", async () => {
+  it("migrates a clean database through audits, audit jobs, users, and sessions", async () => {
     const databaseFilePath = await temporaryDatabase();
 
     runMigrations(databaseFilePath);
@@ -43,10 +43,14 @@ describe("SQLite migrations", () => {
 
     assert.deepEqual(schema.versions, [
       { version: 1, name: "initial audits" },
-      { version: 2, name: "audit jobs" }
+      { version: 2, name: "audit jobs" },
+      { version: 3, name: "users" },
+      { version: 4, name: "sessions" }
     ]);
     assert.equal(schema.tables.some(({ name }) => name === "audits"), true);
     assert.equal(schema.tables.some(({ name }) => name === "audit_jobs"), true);
+    assert.equal(schema.tables.some(({ name }) => name === "users"), true);
+    assert.equal(schema.tables.some(({ name }) => name === "sessions"), true);
   });
 
   it("adopts a legacy audits database without losing readable records", async () => {
@@ -115,9 +119,117 @@ describe("SQLite migrations", () => {
       migrations.map(({ version, applied_at: appliedAt }) => ({ version, appliedAt })),
       [
         { version: 1, appliedAt: "2026-08-13T10:00:00.000Z" },
-        { version: 2, appliedAt: "2026-08-13T10:00:00.000Z" }
+        { version: 2, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 3, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 4, appliedAt: "2026-08-13T10:00:00.000Z" }
       ]
     );
+  });
+
+  it("upgrades an existing 001/002 database without changing audits or queued jobs", async () => {
+    const databaseFilePath = await temporaryDatabase();
+    runMigrations(databaseFilePath, { migrations: sitePulseMigrations.slice(0, 2) });
+
+    inspectDatabase(databaseFilePath, (database) => {
+      database.prepare(`
+        INSERT INTO audits (
+          id, created_at, updated_at, normalized_url, domain,
+          overall_score, scanner_mode, report_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        "legacy-audit",
+        "2026-08-14T09:00:00.000Z",
+        "2026-08-14T09:00:00.000Z",
+        "https://example.com",
+        "example.com",
+        90,
+        "html-real-checks",
+        "{}"
+      );
+      database.prepare(`
+        INSERT INTO audit_jobs (
+          id, status, normalized_url, attempt_count, max_attempts,
+          available_at, created_at, updated_at
+        ) VALUES (?, 'queued', ?, 0, 2, ?, ?, ?)
+      `).run(
+        "legacy-job",
+        "https://example.com",
+        "2026-08-14T09:00:00.000Z",
+        "2026-08-14T09:00:00.000Z",
+        "2026-08-14T09:00:00.000Z"
+      );
+    });
+
+    runMigrations(databaseFilePath);
+
+    const state = inspectDatabase(databaseFilePath, (database) => ({
+      audit: database.prepare("SELECT id, normalized_url FROM audits WHERE id = ?").get("legacy-audit"),
+      job: database.prepare("SELECT id, status, normalized_url FROM audit_jobs WHERE id = ?").get("legacy-job"),
+      versions: database.prepare("SELECT version FROM schema_migrations ORDER BY version").all().map(({ version }) => version)
+    }));
+
+    assert.deepEqual({ ...state.audit }, { id: "legacy-audit", normalized_url: "https://example.com" });
+    assert.deepEqual({ ...state.job }, { id: "legacy-job", status: "queued", normalized_url: "https://example.com" });
+    assert.deepEqual(state.versions, [1, 2, 3, 4]);
+  });
+
+  it("enforces user and session identity, hash, expiry, and cascade constraints", async () => {
+    const databaseFilePath = await temporaryDatabase();
+    runMigrations(databaseFilePath);
+
+    inspectDatabase(databaseFilePath, (database) => {
+      const createdAt = "2026-08-14T10:00:00.000Z";
+      const expiresAt = "2026-08-28T10:00:00.000Z";
+      const insertUser = database.prepare(`
+        INSERT INTO users (
+          id, email_original, email_normalized, password_hash, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      const insertSession = database.prepare(`
+        INSERT INTO sessions (id, user_id, token_hash, created_at, expires_at, revoked_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+
+      insertUser.run("user-1", "Owner@example.com", "owner@example.com", "x".repeat(64), createdAt, createdAt);
+      assert.throws(
+        () => insertUser.run("user-2", "OWNER@example.com", "owner@example.com", "y".repeat(64), createdAt, createdAt),
+        /unique constraint/i
+      );
+      assert.throws(
+        () => insertUser.run("user-3", "Upper@example.com", "Upper@example.com", "z".repeat(64), createdAt, createdAt),
+        /check constraint/i
+      );
+      assert.throws(
+        () => insertUser.run("user-4", "short@example.com", "short@example.com", "short", createdAt, createdAt),
+        /check constraint/i
+      );
+
+      insertSession.run("session-1", "user-1", Buffer.alloc(32, 1), createdAt, expiresAt, null);
+      assert.throws(
+        () => insertSession.run("session-2", "user-1", Buffer.alloc(32, 1), createdAt, expiresAt, null),
+        /unique constraint/i
+      );
+      assert.throws(
+        () => insertSession.run("session-3", "user-1", Buffer.alloc(31), createdAt, expiresAt, null),
+        /check constraint/i
+      );
+      assert.throws(
+        () => insertSession.run("session-4", "user-1", Buffer.alloc(32, 4), createdAt, createdAt, null),
+        /check constraint/i
+      );
+      assert.throws(
+        () => insertSession.run("session-5", "user-1", Buffer.alloc(32, 5), createdAt, expiresAt, "2026-08-14T09:59:59.000Z"),
+        /check constraint/i
+      );
+
+      const sessionIndexes = database.prepare("PRAGMA index_list(sessions)").all().map(({ name }) => name);
+      assert.equal(sessionIndexes.includes("idx_sessions_token_hash"), true);
+      assert.equal(sessionIndexes.includes("idx_sessions_user_id"), true);
+      assert.equal(sessionIndexes.includes("idx_sessions_active_expiry"), true);
+
+      database.prepare("DELETE FROM users WHERE id = ?").run("user-1");
+      assert.equal(database.prepare("SELECT COUNT(*) AS count FROM sessions").get().count, 0);
+    });
   });
 
   it("enforces audit job indexes, foreign keys, statuses, attempts, and state consistency", async () => {
@@ -185,7 +297,7 @@ describe("SQLite migrations", () => {
     const databaseFilePath = await temporaryDatabase();
     runMigrations(databaseFilePath);
     const failingMigration = {
-      version: 3,
+      version: 5,
       name: "intentional failure",
       up(database) {
         database.exec("CREATE TABLE must_rollback (id TEXT PRIMARY KEY);");
@@ -199,11 +311,11 @@ describe("SQLite migrations", () => {
     );
 
     const state = inspectDatabase(databaseFilePath, (database) => ({
-      version3: database.prepare("SELECT version FROM schema_migrations WHERE version = 3").get(),
+      version5: database.prepare("SELECT version FROM schema_migrations WHERE version = 5").get(),
       rolledBackTable: database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'must_rollback'").get()
     }));
 
-    assert.equal(state.version3, undefined);
+    assert.equal(state.version5, undefined);
     assert.equal(state.rolledBackTable, undefined);
   });
 

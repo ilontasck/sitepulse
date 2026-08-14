@@ -1,8 +1,15 @@
 import { withDatabase, withImmediateTransaction } from "./sqlite-database.mjs";
 import { migration001InitialAudits } from "./migrations/001_initial_audits.mjs";
 import { migration002AuditJobs } from "./migrations/002_audit_jobs.mjs";
+import { migration003Users } from "./migrations/003_users.mjs";
+import { migration004Sessions } from "./migrations/004_sessions.mjs";
 
-export const sitePulseMigrations = [migration001InitialAudits, migration002AuditJobs];
+export const sitePulseMigrations = [
+  migration001InitialAudits,
+  migration002AuditJobs,
+  migration003Users,
+  migration004Sessions
+];
 
 function validateMigrations(migrations) {
   let previousVersion = 0;

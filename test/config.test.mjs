@@ -33,4 +33,11 @@ describe("configuration", () => {
       /shorter than AUDIT_JOB_LEASE_MS/
     );
   });
+
+  it("bounds closed-beta scrypt concurrency", () => {
+    assert.equal(loadConfig().authScryptMaxConcurrency, 1);
+    assert.equal(loadConfig({ AUTH_SCRYPT_MAX_CONCURRENCY: 4 }).authScryptMaxConcurrency, 4);
+    assert.throws(() => loadConfig({ AUTH_SCRYPT_MAX_CONCURRENCY: 0 }), /positive integer/);
+    assert.throws(() => loadConfig({ AUTH_SCRYPT_MAX_CONCURRENCY: 5 }), /at most 4/);
+  });
 });

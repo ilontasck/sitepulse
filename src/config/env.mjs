@@ -22,6 +22,14 @@ function parsePositiveInteger(name, value, fallback) {
   return parsed;
 }
 
+function parseBoundedPositiveInteger(name, value, fallback, maximum) {
+  const parsed = parsePositiveInteger(name, value, fallback);
+  if (parsed > maximum) {
+    throw new Error(`${name} must be at most ${maximum}.`);
+  }
+  return parsed;
+}
+
 function parseBoolean(name, value, fallback = false) {
   const normalized = String(value ?? fallback).toLowerCase();
 
@@ -93,6 +101,12 @@ export function loadConfig(overrides = {}) {
     ),
     auditJobLeaseMs,
     auditJobHeartbeatMs,
+    authScryptMaxConcurrency: parseBoundedPositiveInteger(
+      "AUTH_SCRYPT_MAX_CONCURRENCY",
+      overrides.AUTH_SCRYPT_MAX_CONCURRENCY ?? process.env.AUTH_SCRYPT_MAX_CONCURRENCY,
+      1,
+      4
+    ),
     telemetryEnabled: parseBoolean("TELEMETRY_ENABLED", overrides.TELEMETRY_ENABLED ?? process.env.TELEMETRY_ENABLED, true)
   };
 }
