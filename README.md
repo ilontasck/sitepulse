@@ -174,6 +174,10 @@ Development alias for the web process:
 pnpm dev
 ```
 
+The backend now requires authentication for new audits and owner-scopes job/report reads. The current landing page does not yet include register/login controls, so signed-out form submission intentionally shows `Sign in to continue.` until the next frontend design phase.
+
+Migration `005_audit_ownership` requires the web process and audit worker to be deployed together. Do not run an older worker against owned jobs; both processes must share the migrated database and the same release.
+
 ## Move To A New Mac
 
 The repository is prepared so the new Mac setup is:
@@ -329,6 +333,12 @@ AUDIT_WORKER_POLL_INTERVAL_MS=500
 AUDIT_JOB_LEASE_MS=30000
 AUDIT_JOB_HEARTBEAT_MS=10000
 TELEMETRY_ENABLED=true
+PUBLIC_ORIGIN=http://127.0.0.1:3000
+AUTH_SCRYPT_MAX_CONCURRENCY=1
+AUTH_GENERAL_RATE_LIMIT_WINDOW_MS=60000
+AUTH_GENERAL_RATE_LIMIT_MAX=120
+AUDIT_USER_RATE_LIMIT_WINDOW_MS=3600000
+AUDIT_USER_RATE_LIMIT_MAX=10
 ```
 
 Notes:
@@ -340,6 +350,8 @@ Notes:
 - `RENDERED_AUDIT_MAX_CONCURRENCY` limits active Chromium audits per Node process. The beta default is `1`; excess requests complete with HTML findings instead of waiting in an unbounded queue.
 - `AUDIT_WORKER_POLL_INTERVAL_MS` controls how often the worker looks for queued jobs while idle.
 - `AUDIT_JOB_LEASE_MS` and `AUDIT_JOB_HEARTBEAT_MS` protect running jobs from duplicate completion; the heartbeat must be shorter than the lease.
+- `PUBLIC_ORIGIN` is the exact trusted Origin for cookie-authenticated mutations; production requires HTTPS.
+- `AUDIT_USER_RATE_LIMIT_*` limits new audits per authenticated user. The closed-beta default is 10 per hour, in addition to the coarse IP limiter.
 - `TELEMETRY_ENABLED` controls privacy-safe JSON audit events on stdout. Test environments keep the collector active but suppress output unless explicitly injected.
 - `.env` is ignored and should not be committed.
 
@@ -351,7 +363,7 @@ Returns service health.
 
 ### `POST /api/audits`
 
-Validates the URL, creates a persistent audit job, and returns immediately with `202 Accepted`.
+Requires a valid SitePulse session and exact trusted `Origin`, validates the URL, creates an owner-scoped persistent audit job, and returns immediately with `202 Accepted`.
 
 ```json
 {
@@ -460,8 +472,8 @@ SQLite caveat:
 Before production:
 
 - Replace local SQLite with Postgres.
-- Add authenticated user accounts.
-- Move slow scans into a background job queue.
+- Complete the authenticated frontend and account-management experience.
+- Move the SQLite-backed audit queue to production-managed storage/worker infrastructure when scaling beyond the closed-beta topology.
 - Add hosted file/report export.
 - Run rendered audits in an isolated worker/egress sandbox and add axe-core user-flow checks.
 - Add monitoring and structured logs.

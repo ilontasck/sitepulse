@@ -14,12 +14,30 @@ import { createAuditStore } from "../src/storage/audit-store.mjs";
 import { runMigrations } from "../src/storage/migrations.mjs";
 
 const temporaryDirectories = [];
+const TEST_USER_ID = "11111111-1111-4111-8111-111111111111";
+const OTHER_USER_ID = "22222222-2222-4222-8222-222222222222";
+
+function insertTestUser(databaseFilePath, userId = TEST_USER_ID, email = "queue-owner@example.com") {
+  inspectDatabase(databaseFilePath, (database) => {
+    const now = "2026-08-14T10:00:00.000Z";
+    database.prepare(`
+      INSERT INTO users (
+        id, email_original, email_normalized, password_hash, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(userId, email, email, "x".repeat(64), now, now);
+  });
+}
+
+function enqueueOwned(store, normalizedUrl, userId = TEST_USER_ID) {
+  return store.enqueue({ normalizedUrl, userId });
+}
 
 function temporaryDatabase(prefix = "sitepulse-queue-resilience-") {
   const directory = mkdtempSync(join(tmpdir(), prefix));
   temporaryDirectories.push(directory);
   const databaseFilePath = join(directory, "sitepulse.sqlite");
   runMigrations(databaseFilePath);
+  insertTestUser(databaseFilePath);
   return databaseFilePath;
 }
 
@@ -188,6 +206,12 @@ function assertDatabaseInvariants(databaseFilePath, { expectEveryAuditLinked = t
         SELECT audit_id FROM audit_jobs WHERE audit_id IS NOT NULL GROUP BY audit_id HAVING COUNT(*) > 1
       )
     `).get().count,
+    ownershipMismatch: database.prepare(`
+      SELECT COUNT(*) AS count
+      FROM audit_jobs AS jobs
+      INNER JOIN audits ON audits.id = jobs.audit_id
+      WHERE jobs.user_id IS NOT audits.user_id
+    `).get().count,
     unlinkedAudits: database.prepare(`
       SELECT COUNT(*) AS count
       FROM audits
@@ -202,6 +226,7 @@ function assertDatabaseInvariants(databaseFilePath, { expectEveryAuditLinked = t
   assert.equal(violations.runningWithoutOwnership, 0);
   assert.equal(violations.missingAuditReference, 0);
   assert.equal(violations.duplicateAuditLinks, 0);
+  assert.equal(violations.ownershipMismatch, 0);
 
   if (expectEveryAuditLinked) {
     assert.equal(violations.unlinkedAudits, 0);
@@ -225,7 +250,7 @@ describe("audit queue resilience", () => {
       leaseTokenGenerator: () => `lease-${leaseNumber += 1}`
     });
     const enqueued = Array.from({ length: 10 }, (_, index) =>
-      store.enqueue({ normalizedUrl: `https://queue-${index}.example.com` })
+      enqueueOwned(store, `https://queue-${index}.example.com`)
     );
     const generatedUrls = [];
     const worker = workerFor(store, "worker-single", {
@@ -258,7 +283,7 @@ describe("audit queue resilience", () => {
     const databaseFilePath = temporaryDatabase();
     const enqueueStore = createAuditJobStore(databaseFilePath);
     const enqueued = Array.from({ length: 10 }, (_, index) =>
-      enqueueStore.enqueue({ normalizedUrl: `https://parallel-${index}.example.com` })
+      enqueueOwned(enqueueStore, `https://parallel-${index}.example.com`)
     );
     const generatorCalls = new Map();
     const auditGenerator = async (normalizedUrl) => {
@@ -289,6 +314,41 @@ describe("audit queue resilience", () => {
     assertDatabaseInvariants(databaseFilePath);
   });
 
+  it("drains a mixed-user FIFO queue without mixing persisted audit ownership", async () => {
+    const databaseFilePath = temporaryDatabase();
+    insertTestUser(databaseFilePath, OTHER_USER_ID, "queue-other@example.com");
+    const store = createAuditJobStore(databaseFilePath);
+    const queued = [
+      enqueueOwned(store, "https://a1.example.com", TEST_USER_ID),
+      enqueueOwned(store, "https://b1.example.com", OTHER_USER_ID),
+      enqueueOwned(store, "https://a2.example.com", TEST_USER_ID),
+      enqueueOwned(store, "https://b2.example.com", OTHER_USER_ID)
+    ];
+    const worker = workerFor(store, "mixed-owner-worker");
+
+    for (let index = 0; index < queued.length; index += 1) {
+      assert.equal((await worker.runOnce()).status, "completed");
+    }
+
+    const ownership = inspectDatabase(databaseFilePath, (database) =>
+      database.prepare(`
+        SELECT jobs.id, jobs.user_id AS job_user_id, audits.user_id AS audit_user_id
+        FROM audit_jobs AS jobs
+        INNER JOIN audits ON audits.id = jobs.audit_id
+        ORDER BY jobs.created_at, jobs.id
+      `).all()
+    );
+    const expectedById = new Map(queued.map((job) => [job.id, job.userId]));
+
+    assert.equal(ownership.length, 4);
+    for (const row of ownership) {
+      assert.equal(row.job_user_id, expectedById.get(row.id));
+      assert.equal(row.audit_user_id, expectedById.get(row.id));
+    }
+    assert.equal(new Set(ownership.map(({ id }) => id)).size, 4);
+    assertDatabaseInvariants(databaseFilePath);
+  });
+
   it("recovers a crashed first attempt and fences its stale result", async () => {
     const databaseFilePath = temporaryDatabase();
     let now = "2026-08-14T10:00:00.000Z";
@@ -297,7 +357,7 @@ describe("audit queue resilience", () => {
       idGenerator: () => "job-crash-1",
       leaseTokenGenerator: () => "lease-worker-a"
     });
-    const queued = storeA.enqueue({ normalizedUrl: "https://crash.example.com" });
+    const queued = enqueueOwned(storeA, "https://crash.example.com");
     const firstClaim = storeA.claimNext({ workerId: "worker-a", leaseMs: 30_000 });
     now = "2026-08-14T10:00:31.000Z";
     const storeB = createAuditJobStore(databaseFilePath, {
@@ -343,7 +403,7 @@ describe("audit queue resilience", () => {
       idGenerator: () => "job-crash-2",
       leaseTokenGenerator: () => `lease-${leaseNumber += 1}`
     });
-    const queued = store.enqueue({ normalizedUrl: "https://double-crash.example.com" });
+    const queued = enqueueOwned(store, "https://double-crash.example.com");
     const firstClaim = store.claimNext({ workerId: "worker-a", leaseMs: 1_000 });
     now = "2026-08-14T10:00:02.000Z";
     assert.deepEqual(store.recoverExpired(), { requeued: 1, failed: 0 });
@@ -376,7 +436,7 @@ describe("audit queue resilience", () => {
     for (const failureCase of transientCases) {
       const databaseFilePath = temporaryDatabase(`sitepulse-retry-${failureCase.label.replaceAll(" ", "-")}-`);
       const store = createAuditJobStore(databaseFilePath);
-      const queued = store.enqueue({ normalizedUrl: `https://${failureCase.label.toLowerCase().replaceAll("_", "-").replaceAll(" ", "-")}.example.com` });
+      const queued = enqueueOwned(store, `https://${failureCase.label.toLowerCase().replaceAll("_", "-").replaceAll(" ", "-")}.example.com`);
       let generatorCalls = 0;
       const worker = workerFor(store, `worker-${failureCase.label}`, {
         auditGenerator: async (normalizedUrl) => {
@@ -416,7 +476,7 @@ describe("audit queue resilience", () => {
   it("fails an exhausted retry with only classified safe error data", async () => {
     const databaseFilePath = temporaryDatabase();
     const store = createAuditJobStore(databaseFilePath);
-    const queued = store.enqueue({ normalizedUrl: "https://exhausted.example.com" });
+    const queued = enqueueOwned(store, "https://exhausted.example.com");
     const worker = workerFor(store, "worker-exhausted", {
       auditGenerator: async () => {
         const error = Object.assign(new Error("raw upstream token=secret"), { code: "ECONNRESET" });
@@ -445,7 +505,7 @@ describe("audit queue resilience", () => {
     for (const code of terminalCodes) {
       const databaseFilePath = temporaryDatabase(`sitepulse-terminal-${code.toLowerCase()}-`);
       const store = createAuditJobStore(databaseFilePath);
-      const queued = store.enqueue({ normalizedUrl: `https://${code.toLowerCase().replaceAll("_", "-")}.example.com` });
+      const queued = enqueueOwned(store, `https://${code.toLowerCase().replaceAll("_", "-")}.example.com`);
       let generated = 0;
       const worker = workerFor(store, `worker-${code}`, {
         securityValidator: async () => {
@@ -479,7 +539,7 @@ describe("audit queue resilience", () => {
     let now = "2026-08-14T10:00:00.000Z";
     const storeA = createAuditJobStore(databaseFilePath, { clock: () => now });
     const storeB = createAuditJobStore(databaseFilePath, { clock: () => now });
-    const queued = storeA.enqueue({ normalizedUrl: "https://long-running.example.com" });
+    const queued = enqueueOwned(storeA, "https://long-running.example.com");
     const auditStarted = deferred();
     const finishAudit = deferred();
     let heartbeatCallback;
@@ -528,7 +588,7 @@ describe("audit queue resilience", () => {
   it("drops a stale result when heartbeat renewal loses ownership", async () => {
     const databaseFilePath = temporaryDatabase();
     const store = createAuditJobStore(databaseFilePath);
-    const queued = store.enqueue({ normalizedUrl: "https://ownership-lost.example.com" });
+    const queued = enqueueOwned(store, "https://ownership-lost.example.com");
     const auditStarted = deferred();
     const finishAudit = deferred();
     let heartbeatCallback;
@@ -586,7 +646,8 @@ describe("audit queue resilience", () => {
           const ids = [];
           for (let index = 0; index < workerData.count; index += 1) {
             ids.push(store.enqueue({
-              normalizedUrl: "https://enqueue-" + workerData.workerIndex + "-" + index + ".example.com"
+              normalizedUrl: "https://enqueue-" + workerData.workerIndex + "-" + index + ".example.com",
+              userId: workerData.userId
             }).id);
           }
           parentPort.postMessage({ type: "result", value: ids });
@@ -601,6 +662,7 @@ describe("audit queue resilience", () => {
         databaseFilePath,
         storeModuleUrl,
         workerIndex,
+        userId: TEST_USER_ID,
         count: 5
       }))
     );
@@ -620,7 +682,7 @@ describe("audit queue resilience", () => {
   it("allows exactly one independent Node worker to claim a queued job", async () => {
     const databaseFilePath = temporaryDatabase();
     const store = createAuditJobStore(databaseFilePath);
-    const queued = store.enqueue({ normalizedUrl: "https://atomic-claim.example.com" });
+    const queued = enqueueOwned(store, "https://atomic-claim.example.com");
     const storeModuleUrl = new URL("../src/storage/audit-job-store.mjs", import.meta.url).href;
     const workerSource = `
       const { parentPort, workerData } = require("node:worker_threads");
@@ -670,7 +732,7 @@ describe("audit queue resilience", () => {
       })(),
       leaseTokenGenerator: () => "lease-lock"
     });
-    const queued = store.enqueue({ normalizedUrl: "https://writer-lock.example.com" });
+    const queued = enqueueOwned(store, "https://writer-lock.example.com");
     const claimed = store.claimNext({ workerId: "worker-lock", leaseMs: 30_000 });
     const lock = holdShortWriteLock(databaseFilePath, 150);
     await lock.locked;
@@ -718,8 +780,8 @@ describe("audit queue resilience", () => {
       jobsTable: database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'audit_jobs'").get().count
     }));
 
-    assert.deepEqual(results.map((rows) => rows.map(({ version }) => version)), [[1, 2, 3, 4], [1, 2, 3, 4]]);
-    assert.deepEqual(schema.migrations.map(({ version }) => version), [1, 2, 3, 4]);
+    assert.deepEqual(results.map((rows) => rows.map(({ version }) => version)), [[1, 2, 3, 4, 5], [1, 2, 3, 4, 5]]);
+    assert.deepEqual(schema.migrations.map(({ version }) => version), [1, 2, 3, 4, 5]);
     assert.equal(schema.auditsTable, 1);
     assert.equal(schema.jobsTable, 1);
   });
@@ -732,11 +794,11 @@ describe("audit queue resilience", () => {
     const migrations = runMigrations(databaseFilePath);
     await lock.released();
 
-    assert.deepEqual(migrations.map(({ version }) => version), [1, 2, 3, 4]);
+    assert.deepEqual(migrations.map(({ version }) => version), [1, 2, 3, 4, 5]);
     const schemaVersions = inspectDatabase(databaseFilePath, (database) =>
       database.prepare("SELECT version FROM schema_migrations ORDER BY version").all().map(({ version }) => version)
     );
-    assert.deepEqual(schemaVersions, [1, 2, 3, 4]);
+    assert.deepEqual(schemaVersions, [1, 2, 3, 4, 5]);
   });
 
   it("recovers persisted queued and expired work after a simulated process restart", async () => {
@@ -749,9 +811,9 @@ describe("audit queue resilience", () => {
       leaseTokenGenerator: () => "lease-before-restart"
     });
     const queuedJobs = [
-      storeBeforeRestart.enqueue({ normalizedUrl: "https://restart-1.example.com" }),
-      storeBeforeRestart.enqueue({ normalizedUrl: "https://restart-2.example.com" }),
-      storeBeforeRestart.enqueue({ normalizedUrl: "https://restart-3.example.com" })
+      enqueueOwned(storeBeforeRestart, "https://restart-1.example.com"),
+      enqueueOwned(storeBeforeRestart, "https://restart-2.example.com"),
+      enqueueOwned(storeBeforeRestart, "https://restart-3.example.com")
     ];
     const abandonedClaim = storeBeforeRestart.claimNext({ workerId: "worker-before-restart", leaseMs: 1_000 });
     now = "2026-08-14T10:00:02.000Z";
@@ -780,6 +842,7 @@ describe("audit queue resilience", () => {
     assert.equal(results.every(({ status }) => status === "completed"), true);
     assert.deepEqual(completedJobs.map(({ status }) => status), ["completed", "completed", "completed"]);
     assert.deepEqual(completedJobs.map(({ attemptCount }) => attemptCount), [2, 1, 1]);
+    assert.deepEqual(completedJobs.map(({ userId }) => userId), [TEST_USER_ID, TEST_USER_ID, TEST_USER_ID]);
     assert.deepEqual(staleCompletion, { completed: false, job: null, audit: null });
     assert.equal((await createAuditStore(databaseFilePath).list({ limit: 100 })).length, 3);
     assertDatabaseInvariants(databaseFilePath);
@@ -790,7 +853,11 @@ describe("audit queue resilience", () => {
     const config = loadConfig({
       NODE_ENV: "test",
       PORT: 0,
+      PUBLIC_ORIGIN: "http://sitepulse.test",
       RATE_LIMIT_MAX: 500,
+      AUTH_REGISTER_RATE_LIMIT_MAX: 100,
+      AUTH_GENERAL_RATE_LIMIT_MAX: 500,
+      AUDIT_USER_RATE_LIMIT_MAX: 20,
       DATABASE_FILE_PATH: databaseFilePath
     });
     const store = createAuditStore(databaseFilePath);
@@ -812,11 +879,25 @@ describe("audit queue resilience", () => {
     try {
       const { port } = server.address();
       const baseUrl = `http://127.0.0.1:${port}`;
+      const registration = await fetch(`${baseUrl}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: config.publicOrigin },
+        body: JSON.stringify({
+          email: "burst-owner@example.com",
+          password: "correct horse battery staple"
+        })
+      });
+      const cookie = registration.headers.get("set-cookie")?.split(";", 1)[0];
+      assert.equal(registration.status, 201);
       const targets = Array.from({ length: 10 }, (_, index) => `https://burst-${index}.example.com`);
       const responses = await Promise.all(targets.map((websiteUrl) =>
         fetch(`${baseUrl}/api/audits`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Origin: config.publicOrigin,
+            Cookie: cookie
+          },
           body: JSON.stringify({ websiteUrl })
         })
       ));
@@ -834,9 +915,13 @@ describe("audit queue resilience", () => {
         workerResults.push(await worker.runOnce());
       }
 
-      const statusResponses = await Promise.all(jobIds.map((jobId) => fetch(`${baseUrl}/api/audit-jobs/${jobId}`)));
+      const statusResponses = await Promise.all(jobIds.map((jobId) =>
+        fetch(`${baseUrl}/api/audit-jobs/${jobId}`, { headers: { Cookie: cookie } })
+      ));
       const statuses = await Promise.all(statusResponses.map((response) => response.json()));
-      const reportResponses = await Promise.all(statuses.map(({ job }) => fetch(`${baseUrl}${job.auditUrl}`)));
+      const reportResponses = await Promise.all(statuses.map(({ job }) =>
+        fetch(`${baseUrl}${job.auditUrl}`, { headers: { Cookie: cookie } })
+      ));
       const reports = await Promise.all(reportResponses.map((response) => response.json()));
 
       assert.equal(workerResults.every(({ status }) => status === "completed"), true);

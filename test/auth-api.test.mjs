@@ -344,14 +344,27 @@ describe("authentication HTTP API", () => {
     });
   });
 
-  it("keeps audit creation public until ownership migration is implemented", async () => {
+  it("requires authentication and trusted Origin for audit creation after ownership migration", async () => {
     const api = await startApi({ dependencies: { initialUrlSafetyValidator: async () => true } });
-    const response = await fetch(`${api.baseUrl}/api/audits`, {
+    const unauthenticated = await fetch(`${api.baseUrl}/api/audits`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ websiteUrl: "example.com" })
     });
+    const registration = await register(api, "audit-owner@example.com");
+    const token = sessionTokenFrom(registration);
+    const authenticated = await fetch(`${api.baseUrl}/api/audits`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: publicOrigin,
+        Cookie: `sitepulse_session=${token}`
+      },
+      body: JSON.stringify({ websiteUrl: "example.com" })
+    });
 
-    assert.equal(response.status, 202);
+    assert.equal(unauthenticated.status, 401);
+    assert.equal((await unauthenticated.json()).error.code, "AUTHENTICATION_REQUIRED");
+    assert.equal(authenticated.status, 202);
   });
 });

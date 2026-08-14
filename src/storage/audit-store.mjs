@@ -66,6 +66,19 @@ export function createAuditStore(databaseFilePath) {
 
         return row ? toAuditRecord(row) : null;
       });
+    },
+
+    async findByIdForUser(id, userId) {
+      return withDatabase(databaseFilePath, (database) => {
+        const row = database.prepare(`
+          SELECT report_json
+          FROM audits
+          WHERE id = ? AND user_id = ?
+          LIMIT 1
+        `).get(id, userId);
+
+        return row ? toAuditRecord(row) : null;
+      });
     }
   };
 }

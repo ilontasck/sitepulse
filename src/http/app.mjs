@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import { createAuthService } from "../auth/auth-service.mjs";
 import { createPasswordService } from "../auth/password.mjs";
+import { startSessionCleanupScheduler } from "../auth/session-cleanup-scheduler.mjs";
 import { createAuditJobStore } from "../storage/audit-job-store.mjs";
 import { createAuditStore } from "../storage/audit-store.mjs";
 import { createAuthStore } from "../storage/auth-store.mjs";
@@ -47,8 +48,20 @@ export function createApp(config, dependencies = {}) {
       max: config.authLoginRateLimitMax
     })
   };
+  const auditRateLimiters = dependencies.auditRateLimiters || {
+    general: createRateLimiter({
+      windowMs: config.authGeneralRateLimitWindowMs,
+      max: config.authGeneralRateLimitMax,
+      keySelector: (_request, user) => `user:${user.id}`
+    }),
+    create: createRateLimiter({
+      windowMs: config.auditUserRateLimitWindowMs,
+      max: config.auditUserRateLimitMax,
+      keySelector: (_request, user) => `user:${user.id}`
+    })
+  };
 
-  return createServer(async (request, response) => {
+  const server = createServer(async (request, response) => {
     applySecurityHeaders(response);
     const url = new URL(request.url || "/", `http://${config.host}:${config.port}`);
 
@@ -89,6 +102,9 @@ export function createApp(config, dependencies = {}) {
           jobStore,
           url,
           telemetry,
+          authService,
+          cookiePolicy,
+          rateLimiters: auditRateLimiters,
           initialUrlSafetyValidator: dependencies.initialUrlSafetyValidator
         });
 
@@ -135,4 +151,12 @@ export function createApp(config, dependencies = {}) {
       }
     }
   });
+  const sessionCleanup = (dependencies.startSessionCleanupScheduler || startSessionCleanupScheduler)({
+    ...dependencies.sessionCleanupOptions,
+    authStore,
+    telemetry
+  });
+  server.once("close", () => sessionCleanup.stop());
+
+  return server;
 }

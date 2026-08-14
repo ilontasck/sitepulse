@@ -362,6 +362,16 @@ test("an audit fetch failure does not expose a browser error", async ({ page }) 
   await expect(page.getByRole("button", { name: /Run audit/ })).toBeEnabled();
 });
 
+test("signed-out frontend exposes the temporary backend login requirement safely", async ({ page }) => {
+  await page.goto("/");
+  await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");
+  await page.getByRole("button", { name: /Run audit/ }).click();
+
+  await expect(page.getByRole("alert")).toHaveText("Sign in to continue.");
+  await expect(page.getByRole("button", { name: /Run audit/ })).toBeEnabled();
+  await expect(page.locator("#report")).toBeHidden();
+});
+
 test("validation errors are visible and do not break the page", async ({ page }) => {
   const browserErrors = collectBrowserErrors(page);
 

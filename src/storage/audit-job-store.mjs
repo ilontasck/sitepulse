@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { createAuditRecord, insertAuditRecord } from "./audit-record.mjs";
 import { withDatabase, withImmediateTransaction } from "./sqlite-database.mjs";
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
 function toIsoTime(value) {
   const date = value instanceof Date ? value : new Date(value);
 
@@ -27,6 +29,7 @@ function toJob(row) {
     id: row.id,
     status: row.status,
     normalizedUrl: row.normalized_url,
+    userId: row.user_id,
     auditId: row.audit_id,
     attemptCount: row.attempt_count,
     maxAttempts: row.max_attempts,
@@ -42,6 +45,13 @@ function toJob(row) {
     completedAt: row.completed_at,
     failedAt: row.failed_at
   };
+}
+
+function requireUserId(userId) {
+  if (typeof userId !== "string" || !uuidPattern.test(userId)) {
+    throw new TypeError("userId must be a valid UUID.");
+  }
+  return userId;
 }
 
 function validateFailure(failure) {
@@ -66,17 +76,18 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
   const leaseTokenGenerator = options.leaseTokenGenerator || randomUUID;
 
   return {
-    enqueue({ normalizedUrl }) {
+    enqueue({ normalizedUrl, userId }) {
       const now = toIsoTime(clock());
       const id = idGenerator();
+      const ownerId = requireUserId(userId);
 
       return withDatabase(databaseFilePath, (database) => {
         database.prepare(`
           INSERT INTO audit_jobs (
             id, status, normalized_url, attempt_count, max_attempts,
-            available_at, created_at, updated_at
-          ) VALUES (?, 'queued', ?, 0, 2, ?, ?, ?)
-        `).run(id, normalizedUrl, now, now, now);
+            available_at, created_at, updated_at, user_id
+          ) VALUES (?, 'queued', ?, 0, 2, ?, ?, ?, ?)
+        `).run(id, normalizedUrl, now, now, now, ownerId);
 
         return toJob(database.prepare("SELECT * FROM audit_jobs WHERE id = ?").get(id));
       });
@@ -85,6 +96,17 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
     findById(jobId) {
       return withDatabase(databaseFilePath, (database) =>
         toJob(database.prepare("SELECT * FROM audit_jobs WHERE id = ? LIMIT 1").get(jobId))
+      );
+    },
+
+    findByIdForUser(jobId, userId) {
+      return withDatabase(databaseFilePath, (database) =>
+        toJob(database.prepare(`
+          SELECT *
+          FROM audit_jobs
+          WHERE id = ? AND user_id = ?
+          LIMIT 1
+        `).get(jobId, userId))
       );
     },
 
@@ -149,7 +171,7 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
       return withDatabase(databaseFilePath, (database) =>
         withImmediateTransaction(database, () => {
           const ownedJob = database.prepare(`
-            SELECT id
+            SELECT id, user_id
             FROM audit_jobs
             WHERE id = ?
               AND status = 'running'
@@ -162,7 +184,7 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
           }
 
           const auditRecord = createAuditRecord(audit, { id: idGenerator(), now });
-          insertAuditRecord(database, auditRecord);
+          insertAuditRecord(database, auditRecord, { userId: ownedJob.user_id });
           const completedJob = database.prepare(`
             UPDATE audit_jobs
             SET status = 'completed',

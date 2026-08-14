@@ -10,6 +10,27 @@ import { createAuditJobStore } from "../src/storage/audit-job-store.mjs";
 import { runMigrations } from "../src/storage/migrations.mjs";
 
 const temporaryDirectories = [];
+const TEST_USER_ID = "11111111-1111-4111-8111-111111111111";
+const OTHER_USER_ID = "22222222-2222-4222-8222-222222222222";
+
+function insertTestUser(databaseFilePath, userId, email) {
+  const database = new DatabaseSync(databaseFilePath);
+
+  try {
+    const now = "2026-08-13T10:00:00.000Z";
+    database.prepare(`
+      INSERT INTO users (
+        id, email_original, email_normalized, password_hash, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(userId, email, email, "x".repeat(64), now, now);
+  } finally {
+    database.close();
+  }
+}
+
+function enqueue(store, normalizedUrl, userId = TEST_USER_ID) {
+  return store.enqueue({ normalizedUrl, userId });
+}
 
 function testStore({ now = "2026-08-13T10:00:00.000Z", ids = [] } = {}) {
   const directory = mkdtempSync(join(tmpdir(), "sitepulse-job-store-"));
@@ -18,6 +39,8 @@ function testStore({ now = "2026-08-13T10:00:00.000Z", ids = [] } = {}) {
   let currentTime = now;
   let nextId = 0;
   runMigrations(databaseFilePath);
+  insertTestUser(databaseFilePath, TEST_USER_ID, "owner@example.com");
+  insertTestUser(databaseFilePath, OTHER_USER_ID, "other@example.com");
 
   return {
     databaseFilePath,
@@ -65,12 +88,13 @@ describe("audit job store", () => {
   it("enqueues and finds a normalized queued job", () => {
     const { store } = testStore({ ids: ["job-1"] });
 
-    const created = store.enqueue({ normalizedUrl: "https://example.com" });
+    const created = enqueue(store, "https://example.com");
 
     assert.deepEqual(created, {
       id: "job-1",
       status: "queued",
       normalizedUrl: "https://example.com",
+      userId: TEST_USER_ID,
       auditId: null,
       attemptCount: 0,
       maxAttempts: 2,
@@ -87,15 +111,34 @@ describe("audit job store", () => {
       failedAt: null
     });
     assert.deepEqual(store.findById("job-1"), created);
+    assert.deepEqual(store.findByIdForUser("job-1", TEST_USER_ID), created);
+    assert.equal(store.findByIdForUser("job-1", OTHER_USER_ID), null);
     assert.equal(store.findById("missing"), null);
+  });
+
+  it("requires a valid persisted user owner for every new job", () => {
+    const { store } = testStore({ ids: ["job-1", "job-2", "job-3"] });
+
+    assert.throws(() => store.enqueue({ normalizedUrl: "https://example.com" }), /userId/i);
+    assert.throws(
+      () => store.enqueue({ normalizedUrl: "https://example.com", userId: "not-a-uuid" }),
+      /userId/i
+    );
+    assert.throws(
+      () => store.enqueue({
+        normalizedUrl: "https://example.com",
+        userId: "33333333-3333-4333-8333-333333333333"
+      }),
+      /foreign key constraint/i
+    );
   });
 
   it("claims the oldest eligible queued job and skips future work", () => {
     const fixture = testStore({ ids: ["future-job", "oldest-job", "lease-1"] });
     fixture.setTime("2026-08-13T10:01:00.000Z");
-    fixture.store.enqueue({ normalizedUrl: "https://future.example.com" });
+    enqueue(fixture.store, "https://future.example.com");
     fixture.setTime("2026-08-13T10:00:00.000Z");
-    fixture.store.enqueue({ normalizedUrl: "https://oldest.example.com" });
+    enqueue(fixture.store, "https://oldest.example.com");
 
     const claimed = fixture.store.claimNext({ workerId: "worker-1", leaseMs: 30_000 });
 
@@ -106,12 +149,13 @@ describe("audit job store", () => {
     assert.equal(claimed.leaseToken, "lease-1");
     assert.equal(claimed.leaseExpiresAt, "2026-08-13T10:00:30.000Z");
     assert.equal(claimed.startedAt, "2026-08-13T10:00:00.000Z");
+    assert.equal(claimed.userId, TEST_USER_ID);
     assert.equal(fixture.store.claimNext({ workerId: "worker-2", leaseMs: 30_000 }), null);
   });
 
   it("fences a running job and renews its lease only for the current owner", () => {
     const fixture = testStore({ ids: ["job-1", "lease-1"] });
-    fixture.store.enqueue({ normalizedUrl: "https://example.com" });
+    enqueue(fixture.store, "https://example.com");
     const claimed = fixture.store.claimNext({ workerId: "worker-1", leaseMs: 30_000 });
     const secondStore = createAuditJobStore(fixture.databaseFilePath, {
       clock: () => "2026-08-13T10:00:05.000Z",
@@ -142,14 +186,15 @@ describe("audit job store", () => {
 
   it("atomically creates an audit and completes its owned job", async () => {
     const fixture = testStore({ ids: ["job-1", "lease-1", "audit-1"] });
-    fixture.store.enqueue({ normalizedUrl: "https://example.com" });
+    enqueue(fixture.store, "https://example.com");
     const claimed = fixture.store.claimNext({ workerId: "worker-1", leaseMs: 30_000 });
 
     const completed = fixture.store.complete({
       jobId: claimed.id,
       workerId: "worker-1",
       leaseToken: claimed.leaseToken,
-      audit: fakeAudit()
+      userId: OTHER_USER_ID,
+      audit: { ...fakeAudit(), userId: OTHER_USER_ID }
     });
 
     assert.equal(completed.completed, true);
@@ -158,9 +203,17 @@ describe("audit job store", () => {
     assert.equal(completed.job.completedAt, "2026-08-13T10:00:00.000Z");
     assert.equal(completed.job.workerId, null);
     assert.equal(completed.job.leaseToken, null);
+    assert.equal(completed.job.userId, TEST_USER_ID);
     const storedAudit = await createAuditStore(fixture.databaseFilePath).findById("audit-1");
     assert.equal(storedAudit.id, "audit-1");
     assert.equal(storedAudit.domain, "example.com");
+    const database = new DatabaseSync(fixture.databaseFilePath);
+    const relationalAudit = database.prepare("SELECT user_id, report_json FROM audits WHERE id = ?").get("audit-1");
+    database.close();
+    assert.equal(relationalAudit.user_id, TEST_USER_ID);
+    assert.equal(JSON.parse(relationalAudit.report_json).userId, undefined);
+    assert.equal(await createAuditStore(fixture.databaseFilePath).findByIdForUser("audit-1", TEST_USER_ID) !== null, true);
+    assert.equal(await createAuditStore(fixture.databaseFilePath).findByIdForUser("audit-1", OTHER_USER_ID), null);
     assert.deepEqual(
       fixture.store.complete({
         jobId: claimed.id,
@@ -175,7 +228,7 @@ describe("audit job store", () => {
 
   it("rejects stale completion without leaving an orphan audit", () => {
     const fixture = testStore({ ids: ["job-1", "lease-1", "unused-audit-id"] });
-    fixture.store.enqueue({ normalizedUrl: "https://example.com" });
+    enqueue(fixture.store, "https://example.com");
     const claimed = fixture.store.claimNext({ workerId: "worker-1", leaseMs: 30_000 });
 
     const result = fixture.store.complete({
@@ -192,7 +245,7 @@ describe("audit job store", () => {
 
   it("requeues a retryable first failure, uses a fresh lease, and fails after attempt two", () => {
     const fixture = testStore({ ids: ["job-1", "lease-1", "lease-2"] });
-    fixture.store.enqueue({ normalizedUrl: "https://example.com" });
+    enqueue(fixture.store, "https://example.com");
     const firstClaim = fixture.store.claimNext({ workerId: "worker-1", leaseMs: 30_000 });
 
     assert.deepEqual(
@@ -217,11 +270,13 @@ describe("audit job store", () => {
     assert.equal(retry.job.attemptCount, 1);
     assert.equal(retry.job.workerId, null);
     assert.equal(retry.job.errorCode, "TEMPORARY_NETWORK_ERROR");
+    assert.equal(retry.job.userId, TEST_USER_ID);
 
     const secondClaim = fixture.store.claimNext({ workerId: "worker-2", leaseMs: 30_000 });
     assert.equal(secondClaim.attemptCount, 2);
     assert.equal(secondClaim.leaseToken, "lease-2");
     assert.notEqual(secondClaim.leaseToken, firstClaim.leaseToken);
+    assert.equal(secondClaim.userId, TEST_USER_ID);
 
     const exhausted = fixture.store.handleFailure({
       jobId: secondClaim.id,
@@ -238,7 +293,7 @@ describe("audit job store", () => {
 
   it("fails a terminal error immediately and keeps terminal jobs immutable", () => {
     const fixture = testStore({ ids: ["job-1", "lease-1"] });
-    fixture.store.enqueue({ normalizedUrl: "https://example.com" });
+    enqueue(fixture.store, "https://example.com");
     const claimed = fixture.store.claimNext({ workerId: "worker-1", leaseMs: 30_000 });
 
     const failed = fixture.store.handleFailure({
@@ -274,7 +329,7 @@ describe("audit job store", () => {
 
   it("recovers an expired first attempt to queued without decrementing attempts", () => {
     const fixture = testStore({ ids: ["job-1", "lease-1", "lease-2"] });
-    fixture.store.enqueue({ normalizedUrl: "https://example.com" });
+    enqueue(fixture.store, "https://example.com");
     const firstClaim = fixture.store.claimNext({ workerId: "worker-1", leaseMs: 30_000 });
     fixture.setTime("2026-08-13T10:00:31.000Z");
 
@@ -286,6 +341,7 @@ describe("audit job store", () => {
     assert.equal(recovered.attemptCount, 1);
     assert.equal(recovered.workerId, null);
     assert.equal(recovered.leaseToken, null);
+    assert.equal(recovered.userId, TEST_USER_ID);
     const secondClaim = fixture.store.claimNext({ workerId: "worker-2", leaseMs: 30_000 });
     assert.equal(secondClaim.attemptCount, 2);
     assert.equal(secondClaim.leaseToken, "lease-2");
@@ -293,7 +349,7 @@ describe("audit job store", () => {
 
   it("fails an expired second attempt and does not recover completed or failed jobs", () => {
     const fixture = testStore({ ids: ["job-1", "lease-1", "lease-2", "terminal-job", "terminal-lease"] });
-    fixture.store.enqueue({ normalizedUrl: "https://example.com" });
+    enqueue(fixture.store, "https://example.com");
     const first = fixture.store.claimNext({ workerId: "worker-1", leaseMs: 1_000 });
     fixture.store.handleFailure({
       jobId: first.id,

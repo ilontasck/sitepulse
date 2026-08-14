@@ -28,4 +28,25 @@ describe("bounded in-process rate limiting", () => {
     now = 1_101;
     assert.doesNotThrow(() => limiter(request("192.0.2.3"), responseStub()));
   });
+
+  it("supports a safe caller-selected ownership key without using request credentials", () => {
+    const seenContexts = [];
+    const limiter = createRateLimiter({
+      windowMs: 60_000,
+      max: 1,
+      keySelector(_request, context) {
+        seenContexts.push(context);
+        return `user:${context.userId}`;
+      }
+    });
+    const request = { socket: { remoteAddress: "192.0.2.1" } };
+
+    assert.doesNotThrow(() => limiter(request, responseStub(), { userId: "user-a" }));
+    assert.doesNotThrow(() => limiter(request, responseStub(), { userId: "user-b" }));
+    assert.throws(
+      () => limiter(request, responseStub(), { userId: "user-a" }),
+      (error) => error?.statusCode === 429 && error?.code === "RATE_LIMITED"
+    );
+    assert.deepEqual(seenContexts, [{ userId: "user-a" }, { userId: "user-b" }, { userId: "user-a" }]);
+  });
 });

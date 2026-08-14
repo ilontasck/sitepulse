@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, it } from "node:test";
 import { createAuditJobWorker } from "../src/audit/audit-job-worker.mjs";
+import { createPasswordService } from "../src/auth/password.mjs";
 import { loadConfig } from "../src/config/env.mjs";
 import { createApp } from "../src/http/app.mjs";
 import { createAuditJobStore } from "../src/storage/audit-job-store.mjs";
@@ -12,6 +14,15 @@ import { runMigrations } from "../src/storage/migrations.mjs";
 import { withDatabase } from "../src/storage/sqlite-database.mjs";
 
 const openServers = new Set();
+const publicOrigin = "http://sitepulse.test";
+
+function fastPasswordService() {
+  return createPasswordService({
+    deriveKey(passwordBytes, salt, { keyLength }) {
+      return Promise.resolve(createHash("sha512").update(passwordBytes).update(salt).digest().subarray(0, keyLength));
+    }
+  });
+}
 
 function fakeAudit(domain = "luna-cafe.com") {
   return {
@@ -48,7 +59,12 @@ async function startApi({ configOverrides = {}, dependencies = {}, seedAudit = f
   const config = loadConfig({
     NODE_ENV: "test",
     PORT: 0,
+    PUBLIC_ORIGIN: publicOrigin,
     RATE_LIMIT_MAX: 500,
+    AUTH_REGISTER_RATE_LIMIT_MAX: 100,
+    AUTH_LOGIN_RATE_LIMIT_MAX: 100,
+    AUTH_GENERAL_RATE_LIMIT_MAX: 500,
+    AUDIT_USER_RATE_LIMIT_MAX: 100,
     DATABASE_FILE_PATH: join(directory, "sitepulse.sqlite"),
     ...configOverrides
   });
@@ -56,13 +72,18 @@ async function startApi({ configOverrides = {}, dependencies = {}, seedAudit = f
   const store = dependencies.store || createAuditStore(config.databaseFilePath);
   const jobStore = dependencies.jobStore || createAuditJobStore(config.databaseFilePath);
   const seededAudit = seedAudit ? await store.create(fakeAudit()) : null;
-  const server = createApp(config, { store, jobStore, ...dependencies });
+  const server = createApp(config, {
+    store,
+    jobStore,
+    passwordService: fastPasswordService(),
+    ...dependencies
+  });
 
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   openServers.add(server);
   const address = server.address();
 
-  return {
+  const api = {
     baseUrl: `http://127.0.0.1:${address.port}`,
     config,
     jobStore,
@@ -70,6 +91,17 @@ async function startApi({ configOverrides = {}, dependencies = {}, seedAudit = f
     server,
     store
   };
+  const registration = await fetch(`${api.baseUrl}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: publicOrigin },
+    body: JSON.stringify({ email: "audit-owner@example.com", password: "correct horse battery staple" })
+  });
+  const registrationBody = await registration.json();
+  api.auth = {
+    user: registrationBody.user,
+    cookie: registration.headers.get("set-cookie")?.split(";", 1)[0]
+  };
+  return api;
 }
 
 async function stopApi(api) {
@@ -88,12 +120,24 @@ function countRows(databaseFilePath, tableName) {
   );
 }
 
-async function postAudit(baseUrl, payload, headers = { "Content-Type": "application/json" }) {
-  return fetch(`${baseUrl}/api/audits`, {
+async function postAudit(api, payload, {
+  contentType = "application/json",
+  cookie = api.auth.cookie,
+  origin = publicOrigin
+} = {}) {
+  const headers = {};
+  if (contentType !== null) headers["Content-Type"] = contentType;
+  if (cookie) headers.Cookie = cookie;
+  if (origin !== null) headers.Origin = origin;
+  return fetch(`${api.baseUrl}/api/audits`, {
     method: "POST",
     headers,
     body: typeof payload === "string" ? payload : JSON.stringify(payload)
   });
+}
+
+function authenticatedGet(api, path, cookie = api.auth.cookie) {
+  return fetch(`${api.baseUrl}${path}`, { headers: cookie ? { Cookie: cookie } : {} });
 }
 
 after(async () => {
@@ -131,7 +175,7 @@ describe("asynchronous audit API", () => {
 
   it("enqueues websiteUrl and returns the 202 job contract without running an audit", async () => {
     const auditCountBefore = countRows(api.config.databaseFilePath, "audits");
-    const response = await postAudit(api.baseUrl, { websiteUrl: "luna-cafe.com" });
+    const response = await postAudit(api, { websiteUrl: "luna-cafe.com" });
     const body = await response.json();
     const persistedJob = api.jobStore.findById(body.job.id);
 
@@ -158,7 +202,7 @@ describe("asynchronous audit API", () => {
   });
 
   it("accepts the legacy url request field", async () => {
-    const response = await postAudit(api.baseUrl, { url: "legacy.example.com" });
+    const response = await postAudit(api, { url: "legacy.example.com" });
     const body = await response.json();
 
     assert.equal(response.status, 202);
@@ -168,9 +212,9 @@ describe("asynchronous audit API", () => {
 
   it("rejects invalid JSON and non-object bodies without creating jobs", async () => {
     const before = countRows(api.config.databaseFilePath, "audit_jobs");
-    const invalidJsonResponse = await postAudit(api.baseUrl, "{");
+    const invalidJsonResponse = await postAudit(api, "{");
     const invalidJsonBody = await invalidJsonResponse.json();
-    const primitiveResponse = await postAudit(api.baseUrl, "null");
+    const primitiveResponse = await postAudit(api, "null");
     const primitiveBody = await primitiveResponse.json();
 
     assert.equal(invalidJsonResponse.status, 400);
@@ -182,7 +226,7 @@ describe("asynchronous audit API", () => {
 
   it("rejects invalid public domains without creating jobs", async () => {
     const before = countRows(api.config.databaseFilePath, "audit_jobs");
-    const response = await postAudit(api.baseUrl, { websiteUrl: "localhost:3000" });
+    const response = await postAudit(api, { websiteUrl: "localhost:3000" });
     const body = await response.json();
 
     assert.equal(response.status, 400);
@@ -193,7 +237,7 @@ describe("asynchronous audit API", () => {
   it("rejects private targets before enqueue", async () => {
     const privateApi = await startApi();
     const before = countRows(privateApi.config.databaseFilePath, "audit_jobs");
-    const response = await postAudit(privateApi.baseUrl, { websiteUrl: "http://192.168.1.5" });
+    const response = await postAudit(privateApi, { websiteUrl: "http://192.168.1.5" });
     const body = await response.json();
 
     assert.equal(response.status, 400);
@@ -203,17 +247,25 @@ describe("asynchronous audit API", () => {
   });
 
   it("preserves unsupported media type handling", async () => {
-    const response = await postAudit(api.baseUrl, "luna-cafe.com", { "Content-Type": "text/plain" });
+    const response = await postAudit(api, "luna-cafe.com", { contentType: "text/plain" });
     const body = await response.json();
+    const multipart = await postAudit(api, { websiteUrl: "multipart.example.com" }, {
+      contentType: "multipart/form-data; boundary=test"
+    });
+    const charsetJson = await postAudit(api, { websiteUrl: "charset.example.com" }, {
+      contentType: "application/json; charset=utf-8"
+    });
 
     assert.equal(response.status, 415);
     assert.equal(body.error.code, "UNSUPPORTED_MEDIA_TYPE");
+    assert.equal(multipart.status, 415);
+    assert.equal(charsetJson.status, 202);
   });
 
   it("returns only the public queued job shape", async () => {
-    const response = await postAudit(api.baseUrl, { websiteUrl: "queued.example.com" });
+    const response = await postAudit(api, { websiteUrl: "queued.example.com" });
     const created = await response.json();
-    const statusResponse = await fetch(`${api.baseUrl}${created.job.statusUrl}`);
+    const statusResponse = await authenticatedGet(api, created.job.statusUrl);
     const body = await statusResponse.json();
 
     assert.equal(statusResponse.status, 200);
@@ -226,9 +278,12 @@ describe("asynchronous audit API", () => {
 
   it("returns only the public running job shape", async () => {
     const statusApi = await startApi({ dependencies: { initialUrlSafetyValidator: async () => true } });
-    const queued = statusApi.jobStore.enqueue({ normalizedUrl: "https://running.example.com" });
+    const queued = statusApi.jobStore.enqueue({
+      normalizedUrl: "https://running.example.com",
+      userId: statusApi.auth.user.id
+    });
     const running = statusApi.jobStore.claimNext({ workerId: "api-test-worker", leaseMs: 30_000 });
-    const response = await fetch(`${statusApi.baseUrl}/api/audit-jobs/${queued.id}`);
+    const response = await authenticatedGet(statusApi, `/api/audit-jobs/${queued.id}`);
     const body = await response.json();
 
     assert.equal(response.status, 200);
@@ -243,7 +298,10 @@ describe("asynchronous audit API", () => {
 
   it("returns completed job links without internal ownership fields", async () => {
     const statusApi = await startApi({ dependencies: { initialUrlSafetyValidator: async () => true } });
-    const queued = statusApi.jobStore.enqueue({ normalizedUrl: "https://completed.example.com" });
+    const queued = statusApi.jobStore.enqueue({
+      normalizedUrl: "https://completed.example.com",
+      userId: statusApi.auth.user.id
+    });
     const running = statusApi.jobStore.claimNext({ workerId: "complete-worker", leaseMs: 30_000 });
     const completion = statusApi.jobStore.complete({
       jobId: queued.id,
@@ -251,7 +309,7 @@ describe("asynchronous audit API", () => {
       leaseToken: running.leaseToken,
       audit: fakeAudit("completed.example.com")
     });
-    const response = await fetch(`${statusApi.baseUrl}/api/audit-jobs/${queued.id}`);
+    const response = await authenticatedGet(statusApi, `/api/audit-jobs/${queued.id}`);
     const body = await response.json();
 
     assert.equal(response.status, 200);
@@ -268,7 +326,10 @@ describe("asynchronous audit API", () => {
 
   it("returns a safe failed shape without retry, worker, lease, or raw error data", async () => {
     const statusApi = await startApi({ dependencies: { initialUrlSafetyValidator: async () => true } });
-    const queued = statusApi.jobStore.enqueue({ normalizedUrl: "https://failed.example.com" });
+    const queued = statusApi.jobStore.enqueue({
+      normalizedUrl: "https://failed.example.com",
+      userId: statusApi.auth.user.id
+    });
     const running = statusApi.jobStore.claimNext({ workerId: "failure-worker", leaseMs: 30_000 });
     const failure = statusApi.jobStore.handleFailure({
       jobId: queued.id,
@@ -280,7 +341,7 @@ describe("asynchronous audit API", () => {
         message: "The website could not be audited. Please try again."
       }
     });
-    const response = await fetch(`${statusApi.baseUrl}/api/audit-jobs/${queued.id}`);
+    const response = await authenticatedGet(statusApi, `/api/audit-jobs/${queued.id}`);
     const body = await response.json();
 
     assert.equal(response.status, 200);
@@ -301,9 +362,9 @@ describe("asynchronous audit API", () => {
   });
 
   it("returns the same safe 404 for malformed and unknown job IDs", async () => {
-    const malformedResponse = await fetch(`${api.baseUrl}/api/audit-jobs/not-a-uuid`);
+    const malformedResponse = await authenticatedGet(api, "/api/audit-jobs/not-a-uuid");
     const malformedBody = await malformedResponse.json();
-    const unknownResponse = await fetch(`${api.baseUrl}/api/audit-jobs/00000000-0000-4000-8000-000000000000`);
+    const unknownResponse = await authenticatedGet(api, "/api/audit-jobs/00000000-0000-4000-8000-000000000000");
     const unknownBody = await unknownResponse.json();
 
     assert.equal(malformedResponse.status, 404);
@@ -318,7 +379,10 @@ describe("asynchronous audit API", () => {
   });
 
   it("returns 405 for unsupported methods on a job resource", async () => {
-    const queued = api.jobStore.enqueue({ normalizedUrl: "https://method.example.com" });
+    const queued = api.jobStore.enqueue({
+      normalizedUrl: "https://method.example.com",
+      userId: api.auth.user.id
+    });
     const response = await fetch(`${api.baseUrl}/api/audit-jobs/${queued.id}`, { method: "PUT" });
     const body = await response.json();
 
@@ -327,7 +391,7 @@ describe("asynchronous audit API", () => {
   });
 
   it("keeps existing audit detail and admin history endpoints unchanged", async () => {
-    const detailResponse = await fetch(`${api.baseUrl}/api/audits/${api.seededAudit.id}`);
+    const detailResponse = await authenticatedGet(api, `/api/audits/${api.seededAudit.id}`);
     const detailBody = await detailResponse.json();
     const forbiddenResponse = await fetch(`${api.baseUrl}/api/audits?limit=5`);
     const historyResponse = await fetch(`${api.baseUrl}/api/audits?limit=5`, {
@@ -335,8 +399,8 @@ describe("asynchronous audit API", () => {
     });
     const historyBody = await historyResponse.json();
 
-    assert.equal(detailResponse.status, 200);
-    assert.equal(detailBody.audit.id, api.seededAudit.id);
+    assert.equal(detailResponse.status, 404);
+    assert.equal(detailBody.error.code, "AUDIT_NOT_FOUND");
     assert.equal(forbiddenResponse.status, 403);
     assert.equal(historyResponse.status, 200);
     assert.ok(historyBody.audits.some((audit) => audit.id === api.seededAudit.id));
@@ -347,7 +411,7 @@ describe("asynchronous audit API", () => {
 describe("async audit integration", () => {
   it("flows from POST through one worker run to status and readable audit", async () => {
     const api = await startApi({ dependencies: { initialUrlSafetyValidator: async () => true } });
-    const response = await postAudit(api.baseUrl, { websiteUrl: "integration.example.com" });
+    const response = await postAudit(api, { websiteUrl: "integration.example.com" });
     const created = await response.json();
     const worker = createAuditJobWorker({
       jobStore: api.jobStore,
@@ -359,9 +423,9 @@ describe("async audit integration", () => {
     });
 
     const result = await worker.runOnce();
-    const statusResponse = await fetch(`${api.baseUrl}${created.job.statusUrl}`);
+    const statusResponse = await authenticatedGet(api, created.job.statusUrl);
     const statusBody = await statusResponse.json();
-    const auditResponse = await fetch(`${api.baseUrl}${statusBody.job.auditUrl}`);
+    const auditResponse = await authenticatedGet(api, statusBody.job.auditUrl);
     const auditBody = await auditResponse.json();
 
     assert.equal(response.status, 202);
@@ -379,12 +443,12 @@ describe("async audit integration", () => {
       configOverrides: { RATE_LIMIT_MAX: 60 },
       dependencies: { initialUrlSafetyValidator: async () => true }
     });
-    const response = await postAudit(api.baseUrl, { websiteUrl: "polling.example.com" });
+    const response = await postAudit(api, { websiteUrl: "polling.example.com" });
     const created = await response.json();
 
     assert.equal(response.status, 202);
     for (let poll = 0; poll < 45; poll += 1) {
-      const pollResponse = await fetch(`${api.baseUrl}${created.job.statusUrl}`);
+      const pollResponse = await authenticatedGet(api, created.job.statusUrl);
       assert.equal(pollResponse.status, 200);
     }
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { describe, it } from "node:test";
 import { createAuditJobWorker } from "../src/audit/audit-job-worker.mjs";
 import { HttpError } from "../src/http/http-error.mjs";
@@ -308,12 +309,29 @@ describe("audit job worker", () => {
 
     try {
       runMigrations(databaseFilePath);
+      const database = new DatabaseSync(databaseFilePath);
+      database.prepare(`
+        INSERT INTO users (
+          id, email_original, email_normalized, password_hash, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        "11111111-1111-4111-8111-111111111111",
+        "worker-owner@example.com",
+        "worker-owner@example.com",
+        "x".repeat(64),
+        "2026-08-13T10:00:00.000Z",
+        "2026-08-13T10:00:00.000Z"
+      );
+      database.close();
       const jobStore = createAuditJobStore(databaseFilePath, {
         clock: () => "2026-08-13T10:00:00.000Z",
         idGenerator: () => ids.shift(),
         leaseTokenGenerator: () => "lease-1"
       });
-      jobStore.enqueue({ normalizedUrl: "https://example.com" });
+      jobStore.enqueue({
+        normalizedUrl: "https://example.com",
+        userId: "11111111-1111-4111-8111-111111111111"
+      });
       const worker = workerWith(jobStore);
 
       const result = await worker.runOnce();

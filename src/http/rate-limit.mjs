@@ -6,15 +6,24 @@ function getClientKey(request) {
   return request.socket.remoteAddress || "unknown";
 }
 
-export function createRateLimiter({ windowMs, max, maxBuckets = 1_000, clock = () => Date.now() }) {
+export function createRateLimiter({
+  windowMs,
+  max,
+  maxBuckets = 1_000,
+  clock = () => Date.now(),
+  keySelector = getClientKey
+}) {
   if (!Number.isSafeInteger(maxBuckets) || maxBuckets < 1) {
     throw new TypeError("Rate-limit bucket capacity must be a positive integer.");
   }
   const buckets = new Map();
 
-  return function enforceRateLimit(request, response) {
+  return function enforceRateLimit(request, response, context) {
     const now = clock();
-    const key = getClientKey(request);
+    const key = keySelector(request, context);
+    if (typeof key !== "string" || key.length < 1 || key.length > 256) {
+      throw new TypeError("Rate-limit key must contain 1-256 characters.");
+    }
     const current = buckets.get(key);
 
     if (!current && buckets.size >= maxBuckets) {

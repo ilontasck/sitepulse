@@ -59,6 +59,9 @@ describe("configuration", () => {
     assert.equal(config.authLoginRateLimitWindowMs, 900_000);
     assert.equal(config.authGeneralRateLimitMax, 120);
     assert.equal(config.authGeneralRateLimitWindowMs, 60_000);
+    assert.equal(config.auditUserRateLimitMax, 10);
+    assert.equal(config.auditUserRateLimitWindowMs, 3_600_000);
     assert.throws(() => loadConfig({ AUTH_LOGIN_RATE_LIMIT_MAX: 0 }), /positive integer/);
+    assert.throws(() => loadConfig({ AUDIT_USER_RATE_LIMIT_MAX: 0 }), /positive integer/);
   });
 });

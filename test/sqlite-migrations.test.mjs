@@ -31,7 +31,7 @@ afterEach(async () => {
 });
 
 describe("SQLite migrations", () => {
-  it("migrates a clean database through audits, audit jobs, users, and sessions", async () => {
+  it("migrates a clean database through audit ownership", async () => {
     const databaseFilePath = await temporaryDatabase();
 
     runMigrations(databaseFilePath);
@@ -45,7 +45,8 @@ describe("SQLite migrations", () => {
       { version: 1, name: "initial audits" },
       { version: 2, name: "audit jobs" },
       { version: 3, name: "users" },
-      { version: 4, name: "sessions" }
+      { version: 4, name: "sessions" },
+      { version: 5, name: "audit ownership" }
     ]);
     assert.equal(schema.tables.some(({ name }) => name === "audits"), true);
     assert.equal(schema.tables.some(({ name }) => name === "audit_jobs"), true);
@@ -121,7 +122,8 @@ describe("SQLite migrations", () => {
         { version: 1, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 2, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 3, appliedAt: "2026-08-13T10:00:00.000Z" },
-        { version: 4, appliedAt: "2026-08-13T10:00:00.000Z" }
+        { version: 4, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 5, appliedAt: "2026-08-13T10:00:00.000Z" }
       ]
     );
   });
@@ -170,7 +172,60 @@ describe("SQLite migrations", () => {
 
     assert.deepEqual({ ...state.audit }, { id: "legacy-audit", normalized_url: "https://example.com" });
     assert.deepEqual({ ...state.job }, { id: "legacy-job", status: "queued", normalized_url: "https://example.com" });
-    assert.deepEqual(state.versions, [1, 2, 3, 4]);
+    assert.deepEqual(state.versions, [1, 2, 3, 4, 5]);
+  });
+
+  it("adds nullable restricted ownership without changing legacy audits or jobs", async () => {
+    const databaseFilePath = await temporaryDatabase();
+    runMigrations(databaseFilePath, { migrations: sitePulseMigrations.slice(0, 4) });
+
+    inspectDatabase(databaseFilePath, (database) => {
+      const now = "2026-08-14T10:00:00.000Z";
+      database.prepare(`
+        INSERT INTO users (
+          id, email_original, email_normalized, password_hash, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `).run("owner-1", "owner@example.com", "owner@example.com", "x".repeat(64), now, now);
+      database.prepare(`
+        INSERT INTO audits (
+          id, created_at, updated_at, normalized_url, domain,
+          overall_score, scanner_mode, report_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run("legacy-audit", now, now, "https://example.com", "example.com", 80, "html-real-checks", "{}");
+      database.prepare(`
+        INSERT INTO audit_jobs (
+          id, status, normalized_url, attempt_count, max_attempts,
+          available_at, created_at, updated_at
+        ) VALUES (?, 'queued', ?, 0, 2, ?, ?, ?)
+      `).run("legacy-job", "https://example.com", now, now, now);
+    });
+
+    runMigrations(databaseFilePath);
+    runMigrations(databaseFilePath);
+
+    inspectDatabase(databaseFilePath, (database) => {
+      const audit = database.prepare("SELECT id, user_id, report_json FROM audits WHERE id = ?").get("legacy-audit");
+      const job = database.prepare("SELECT id, user_id FROM audit_jobs WHERE id = ?").get("legacy-job");
+      const auditIndexes = database.prepare("PRAGMA index_list(audits)").all().map(({ name }) => name);
+      const jobIndexes = database.prepare("PRAGMA index_list(audit_jobs)").all().map(({ name }) => name);
+      const auditForeignKeys = database.prepare("PRAGMA foreign_key_list(audits)").all();
+      const jobForeignKeys = database.prepare("PRAGMA foreign_key_list(audit_jobs)").all();
+      const versions = database.prepare("SELECT version FROM schema_migrations ORDER BY version").all().map(({ version }) => version);
+
+      assert.deepEqual({ ...audit }, { id: "legacy-audit", user_id: null, report_json: "{}" });
+      assert.deepEqual({ ...job }, { id: "legacy-job", user_id: null });
+      assert.equal(auditIndexes.includes("idx_audits_user_created"), true);
+      assert.equal(jobIndexes.includes("idx_audit_jobs_user_created"), true);
+      assert.equal(auditForeignKeys.some(({ table, from, on_delete: onDelete }) => table === "users" && from === "user_id" && onDelete === "RESTRICT"), true);
+      assert.equal(jobForeignKeys.some(({ table, from, on_delete: onDelete }) => table === "users" && from === "user_id" && onDelete === "RESTRICT"), true);
+      assert.throws(() => database.prepare("UPDATE audits SET user_id = ? WHERE id = ?").run("missing-user", "legacy-audit"), /foreign key constraint/i);
+      assert.throws(() => database.prepare("UPDATE audit_jobs SET user_id = ? WHERE id = ?").run("missing-user", "legacy-job"), /foreign key constraint/i);
+
+      database.prepare("UPDATE audits SET user_id = ? WHERE id = ?").run("owner-1", "legacy-audit");
+      database.prepare("UPDATE audit_jobs SET user_id = ? WHERE id = ?").run("owner-1", "legacy-job");
+      assert.throws(() => database.prepare("DELETE FROM users WHERE id = ?").run("owner-1"), /foreign key constraint/i);
+      assert.deepEqual(versions, [1, 2, 3, 4, 5]);
+    });
   });
 
   it("enforces user and session identity, hash, expiry, and cascade constraints", async () => {
@@ -297,7 +352,7 @@ describe("SQLite migrations", () => {
     const databaseFilePath = await temporaryDatabase();
     runMigrations(databaseFilePath);
     const failingMigration = {
-      version: 5,
+      version: 6,
       name: "intentional failure",
       up(database) {
         database.exec("CREATE TABLE must_rollback (id TEXT PRIMARY KEY);");
@@ -311,11 +366,11 @@ describe("SQLite migrations", () => {
     );
 
     const state = inspectDatabase(databaseFilePath, (database) => ({
-      version5: database.prepare("SELECT version FROM schema_migrations WHERE version = 5").get(),
+      version6: database.prepare("SELECT version FROM schema_migrations WHERE version = 6").get(),
       rolledBackTable: database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'must_rollback'").get()
     }));
 
-    assert.equal(state.version5, undefined);
+    assert.equal(state.version6, undefined);
     assert.equal(state.rolledBackTable, undefined);
   });
 

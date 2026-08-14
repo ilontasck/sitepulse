@@ -178,6 +178,16 @@ export function loadConfig(overrides = {}) {
       overrides.AUTH_GENERAL_RATE_LIMIT_MAX ?? process.env.AUTH_GENERAL_RATE_LIMIT_MAX,
       120
     ),
+    auditUserRateLimitWindowMs: parsePositiveInteger(
+      "AUDIT_USER_RATE_LIMIT_WINDOW_MS",
+      overrides.AUDIT_USER_RATE_LIMIT_WINDOW_MS ?? process.env.AUDIT_USER_RATE_LIMIT_WINDOW_MS,
+      3_600_000
+    ),
+    auditUserRateLimitMax: parsePositiveInteger(
+      "AUDIT_USER_RATE_LIMIT_MAX",
+      overrides.AUDIT_USER_RATE_LIMIT_MAX ?? process.env.AUDIT_USER_RATE_LIMIT_MAX,
+      10
+    ),
     telemetryEnabled: parseBoolean("TELEMETRY_ENABLED", overrides.TELEMETRY_ENABLED ?? process.env.TELEMETRY_ENABLED, true)
   };
 }

@@ -1,13 +1,15 @@
 export function createAuditRecord(audit, { id, now }) {
+  const { userId: _ignoredUserId, ...report } = audit;
+
   return {
-    ...audit,
+    ...report,
     id,
     createdAt: now,
     updatedAt: now
   };
 }
 
-export function insertAuditRecord(database, record) {
+export function insertAuditRecord(database, record, { userId = null } = {}) {
   const scannerMode = record.scanner?.mode || "unknown";
 
   database.prepare(`
@@ -19,9 +21,10 @@ export function insertAuditRecord(database, record) {
       domain,
       overall_score,
       scanner_mode,
-      report_json
+      report_json,
+      user_id
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     record.id,
     record.createdAt,
@@ -30,7 +33,8 @@ export function insertAuditRecord(database, record) {
     record.domain,
     record.overallScore,
     scannerMode,
-    JSON.stringify(record)
+    JSON.stringify(record),
+    userId
   );
 
   return record;
