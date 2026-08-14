@@ -145,6 +145,52 @@ test("NOQORI header and hero expose the real audit entry without invented naviga
 
   const markLoaded = await page.locator(".heroMark").evaluate((image) => image.complete && image.naturalWidth > 0);
   expect(markLoaded).toBe(true);
+  await expect(page.locator("[data-visual-asset-slot] .heroMark")).toHaveAttribute("src", "/assets/noqori/noqori-expressive-prototype.png");
+});
+
+test("NOQORI header CTA moves keyboard focus to the real audit input", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("link", { name: "Start audit" }).click();
+
+  await expect(page.getByLabel("Website URL")).toBeFocused();
+  await expect(page).toHaveURL(/#auditForm$/);
+});
+
+test("NOQORI expressive stage uses restrained pointer motion without browser errors", async ({ page }) => {
+  const browserErrors = collectBrowserErrors(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const visual = page.locator(".noqoriHeroVisual");
+  await expect(visual).toHaveAttribute("data-motion-ready", "true");
+  await expect(visual).toHaveAttribute("data-pointer-enabled", "true");
+  await visual.hover({ position: { x: 360, y: 120 } });
+
+  await expect.poll(async () => visual.evaluate((element) => getComputedStyle(element).getPropertyValue("--nq-pointer-x").trim())).not.toBe("0px");
+
+  const motion = await visual.evaluate((element) => {
+    const styles = getComputedStyle(element);
+    return {
+      x: parseFloat(styles.getPropertyValue("--nq-pointer-x")),
+      y: parseFloat(styles.getPropertyValue("--nq-pointer-y")),
+      rotateX: parseFloat(styles.getPropertyValue("--nq-pointer-rx")),
+      rotateY: parseFloat(styles.getPropertyValue("--nq-pointer-ry"))
+    };
+  });
+
+  expect(Math.abs(motion.x)).toBeLessThanOrEqual(14);
+  expect(Math.abs(motion.y)).toBeLessThanOrEqual(14);
+  expect(Math.abs(motion.rotateX)).toBeLessThanOrEqual(4);
+  expect(Math.abs(motion.rotateY)).toBeLessThanOrEqual(4);
+
+  await page.mouse.move(40, 120);
+  await expect.poll(async () => visual.evaluate((element) => {
+    const value = parseFloat(getComputedStyle(element).getPropertyValue("--nq-pointer-x"));
+    return Math.abs(value);
+  })).toBeLessThan(0.1);
+
+  expect(browserErrors).toEqual([]);
 });
 
 test("NOQORI audit entry stays usable without horizontal overflow across target widths", async ({ page }) => {
@@ -183,11 +229,17 @@ test("NOQORI controls keep visible keyboard focus and reduce motion when request
     };
   });
   const motionDuration = await page.locator(".glassControl").evaluate((control) => getComputedStyle(control).transitionDuration);
+  const visualMotion = await page.locator(".noqoriHeroVisual").evaluate((visual) => ({
+    pointerEnabled: visual.dataset.pointerEnabled,
+    stageAnimation: getComputedStyle(visual.querySelector(".noqoriMotionFloat")).animationName
+  }));
 
   expect(focusedControl.name).toBe("NOQORI home");
   expect(focusedControl.outlineStyle).toBe("solid");
   expect(focusedControl.outlineWidth).toBe("2px");
   expect(parseFloat(motionDuration)).toBeLessThanOrEqual(0.001);
+  expect(visualMotion.pointerEnabled).toBe("false");
+  expect(visualMotion.stageAnimation).toBe("none");
 });
 
 test("main audit flow renders report and resets", async ({ page }) => {

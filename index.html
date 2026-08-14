@@ -206,6 +206,7 @@
       }
     </style>
     <link rel="stylesheet" href="/assets/noqori/module-01.css" />
+    <script src="/assets/noqori/module-02.js" defer></script>
   </head>
   <body class="noqori-public">
     <div class="noise"></div>
@@ -219,7 +220,7 @@
               <span class="noqoriBrandMark" aria-hidden="true"><img src="/assets/noqori/noqori-mark-ink.png" alt="" /></span>
               <span class="noqoriBrandName">NOQORI</span>
             </a>
-            <a class="glassControl" href="#auditForm">Start audit <span aria-hidden="true">↘</span></a>
+            <a class="glassControl noqoriHeaderCta" href="#auditForm" data-audit-focus>Start audit <span class="controlArrow" aria-hidden="true">↘</span></a>
           </nav>
         </header>
         <section class="wrap hero noqoriHero" aria-labelledby="noqoriHeroTitle">
@@ -235,9 +236,20 @@
             <div class="error" id="errorBox" role="alert">Use a valid website address, like studio.example.com.</div>
             <div class="loading" id="loading" aria-live="polite"><span class="spinner"></span><span id="loadingText">Starting your audit…</span></div>
           </div>
-          <div class="noqoriHeroVisual" aria-hidden="true">
-            <div class="noqoriMarkStage">
-              <img class="heroMark" src="/assets/noqori/noqori-mark-ink.png" alt="" />
+          <div class="noqoriHeroVisual" data-hero-motion aria-hidden="true">
+            <div class="noqoriDepthGrid"></div>
+            <div class="noqoriAmbientHalo"></div>
+            <div class="noqoriMotionRig">
+              <div class="noqoriMotionFloat">
+                <div class="noqoriMarkStage">
+                  <span class="noqoriChromePlate"></span>
+                  <span class="noqoriEmberArc"></span>
+                  <span class="noqoriVisualAsset" data-visual-asset-slot>
+                    <img class="heroMark" src="/assets/noqori/noqori-expressive-prototype.png" alt="" />
+                    <span class="noqoriMarkSheen"></span>
+                  </span>
+                </div>
+              </div>
             </div>
             <p class="noqoriMarkCaption">Focus / flow / future</p>
           </div>
