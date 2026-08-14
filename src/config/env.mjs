@@ -40,7 +40,43 @@ function parseBoolean(name, value, fallback = false) {
   return normalized === "true";
 }
 
+function parsePublicOrigin(value, { environment, host, port }) {
+  if (!value) {
+    if (environment === "production") {
+      throw new Error("PUBLIC_ORIGIN is required in production.");
+    }
+    const safeHost = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+    return `http://${safeHost}:${port}`;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error("PUBLIC_ORIGIN must be an absolute HTTP or HTTPS origin.");
+  }
+
+  if (
+    !new Set(["http:", "https:"]).has(parsed.protocol) ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash ||
+    parsed.origin === "null"
+  ) {
+    throw new Error("PUBLIC_ORIGIN must be an absolute HTTP or HTTPS origin without a path, query, or fragment.");
+  }
+  if (environment === "production" && parsed.protocol !== "https:") {
+    throw new Error("PUBLIC_ORIGIN must use HTTPS in production.");
+  }
+  return parsed.origin;
+}
+
 export function loadConfig(overrides = {}) {
+  const env = overrides.NODE_ENV || process.env.NODE_ENV || "development";
+  const host = overrides.HOST || process.env.HOST || "127.0.0.1";
+  const port = parsePort(overrides.PORT ?? process.env.PORT);
   const databaseFilePath =
     overrides.DATABASE_FILE_PATH ||
     process.env.DATABASE_FILE_PATH ||
@@ -62,9 +98,14 @@ export function loadConfig(overrides = {}) {
   }
 
   return {
-    env: overrides.NODE_ENV || process.env.NODE_ENV || "development",
-    host: overrides.HOST || process.env.HOST || "127.0.0.1",
-    port: parsePort(overrides.PORT ?? process.env.PORT),
+    env,
+    host,
+    port,
+    publicOrigin: parsePublicOrigin(overrides.PUBLIC_ORIGIN ?? process.env.PUBLIC_ORIGIN, {
+      environment: env,
+      host,
+      port
+    }),
     projectRoot,
     adminApiKey: overrides.ADMIN_API_KEY || process.env.ADMIN_API_KEY || "",
     databaseFilePath,
@@ -106,6 +147,36 @@ export function loadConfig(overrides = {}) {
       overrides.AUTH_SCRYPT_MAX_CONCURRENCY ?? process.env.AUTH_SCRYPT_MAX_CONCURRENCY,
       1,
       4
+    ),
+    authRegisterRateLimitWindowMs: parsePositiveInteger(
+      "AUTH_REGISTER_RATE_LIMIT_WINDOW_MS",
+      overrides.AUTH_REGISTER_RATE_LIMIT_WINDOW_MS ?? process.env.AUTH_REGISTER_RATE_LIMIT_WINDOW_MS,
+      3_600_000
+    ),
+    authRegisterRateLimitMax: parsePositiveInteger(
+      "AUTH_REGISTER_RATE_LIMIT_MAX",
+      overrides.AUTH_REGISTER_RATE_LIMIT_MAX ?? process.env.AUTH_REGISTER_RATE_LIMIT_MAX,
+      5
+    ),
+    authLoginRateLimitWindowMs: parsePositiveInteger(
+      "AUTH_LOGIN_RATE_LIMIT_WINDOW_MS",
+      overrides.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS ?? process.env.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS,
+      900_000
+    ),
+    authLoginRateLimitMax: parsePositiveInteger(
+      "AUTH_LOGIN_RATE_LIMIT_MAX",
+      overrides.AUTH_LOGIN_RATE_LIMIT_MAX ?? process.env.AUTH_LOGIN_RATE_LIMIT_MAX,
+      30
+    ),
+    authGeneralRateLimitWindowMs: parsePositiveInteger(
+      "AUTH_GENERAL_RATE_LIMIT_WINDOW_MS",
+      overrides.AUTH_GENERAL_RATE_LIMIT_WINDOW_MS ?? process.env.AUTH_GENERAL_RATE_LIMIT_WINDOW_MS,
+      60_000
+    ),
+    authGeneralRateLimitMax: parsePositiveInteger(
+      "AUTH_GENERAL_RATE_LIMIT_MAX",
+      overrides.AUTH_GENERAL_RATE_LIMIT_MAX ?? process.env.AUTH_GENERAL_RATE_LIMIT_MAX,
+      120
     ),
     telemetryEnabled: parseBoolean("TELEMETRY_ENABLED", overrides.TELEMETRY_ENABLED ?? process.env.TELEMETRY_ENABLED, true)
   };

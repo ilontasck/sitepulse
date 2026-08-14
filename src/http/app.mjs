@@ -1,13 +1,18 @@
 import { createServer } from "node:http";
 import { join } from "node:path";
+import { createAuthService } from "../auth/auth-service.mjs";
+import { createPasswordService } from "../auth/password.mjs";
 import { createAuditJobStore } from "../storage/audit-job-store.mjs";
 import { createAuditStore } from "../storage/audit-store.mjs";
+import { createAuthStore } from "../storage/auth-store.mjs";
 import { runMigrations } from "../storage/migrations.mjs";
 import { createAuditTelemetry } from "../telemetry/audit-telemetry.mjs";
 import { handleAuditApi } from "./audit-routes.mjs";
+import { handleAuthApi } from "./auth-routes.mjs";
 import { HttpError } from "./http-error.mjs";
 import { isHttpError } from "./http-error.mjs";
 import { createRateLimiter } from "./rate-limit.mjs";
+import { createSessionCookiePolicy } from "./session-cookie.mjs";
 import { applySecurityHeaders } from "./security.mjs";
 import { sendJson } from "./respond.mjs";
 import { serveStaticFile } from "./static-files.mjs";
@@ -17,6 +22,10 @@ export function createApp(config, dependencies = {}) {
   (dependencies.runMigrations || runMigrations)(config.databaseFilePath);
   const store = dependencies.store || createAuditStore(config.databaseFilePath);
   const jobStore = dependencies.jobStore || createAuditJobStore(config.databaseFilePath);
+  const authStore = dependencies.authStore || createAuthStore(config.databaseFilePath);
+  const passwordService = dependencies.passwordService || createPasswordService({ maxConcurrency: config.authScryptMaxConcurrency });
+  const authService = dependencies.authService || createAuthService({ authStore, passwordService });
+  const cookiePolicy = dependencies.cookiePolicy || createSessionCookiePolicy({ publicOrigin: config.publicOrigin });
   const telemetry = dependencies.telemetry || createAuditTelemetry({ enabled: config.telemetryEnabled && config.env !== "test" });
   const enforceRateLimit =
     dependencies.enforceRateLimit ||
@@ -24,6 +33,20 @@ export function createApp(config, dependencies = {}) {
       windowMs: config.rateLimitWindowMs,
       max: config.rateLimitMax
     });
+  const authRateLimiters = dependencies.authRateLimiters || {
+    general: createRateLimiter({
+      windowMs: config.authGeneralRateLimitWindowMs,
+      max: config.authGeneralRateLimitMax
+    }),
+    register: createRateLimiter({
+      windowMs: config.authRegisterRateLimitWindowMs,
+      max: config.authRegisterRateLimitMax
+    }),
+    login: createRateLimiter({
+      windowMs: config.authLoginRateLimitWindowMs,
+      max: config.authLoginRateLimitMax
+    })
+  };
 
   return createServer(async (request, response) => {
     applySecurityHeaders(response);
@@ -31,6 +54,9 @@ export function createApp(config, dependencies = {}) {
 
     try {
       if (url.pathname.startsWith("/api/")) {
+        if (url.pathname.startsWith("/api/auth")) {
+          response.setHeader("Cache-Control", "no-store");
+        }
         enforceRateLimit(request, response);
 
         if (request.method === "GET" && url.pathname === "/api/health") {
@@ -39,6 +65,20 @@ export function createApp(config, dependencies = {}) {
             service: "sitepulse",
             environment: config.env
           });
+        }
+
+        const authHandled = await handleAuthApi({
+          request,
+          response,
+          config,
+          url,
+          authService,
+          cookiePolicy,
+          rateLimiters: authRateLimiters
+        });
+
+        if (authHandled !== false) {
+          return authHandled;
         }
 
         const handled = await handleAuditApi({

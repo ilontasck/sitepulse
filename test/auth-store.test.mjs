@@ -169,6 +169,23 @@ describe("authentication storage", () => {
     assert.notEqual(await store.findActiveSessionByTokenHash(fourthHash), null);
   });
 
+  it("rolls back previous-session revocation when fresh-session insertion fails", async () => {
+    const { store } = await createFixture();
+    const tokenHash = Buffer.alloc(32, 14);
+    const created = await store.createUserWithSession(registration({ sessionTokenHash: tokenHash }));
+
+    await assert.rejects(
+      store.rotateSession({
+        userId: created.user.id,
+        previousTokenHash: tokenHash,
+        newTokenHash: tokenHash,
+        newExpiresAt: "2026-08-28T10:00:00.000Z"
+      }),
+      (error) => error?.code === "AUTH_STORAGE_CONSTRAINT"
+    );
+    assert.notEqual(await store.findActiveSessionByTokenHash(tokenHash), null);
+  });
+
   it("cleans sessions in bounded batches and preserves cascade deletion", async () => {
     const fixture = await createFixture();
     const firstHash = Buffer.alloc(32, 20);

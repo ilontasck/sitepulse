@@ -40,4 +40,25 @@ describe("configuration", () => {
     assert.throws(() => loadConfig({ AUTH_SCRYPT_MAX_CONCURRENCY: 0 }), /positive integer/);
     assert.throws(() => loadConfig({ AUTH_SCRYPT_MAX_CONCURRENCY: 5 }), /at most 4/);
   });
+
+  it("validates and normalizes the trusted public origin", () => {
+    assert.equal(loadConfig({ PUBLIC_ORIGIN: "http://localhost:3000/" }).publicOrigin, "http://localhost:3000");
+    assert.equal(loadConfig({ NODE_ENV: "production", PUBLIC_ORIGIN: "https://sitepulse.example" }).publicOrigin, "https://sitepulse.example");
+    assert.throws(() => loadConfig({ PUBLIC_ORIGIN: "https://sitepulse.example/path" }), /PUBLIC_ORIGIN/);
+    assert.throws(() => loadConfig({ PUBLIC_ORIGIN: "https://sitepulse.example?query=1" }), /PUBLIC_ORIGIN/);
+    assert.throws(() => loadConfig({ PUBLIC_ORIGIN: "file:///tmp/sitepulse" }), /PUBLIC_ORIGIN/);
+    assert.throws(() => loadConfig({ NODE_ENV: "production", PUBLIC_ORIGIN: "http://sitepulse.example" }), /HTTPS/);
+    assert.throws(() => loadConfig({ NODE_ENV: "production", PUBLIC_ORIGIN: "" }), /PUBLIC_ORIGIN/);
+  });
+
+  it("provides bounded beta auth rate-limit defaults", () => {
+    const config = loadConfig();
+    assert.equal(config.authRegisterRateLimitMax, 5);
+    assert.equal(config.authRegisterRateLimitWindowMs, 3_600_000);
+    assert.equal(config.authLoginRateLimitMax, 30);
+    assert.equal(config.authLoginRateLimitWindowMs, 900_000);
+    assert.equal(config.authGeneralRateLimitMax, 120);
+    assert.equal(config.authGeneralRateLimitWindowMs, 60_000);
+    assert.throws(() => loadConfig({ AUTH_LOGIN_RATE_LIMIT_MAX: 0 }), /positive integer/);
+  });
 });

@@ -1,9 +1,12 @@
 import { HttpError } from "./http-error.mjs";
 
-export async function readJsonBody(request, limitBytes) {
+export async function readJsonBody(request, limitBytes, { strictContentType = false } = {}) {
   const contentType = request.headers["content-type"] || "";
+  const acceptsJson = strictContentType
+    ? /^application\/json(?:\s*;\s*charset\s*=\s*(?:utf-8|"utf-8"))?\s*$/iu.test(contentType)
+    : contentType.toLowerCase().includes("application/json");
 
-  if (!contentType.toLowerCase().includes("application/json")) {
+  if (!acceptsJson) {
     throw new HttpError(415, "Expected application/json request body.", "UNSUPPORTED_MEDIA_TYPE");
   }
 

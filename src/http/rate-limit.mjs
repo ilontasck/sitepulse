@@ -6,19 +6,26 @@ function getClientKey(request) {
   return request.socket.remoteAddress || "unknown";
 }
 
-export function createRateLimiter({ windowMs, max }) {
+export function createRateLimiter({ windowMs, max, maxBuckets = 1_000, clock = () => Date.now() }) {
+  if (!Number.isSafeInteger(maxBuckets) || maxBuckets < 1) {
+    throw new TypeError("Rate-limit bucket capacity must be a positive integer.");
+  }
   const buckets = new Map();
 
   return function enforceRateLimit(request, response) {
-    const now = Date.now();
+    const now = clock();
     const key = getClientKey(request);
     const current = buckets.get(key);
 
-    if (buckets.size > 1_000) {
+    if (!current && buckets.size >= maxBuckets) {
       for (const [bucketKey, bucket] of buckets) {
         if (bucket.resetAt <= now) {
           buckets.delete(bucketKey);
         }
+      }
+      if (buckets.size >= maxBuckets) {
+        response.setHeader("Retry-After", String(Math.ceil(windowMs / 1_000)));
+        throw new HttpError(429, "Too many requests. Please try again soon.", "RATE_LIMITED");
       }
     }
 
