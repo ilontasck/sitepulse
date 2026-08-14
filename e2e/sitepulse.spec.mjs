@@ -132,6 +132,64 @@ function collectBrowserErrors(page) {
   return errors;
 }
 
+test("NOQORI header and hero expose the real audit entry without invented navigation", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByRole("link", { name: "NOQORI home" })).toBeVisible();
+  await expect(page.getByText("WEBSITE INTELLIGENCE", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "See what others miss." })).toBeVisible();
+  await expect(page.getByText("Website intelligence, simplified.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Start audit" })).toHaveAttribute("href", "#auditForm");
+  await expect(page.getByRole("button", { name: "Run audit" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Pricing|Login|Resources/ })).toHaveCount(0);
+
+  const markLoaded = await page.locator(".heroMark").evaluate((image) => image.complete && image.naturalWidth > 0);
+  expect(markLoaded).toBe(true);
+});
+
+test("NOQORI audit entry stays usable without horizontal overflow across target widths", async ({ page }) => {
+  for (const viewport of [
+    { width: 1440, height: 1000 },
+    { width: 768, height: 1024 },
+    { width: 390, height: 844 }
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+
+    await expect(page.getByLabel("Website URL")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Run audit" })).toBeVisible();
+    const layout = await page.evaluate(() => ({
+      viewportWidth: document.documentElement.clientWidth,
+      pageWidth: document.documentElement.scrollWidth,
+      formWidth: document.getElementById("auditForm").getBoundingClientRect().width
+    }));
+
+    expect(layout.pageWidth).toBeLessThanOrEqual(layout.viewportWidth);
+    expect(layout.formWidth).toBeLessThanOrEqual(layout.viewportWidth);
+  }
+});
+
+test("NOQORI controls keep visible keyboard focus and reduce motion when requested", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.keyboard.press("Tab");
+
+  const focusedControl = await page.evaluate(() => {
+    const styles = getComputedStyle(document.activeElement);
+    return {
+      name: document.activeElement.getAttribute("aria-label"),
+      outlineStyle: styles.outlineStyle,
+      outlineWidth: styles.outlineWidth
+    };
+  });
+  const motionDuration = await page.locator(".glassControl").evaluate((control) => getComputedStyle(control).transitionDuration);
+
+  expect(focusedControl.name).toBe("NOQORI home");
+  expect(focusedControl.outlineStyle).toBe("solid");
+  expect(focusedControl.outlineWidth).toBe("2px");
+  expect(parseFloat(motionDuration)).toBeLessThanOrEqual(0.001);
+});
+
 test("main audit flow renders report and resets", async ({ page }) => {
   const browserErrors = collectBrowserErrors(page);
   const auditRequests = [];
@@ -145,7 +203,7 @@ test("main audit flow renders report and resets", async ({ page }) => {
 
   await page.goto("/");
 
-  await expect(page.getByText("Turn any small-business website into a sharper sales engine.")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "See what others miss." })).toBeVisible();
   await expect(page.getByPlaceholder("Enter your website, e.g. luna-cafe.com")).toBeVisible();
 
   await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");

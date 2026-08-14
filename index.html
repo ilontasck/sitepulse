@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SitePulse | Website Audit Dashboard</title>
+    <title>NOQORI | Website intelligence, simplified.</title>
+    <link rel="icon" type="image/png" href="/assets/noqori/noqori-mark-ink.png" />
     <style>
       :root {
         color-scheme: dark;
@@ -204,49 +205,44 @@
         p, li, .urlLine, .checkMeta, .signal, .recommendationCard p { color: #334155 !important; }
       }
     </style>
+    <link rel="stylesheet" href="/assets/noqori/module-01.css" />
   </head>
-  <body>
+  <body class="noqori-public">
     <div class="noise"></div>
     <div class="blob one"></div>
     <div class="blob two"></div>
     <div class="landing" id="landing">
-      <nav class="wrap nav">
-        <div class="brand"><span class="logo">⌁</span> SitePulse</div>
-        <div class="navlinks"><a href="#dashboard">Dashboard</a><a href="#pricing">Pricing</a><a href="#case">Case study</a></div>
-        <button class="ghost" onclick="setExample('luna-cafe.com')">Demo</button>
-      </nav>
-      <section class="wrap hero">
-        <div>
-          <span class="eyebrow">⚡ Instant website audits for local businesses</span>
-          <h1>Turn any small-business website into a sharper sales engine.</h1>
-          <p class="lead">SitePulse produces a polished audit report with design, mobile, SEO, accessibility, conversion, and content recommendations in seconds.</p>
-          <form class="glass inputShell" id="auditForm">
-            <label class="srOnly" for="urlInput">Website URL</label>
-            <input id="urlInput" name="websiteUrl" placeholder="Enter your website, e.g. luna-cafe.com" autocomplete="url" inputmode="url" aria-describedby="errorBox loading" />
-            <button class="btn" id="runBtn" type="submit">Run audit →</button>
-          </form>
-          <div class="error" id="errorBox" role="alert">Use a valid website address, like studio.example.com.</div>
-          <div class="loading" id="loading" aria-live="polite"><span class="spinner"></span><span id="loadingText">Starting your audit…</span></div>
-          <div class="examples">
-            <button class="pill" onclick="setExample('roseandneedle.studio')">roseandneedle.studio</button>
-            <button class="pill" onclick="setExample('northsidebarber.co')">northsidebarber.co</button>
-            <button class="pill" onclick="setExample('luna-cafe.com')">luna-cafe.com</button>
+      <div class="noqori-shell">
+        <header class="noqoriHeader">
+          <nav class="wrap nav" aria-label="Primary navigation">
+            <a class="noqoriBrand" href="/" aria-label="NOQORI home">
+              <span class="noqoriBrandMark" aria-hidden="true"><img src="/assets/noqori/noqori-mark-ink.png" alt="" /></span>
+              <span class="noqoriBrandName">NOQORI</span>
+            </a>
+            <a class="glassControl" href="#auditForm">Start audit <span aria-hidden="true">↘</span></a>
+          </nav>
+        </header>
+        <section class="wrap hero noqoriHero" aria-labelledby="noqoriHeroTitle">
+          <div class="noqoriHeroCopy">
+            <span class="noqoriEyebrow"><span class="noqoriSignal" aria-hidden="true"></span>WEBSITE INTELLIGENCE</span>
+            <h1 id="noqoriHeroTitle">See what others miss<span class="emberPeriod">.</span></h1>
+            <p class="lead">Website intelligence, simplified.</p>
+            <form class="glass inputShell auditEntry" id="auditForm">
+              <label class="srOnly" for="urlInput">Website URL</label>
+              <input id="urlInput" name="websiteUrl" placeholder="Enter your website, e.g. luna-cafe.com" autocomplete="url" inputmode="url" aria-describedby="errorBox loading" />
+              <button class="btn" id="runBtn" type="submit">Run audit <span aria-hidden="true">→</span></button>
+            </form>
+            <div class="error" id="errorBox" role="alert">Use a valid website address, like studio.example.com.</div>
+            <div class="loading" id="loading" aria-live="polite"><span class="spinner"></span><span id="loadingText">Starting your audit…</span></div>
           </div>
-        </div>
-        <aside class="glass preview">
-          <div class="previewTop"><div><small style="color:var(--muted)">Live report preview</small><h2>luna-cafe.com</h2></div><span class="badge">Ready</span></div>
-          <div class="previewGrid">
-            <div class="mini"><div class="scoreDemo">82</div><p style="text-align:center;color:#cbd5e1;font-weight:800">Overall site score</p></div>
-            <div>
-              <div class="mini">Design <b style="float:right">84</b><div class="bar"><div class="fill" style="width:84%"></div></div></div>
-              <div class="mini">Mobile <b style="float:right">76</b><div class="bar"><div class="fill" style="width:76%"></div></div></div>
-              <div class="mini">Speed <b style="float:right">69</b><div class="bar"><div class="fill" style="width:69%"></div></div></div>
-              <div class="mini">SEO <b style="float:right">88</b><div class="bar"><div class="fill" style="width:88%"></div></div></div>
+          <div class="noqoriHeroVisual" aria-hidden="true">
+            <div class="noqoriMarkStage">
+              <img class="heroMark" src="/assets/noqori/noqori-mark-ink.png" alt="" />
             </div>
+            <p class="noqoriMarkCaption">Focus / flow / future</p>
           </div>
-          <div class="mini"><b>Priority fixes</b><p>• Clarify booking CTA</p><p>• Compress homepage imagery</p><p>• Add testimonials near contact</p></div>
-        </aside>
-      </section>
+        </section>
+      </div>
       <section class="wrap cards" id="dashboard">
         <article class="glass card"><h3>Eight-category scoring</h3><p>Design, mobile, speed, SEO, trust, forms, content, and accessibility in one report.</p></article>
         <article class="glass card"><h3>Operator-grade priorities</h3><p>Clear fixes ranked by impact and effort for busy small-business owners.</p></article>
