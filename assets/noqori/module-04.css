@@ -819,6 +819,31 @@
   letter-spacing: 0.1em;
 }
 
+.nqFooterLegal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.4rem;
+}
+
+.nqFooterLegal a {
+  color: var(--nq-muted);
+  text-decoration: none;
+  font-family: var(--nq-mono);
+  font-size: 0.59rem;
+  letter-spacing: 0.1em;
+  transition: color 160ms ease;
+}
+
+.nqFooterLegal a:hover {
+  color: var(--nq-ink);
+}
+
+.nqFooterLegal a:focus-visible {
+  outline: 2px solid var(--nq-ember);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
 @media (max-width: 1050px) {
   .nqStoryLeadGrid {
     grid-template-columns: 0.65fr 1.5fr;

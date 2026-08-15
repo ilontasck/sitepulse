@@ -1,0 +1,728 @@
+/* ==========================================================================
+   NOQORI MODULE 06 — LEGAL PAGE STYLES
+   Privacy · Impressum · Terms
+   "Legal readability comes first."
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Root: legal page body class
+   -------------------------------------------------------------------------- */
+body.noqori-legal-view {
+  background: var(--nq-canvas);
+  color: var(--nq-ink);
+  font-family: var(--nq-display);
+  overflow-x: clip;
+}
+
+body.noqori-legal-view > .noise,
+body.noqori-legal-view > .blob {
+  display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Development placeholder warning
+   Visually obvious for any unresolved [REQUIRED BEFORE PUBLIC LAUNCH: …] value
+   -------------------------------------------------------------------------- */
+.nqLegalPlaceholder {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border: 1.5px dashed var(--nq-ember);
+  border-radius: 0.35rem;
+  background: rgba(255, 74, 26, 0.07);
+  color: var(--nq-ember);
+  font-family: var(--nq-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.nqLegalNotReady {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 1.5px dashed var(--nq-ember);
+  border-radius: var(--nq-radius-md);
+  background: rgba(255, 74, 26, 0.06);
+  color: #7d250f;
+}
+
+.nqLegalNotReady > span:first-child {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+}
+
+.nqLegalNotReady b {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.25rem;
+}
+
+.nqLegalNotReady p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+/* --------------------------------------------------------------------------
+   Legal shell — page wrapper
+   -------------------------------------------------------------------------- */
+.nqLegalShell {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  background: var(--nq-canvas);
+  color: var(--nq-ink);
+  font-family: var(--nq-display);
+}
+
+.nqLegalWrap {
+  width: min(72rem, calc(100% - 3rem));
+  margin: 0 auto;
+}
+
+/* --------------------------------------------------------------------------
+   Legal header / nav bar
+   -------------------------------------------------------------------------- */
+.nqLegalHeader {
+  border-bottom: 1px solid var(--nq-border);
+  background: var(--nq-canvas);
+}
+
+.nqLegalHeader .nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 5.5rem;
+  padding: 1rem 0;
+  gap: 1.5rem;
+}
+
+.nqLegalBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--nq-ink);
+  text-decoration: none;
+}
+
+.nqLegalBrandMark {
+  display: grid;
+  width: 2.2rem;
+  height: 2.2rem;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid var(--nq-border);
+  border-radius: 0.7rem;
+  background: var(--nq-surface-strong);
+}
+
+.nqLegalBrandMark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+}
+
+.nqLegalBrandName {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  font-family: var(--nq-mono);
+}
+
+.nqLegalHeaderBack {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--nq-border-strong);
+  border-radius: var(--nq-radius-pill);
+  background: var(--nq-surface-strong);
+  color: var(--nq-graphite);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: transform 160ms var(--nq-ease), border-color 160ms ease, background 160ms ease;
+}
+
+.nqLegalHeaderBack:hover {
+  transform: translateY(-1px);
+  border-color: var(--nq-ink);
+  background: #fff;
+}
+
+.nqLegalHeaderBack:focus-visible {
+  outline: 2px solid var(--nq-ember);
+  outline-offset: 3px;
+  box-shadow: var(--nq-focus);
+}
+
+/* --------------------------------------------------------------------------
+   Two-column layout: TOC sidebar + main content
+   -------------------------------------------------------------------------- */
+.nqLegalLayout {
+  display: grid;
+  grid-template-columns: 14rem 1fr;
+  gap: clamp(2.5rem, 5vw, 5rem);
+  align-items: start;
+  padding: clamp(2.5rem, 5vw, 4.5rem) 0 clamp(4rem, 8vw, 7rem);
+}
+
+/* --------------------------------------------------------------------------
+   Sticky Table of Contents (desktop)
+   -------------------------------------------------------------------------- */
+.nqLegalToc {
+  position: sticky;
+  top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.nqLegalTocLabel {
+  margin: 0 0 1rem;
+  color: var(--nq-muted);
+  font-family: var(--nq-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.nqLegalTocList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  border-left: 1px solid var(--nq-border);
+}
+
+.nqLegalTocList a {
+  display: block;
+  padding: 0.42rem 0 0.42rem 1rem;
+  border-left: 2px solid transparent;
+  margin-left: -1px;
+  color: var(--nq-muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.nqLegalTocList a:hover {
+  color: var(--nq-ink);
+  border-left-color: var(--nq-border-strong);
+}
+
+.nqLegalTocList a.is-active {
+  color: var(--nq-ink);
+  border-left-color: var(--nq-ember);
+  font-weight: 600;
+}
+
+.nqLegalTocList a:focus-visible {
+  outline: 2px solid var(--nq-ember);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Main legal content column
+   -------------------------------------------------------------------------- */
+.nqLegalMain {
+  min-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Page heading block
+   -------------------------------------------------------------------------- */
+.nqLegalPageHead {
+  padding-bottom: 2rem;
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid var(--nq-border);
+}
+
+.nqLegalPageKicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  color: var(--nq-muted);
+  font-family: var(--nq-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.nqLegalPageKicker > span {
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 50%;
+  background: var(--nq-ember);
+  flex-shrink: 0;
+}
+
+.nqLegalPageHead h1 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  font-weight: 560;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.nqLegalPageMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+  color: var(--nq-muted);
+  font-family: var(--nq-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.nqLegalPageMeta b {
+  color: var(--nq-graphite);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Legal sections and typography
+   -------------------------------------------------------------------------- */
+.nqLegalSection {
+  margin-bottom: 3.5rem;
+  scroll-margin-top: 2rem;
+}
+
+.nqLegalSection + .nqLegalSection {
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--nq-border);
+}
+
+.nqLegalSection h2 {
+  margin: 0 0 1.25rem;
+  padding-top: 1.75rem;
+  font-size: clamp(1.25rem, 2.2vw, 1.6rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  color: var(--nq-ink);
+}
+
+.nqLegalSection h3 {
+  margin: 2rem 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--nq-graphite);
+}
+
+.nqLegalSection p {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--nq-graphite);
+  max-width: 68ch;
+}
+
+.nqLegalSection p:last-child {
+  margin-bottom: 0;
+}
+
+.nqLegalSection ul,
+.nqLegalSection ol {
+  margin: 0 0 1rem;
+  padding-left: 1.4rem;
+}
+
+.nqLegalSection li {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--nq-graphite);
+  margin-bottom: 0.35rem;
+}
+
+.nqLegalSection li:last-child {
+  margin-bottom: 0;
+}
+
+.nqLegalSection a {
+  color: var(--nq-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(11, 11, 12, 0.3);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 160ms ease;
+}
+
+.nqLegalSection a:hover {
+  text-decoration-color: var(--nq-ink);
+}
+
+.nqLegalSection a:focus-visible {
+  outline: 2px solid var(--nq-ember);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Legal mono labels / category tags
+   -------------------------------------------------------------------------- */
+.nqLegalTag {
+  display: inline-block;
+  padding: 0.18rem 0.55rem;
+  border: 1px solid var(--nq-border-strong);
+  border-radius: var(--nq-radius-pill);
+  background: var(--nq-surface-strong);
+  color: var(--nq-graphite);
+  font-family: var(--nq-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* --------------------------------------------------------------------------
+   Definition / detail table for structured legal data
+   -------------------------------------------------------------------------- */
+.nqLegalDl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1.5rem;
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.nqLegalDl dt {
+  color: var(--nq-muted);
+  font-family: var(--nq-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-top: 0.15rem;
+  white-space: nowrap;
+}
+
+.nqLegalDl dd {
+  margin: 0;
+  color: var(--nq-graphite);
+}
+
+/* --------------------------------------------------------------------------
+   Cookie / storage table
+   -------------------------------------------------------------------------- */
+.nqLegalTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+}
+
+.nqLegalTable th {
+  text-align: left;
+  padding: 0.65rem 1rem;
+  border-bottom: 2px solid var(--nq-border-strong);
+  background: var(--nq-surface);
+  color: var(--nq-muted);
+  font-family: var(--nq-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.nqLegalTable td {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--nq-border);
+  color: var(--nq-graphite);
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.nqLegalTable tr:last-child td {
+  border-bottom: 0;
+}
+
+.nqLegalTable td:first-child {
+  font-family: var(--nq-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--nq-ink);
+  white-space: nowrap;
+}
+
+.nqLegalTableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--nq-border);
+  border-radius: var(--nq-radius-sm);
+  margin: 0 0 1rem;
+}
+
+/* --------------------------------------------------------------------------
+   Callout / note boxes
+   -------------------------------------------------------------------------- */
+.nqLegalNote {
+  display: flex;
+  gap: 0.85rem;
+  padding: 1.1rem 1.25rem;
+  border-left: 3px solid var(--nq-border-strong);
+  background: var(--nq-surface);
+  border-radius: 0 var(--nq-radius-sm) var(--nq-radius-sm) 0;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--nq-graphite);
+}
+
+.nqLegalNote[data-tone="review"] {
+  border-left-color: var(--nq-ember);
+  background: rgba(255, 74, 26, 0.05);
+  color: #5c1e0a;
+}
+
+.nqLegalNote[data-tone="info"] {
+  border-left-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+  color: #1e3a5f;
+}
+
+.nqLegalNote > span:first-child {
+  flex-shrink: 0;
+  font-size: 1rem;
+  margin-top: 0.1rem;
+}
+
+.nqLegalNote p {
+  margin: 0;
+  font-size: inherit;
+  color: inherit;
+  line-height: inherit;
+  max-width: none;
+}
+
+/* --------------------------------------------------------------------------
+   Footer for legal pages
+   -------------------------------------------------------------------------- */
+.nqLegalFooter {
+  border-top: 1px solid var(--nq-border);
+  background: var(--nq-surface);
+}
+
+.nqLegalFooterInner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  min-height: 5rem;
+  padding: 1.25rem 0;
+  color: var(--nq-muted);
+  font-family: var(--nq-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+}
+
+.nqLegalFooterLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.5rem;
+}
+
+.nqLegalFooterLinks a {
+  color: var(--nq-muted);
+  text-decoration: none;
+  font-size: 0.68rem;
+  transition: color 160ms ease;
+}
+
+.nqLegalFooterLinks a:hover {
+  color: var(--nq-ink);
+}
+
+.nqLegalFooterLinks a:focus-visible {
+  outline: 2px solid var(--nq-ember);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive — tablet (≤ 900 px): collapse TOC
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .nqLegalLayout {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .nqLegalToc {
+    position: static;
+    padding-bottom: 0;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--nq-border);
+    padding-bottom: 1.5rem;
+  }
+
+  .nqLegalTocList {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.25rem 0;
+    border-left: 0;
+    border-top: 1px solid var(--nq-border);
+    padding-top: 0.75rem;
+  }
+
+  .nqLegalTocList a {
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+    padding: 0.35rem 0.75rem;
+    margin: 0;
+    font-size: 0.78rem;
+  }
+
+  .nqLegalTocList a.is-active {
+    border-left-color: transparent;
+    border-bottom-color: var(--nq-ember);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive — mobile (≤ 560 px)
+   -------------------------------------------------------------------------- */
+@media (max-width: 560px) {
+  .nqLegalWrap {
+    width: calc(100% - 2rem);
+  }
+
+  .nqLegalHeader .nav {
+    min-height: 4.5rem;
+  }
+
+  .nqLegalPageHead h1 {
+    font-size: clamp(1.8rem, 10vw, 2.4rem);
+  }
+
+  .nqLegalDl {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+
+  .nqLegalDl dt {
+    margin-top: 0.85rem;
+  }
+
+  .nqLegalDl dt:first-child {
+    margin-top: 0;
+  }
+
+  .nqLegalFooterInner {
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: auto;
+    padding: 1.5rem 0;
+    gap: 0.75rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .nqLegalShell *,
+  .nqLegalShell *::before,
+  .nqLegalShell *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Print
+   -------------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm 18mm;
+  }
+
+  body.noqori-legal-view {
+    background: #fff !important;
+    color: #0b0b0c !important;
+    font-size: 10pt;
+  }
+
+  .nqLegalHeader,
+  .nqLegalToc,
+  .nqLegalHeaderBack,
+  .nqLegalFooter {
+    display: none !important;
+  }
+
+  .nqLegalLayout {
+    display: block !important;
+    padding: 0 !important;
+  }
+
+  .nqLegalMain {
+    width: 100% !important;
+  }
+
+  .nqLegalSection h2 {
+    font-size: 13pt;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  .nqLegalSection h3 {
+    font-size: 11pt;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  .nqLegalSection p,
+  .nqLegalSection li {
+    font-size: 10pt;
+    line-height: 1.6;
+    color: #0b0b0c !important;
+  }
+
+  .nqLegalPlaceholder {
+    border: 1px solid #ff4a1a !important;
+    background: #fff !important;
+    color: #ff4a1a !important;
+    font-size: 8pt;
+  }
+
+  .nqLegalNotReady {
+    border: 1px dashed #ff4a1a !important;
+    background: #fff8f6 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .nqLegalTableWrap {
+    overflow: visible !important;
+  }
+
+  .nqLegalTable th,
+  .nqLegalTable td {
+    font-size: 8.5pt;
+  }
+
+  .nqLegalNote {
+    border: 1px solid #cbd5e1 !important;
+    background: #f8fafc !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

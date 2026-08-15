@@ -668,3 +668,131 @@ test("real page performance stays understandable on mobile", async ({ page }) =>
   const box = await section.boundingBox();
   expect(box.width).toBeLessThanOrEqual(390);
 });
+
+// ── Module 06: Legal pages E2E ─────────────────────────────────────────────
+
+test("footer contains working Privacy, Impressum, and Terms links", async ({ page }) => {
+  const browserErrors = [];
+  page.on("pageerror", (e) => browserErrors.push(e.message));
+
+  await page.goto("/");
+
+  const footer = page.locator("footer.nqFooter");
+  await expect(footer).toBeVisible();
+
+  const privacyLink = footer.getByRole("link", { name: "Privacy" });
+  const impressumLink = footer.getByRole("link", { name: "Impressum" });
+  const termsLink = footer.getByRole("link", { name: "Terms" });
+
+  await expect(privacyLink).toBeVisible();
+  await expect(impressumLink).toBeVisible();
+  await expect(termsLink).toBeVisible();
+
+  await expect(privacyLink).toHaveAttribute("href", "/privacy");
+  await expect(impressumLink).toHaveAttribute("href", "/impressum");
+  await expect(termsLink).toHaveAttribute("href", "/terms");
+
+  expect(browserErrors).toEqual([]);
+});
+
+test("Privacy page loads, shows NOQORI identity, and exposes no console errors", async ({ page }) => {
+  const browserErrors = [];
+  page.on("pageerror", (e) => browserErrors.push(e.message));
+
+  await page.goto("/privacy");
+
+  await expect(page).toHaveTitle(/Privacy Policy.*NOQORI/);
+  await expect(page.getByRole("heading", { name: "Privacy Policy", level: 1 })).toBeVisible();
+  await expect(page.locator(".nqLegalNotReady")).toBeVisible();
+  await expect(page.locator(".nqLegalTocList")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Back to NOQORI/ })).toBeVisible();
+
+  // Development warning is visible
+  await expect(page.getByText("NOT READY FOR PUBLIC LAUNCH").first()).toBeVisible();
+
+  // Footer legal nav present
+  await expect(page.locator(".nqLegalFooterLinks")).toBeVisible();
+
+  expect(browserErrors).toEqual([]);
+});
+
+test("Impressum page loads with German headings and no console errors", async ({ page }) => {
+  const browserErrors = [];
+  page.on("pageerror", (e) => browserErrors.push(e.message));
+
+  await page.goto("/impressum");
+
+  await expect(page.getByRole("heading", { name: "Impressum", level: 1 })).toBeVisible();
+  await expect(page.locator(".nqLegalNotReady")).toBeVisible();
+  await expect(page.locator(".nqLegalTocList")).toBeVisible();
+  // Development status shown
+  await expect(page.getByText(/NOT READY FOR PUBLIC LAUNCH/).first()).toBeVisible();
+
+  expect(browserErrors).toEqual([]);
+});
+
+test("Terms page loads, shows correct headings, and exposes no console errors", async ({ page }) => {
+  const browserErrors = [];
+  page.on("pageerror", (e) => browserErrors.push(e.message));
+
+  await page.goto("/terms");
+
+  await expect(page).toHaveTitle(/Terms of Service.*NOQORI/);
+  await expect(page.getByRole("heading", { name: "Terms of Service", level: 1 })).toBeVisible();
+  await expect(page.locator(".nqLegalNotReady")).toBeVisible();
+  await expect(page.locator(".nqLegalTocList")).toBeVisible();
+  await expect(page.getByText("NOT READY FOR PUBLIC LAUNCH").first()).toBeVisible();
+
+  expect(browserErrors).toEqual([]);
+});
+
+test("Privacy page has no horizontal overflow at desktop width", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/privacy");
+  const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
+  expect(bodyWidth).toBeLessThanOrEqual(1440);
+});
+
+test("Privacy page has no horizontal overflow at mobile width", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/privacy");
+  const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
+  expect(bodyWidth).toBeLessThanOrEqual(390);
+});
+
+test("legal pages are keyboard navigable and TOC links work", async ({ page }) => {
+  await page.goto("/privacy");
+
+  // TOC links are present and the first one is functional
+  const firstTocLink = page.locator(".nqLegalTocList a").first();
+  await expect(firstTocLink).toBeVisible();
+
+  const href = await firstTocLink.getAttribute("href");
+  expect(href).toMatch(/^#/);
+
+  // Clicking a TOC link scrolls to the section without error
+  const browserErrors = [];
+  page.on("pageerror", (e) => browserErrors.push(e.message));
+  await firstTocLink.click();
+  expect(browserErrors).toEqual([]);
+});
+
+test("back link on Privacy page navigates to the landing page", async ({ page }) => {
+  await page.goto("/privacy");
+  const backLink = page.getByRole("link", { name: /Back to NOQORI/ });
+  await expect(backLink).toBeVisible();
+  await expect(backLink).toHaveAttribute("href", "/");
+});
+
+test("existing audit flow is unaffected by Module 06 changes", async ({ page }) => {
+  const browserErrors = [];
+  page.on("pageerror", (e) => browserErrors.push(e.message));
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+  const input = page.getByPlaceholder("Enter your website, e.g. luna-cafe.com");
+  await expect(input).toBeVisible();
+  await expect(page.getByRole("button", { name: /Run audit/ })).toBeVisible();
+
+  expect(browserErrors).toEqual([]);
+});

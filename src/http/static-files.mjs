@@ -9,11 +9,25 @@ const contentTypes = {
   ".json": "application/json; charset=utf-8"
 };
 
+// Legal pages served as static HTML files from the project root.
+const legalRoutes = new Map([
+  ["/privacy", "privacy.html"],
+  ["/impressum", "impressum.html"],
+  ["/terms", "terms.html"]
+]);
+
 export async function serveStaticFile(requestUrl, root) {
   const pathname = new URL(requestUrl || "/", "http://localhost").pathname;
-  const requestedFile = pathname === "/" ? "index.html" : pathname.slice(1);
 
-  if (requestedFile !== "index.html" && !requestedFile.startsWith("assets/")) {
+  // Resolve legal page routes before the generic path check.
+  const legalFile = legalRoutes.get(pathname);
+  const requestedFile = legalFile ?? (pathname === "/" ? "index.html" : pathname.slice(1));
+
+  if (
+    requestedFile !== "index.html" &&
+    !legalFile &&
+    !requestedFile.startsWith("assets/")
+  ) {
     throw new HttpError(404, "Static file was not found.", "STATIC_NOT_FOUND");
   }
 
