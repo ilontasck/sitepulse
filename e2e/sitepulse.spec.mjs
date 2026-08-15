@@ -374,30 +374,31 @@ test("main audit flow renders report and resets", async ({ page }) => {
   await expect(analysis).toBeHidden();
   await expect(page.locator("#report").getByText("Audit report", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "example.com" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Priority fixes" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Before / after potential" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "How did this site do?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Start with these findings." })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Recommendations by priority" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Download report" })).toBeVisible();
-  await expect(page.locator("details").filter({ hasText: "SEO basics" })).toHaveCount(1);
-  await expect(page.locator("details").filter({ hasText: "Design quality" })).toHaveCount(1);
-  await expect(page.getByText(/Scanner:/)).toBeVisible();
-  await expect(page.getByText("HTML audit completed", { exact: true })).toBeVisible();
-  await expect(page.getByText("html-real-checks")).toBeVisible();
-  await expect(page.getByText("http-html")).toBeVisible();
-  await expect(page.getByText("seo", { exact: true })).toBeVisible();
-  await expect(page.getByText("accessibility", { exact: true })).toBeVisible();
-  await expect(page.getByText("performance-hints")).toBeVisible();
-  await expect(page.getByText("security-headers")).toBeVisible();
-  await expect(page.locator("#report .priorityBadge.high")).not.toHaveCount(0);
-  await expect(page.locator("#report").getByText("Live checks")).not.toHaveCount(0);
-  await expect(page.locator("#report .checkItem")).not.toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Go deeper when you need to." })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Print report/ })).toBeVisible();
+  await expect(page.locator(".nqCategory").filter({ hasText: "SEO basics" })).toHaveCount(1);
+  await expect(page.locator(".nqCategory").filter({ hasText: "Design quality" })).toHaveCount(1);
+  await expect(page.getByText("HTML audit completed", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("HTML real checks").first()).toBeVisible();
+  await page.locator(".nqTechnicalDetails summary").click();
+  await expect(page.getByText("http-html").first()).toBeVisible();
+  await expect(page.getByText("seo", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("accessibility", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("performance-hints").first()).toBeVisible();
+  await expect(page.getByText("security-headers").first()).toBeVisible();
+  await expect(page.locator("#report .nqPriorityTag[data-priority=high]")).not.toHaveCount(0);
+  await expect(page.locator("#report .nqEvidenceRow")).not.toHaveCount(0);
+  await expect(page.locator("#report .nqCategory")).not.toHaveCount(0);
 
   expect(auditRequests.length).toBeGreaterThan(0);
   await page.waitForTimeout(1200);
   expect(flow.counts()).toEqual({ pollCount: 3, auditFetchCount: 1 });
   expect(browserErrors).toEqual([]);
 
-  await page.getByRole("button", { name: "Analyze another" }).click();
+  await page.locator(".nqReportActions button").filter({ hasText: "Analyze another" }).click();
   await expect(page.getByPlaceholder("Enter your website, e.g. luna-cafe.com")).toBeVisible();
 });
 
@@ -657,11 +658,12 @@ test("real page performance stays understandable on mobile", async ({ page }) =>
   await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");
   await page.getByRole("button", { name: /Run audit/ }).click();
 
-  const section = page.getByRole("heading", { name: "Real Page Performance" }).locator("..");
+  const section = page.locator("#real-page-performance");
   await expect(section).toBeVisible();
-  await expect(page.getByText("Partial audit completed", { exact: true })).toBeVisible();
+  await expect(page.getByText("Partial audit completed", { exact: true }).first()).toBeVisible();
   await expect(section.getByText("Needs improvement", { exact: true }).first()).toBeVisible();
-  await expect(section.getByText(/Main content · 4.2s/)).toBeVisible();
+  await expect(section.getByText("Main content", { exact: true })).toBeVisible();
+  await expect(section.getByText("4.2s", { exact: true })).toBeVisible();
   await expect(section.getByText("Optimize oversized images")).toBeVisible();
   const box = await section.boundingBox();
   expect(box.width).toBeLessThanOrEqual(390);

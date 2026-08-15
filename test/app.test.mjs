@@ -42,7 +42,7 @@ describe("backend core", () => {
 
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type"), /text\/html/);
-    assert.match(body, /SitePulse/);
+    assert.match(body, /NOQORI/);
   });
 
   it("adds security headers", async () => {
