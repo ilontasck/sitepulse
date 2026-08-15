@@ -134,12 +134,13 @@ function collectBrowserErrors(page) {
 
 test("NOQORI header and hero expose the real audit entry without invented navigation", async ({ page }) => {
   await page.goto("/");
+  const headerNavigation = page.getByRole("navigation", { name: "Primary navigation" });
 
-  await expect(page.getByRole("link", { name: "NOQORI home" })).toBeVisible();
+  await expect(headerNavigation.getByRole("link", { name: "NOQORI home" })).toBeVisible();
   await expect(page.getByText("WEBSITE INTELLIGENCE", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "See what others miss." })).toBeVisible();
-  await expect(page.getByText("Website intelligence, simplified.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Start audit" })).toHaveAttribute("href", "#auditForm");
+  await expect(page.locator(".noqoriHero").getByText("Website intelligence, simplified.", { exact: true })).toBeVisible();
+  await expect(headerNavigation.getByRole("link", { name: "Start audit" })).toHaveAttribute("href", "#auditForm");
   await expect(page.getByRole("button", { name: "Run audit" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Pricing|Login|Resources/ })).toHaveCount(0);
 
@@ -151,7 +152,7 @@ test("NOQORI header and hero expose the real audit entry without invented naviga
 test("NOQORI header CTA moves keyboard focus to the real audit input", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("link", { name: "Start audit" }).click();
+  await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Start audit" }).click();
 
   await expect(page.getByLabel("Website URL")).toBeFocused();
   await expect(page).toHaveURL(/#auditForm$/);
@@ -207,12 +208,86 @@ test("NOQORI audit entry stays usable without horizontal overflow across target 
     const layout = await page.evaluate(() => ({
       viewportWidth: document.documentElement.clientWidth,
       pageWidth: document.documentElement.scrollWidth,
-      formWidth: document.getElementById("auditForm").getBoundingClientRect().width
+      formWidth: document.getElementById("auditForm").getBoundingClientRect().width,
+      storyMode: document.querySelector("[data-story]").dataset.storyMode
     }));
 
     expect(layout.pageWidth).toBeLessThanOrEqual(layout.viewportWidth);
     expect(layout.formWidth).toBeLessThanOrEqual(layout.viewportWidth);
+    expect(layout.storyMode).toBe(viewport.width <= 900 ? "flow" : "sticky");
+    await expect(page.locator("[data-story-step]")).toHaveCount(4);
   }
+});
+
+test("NOQORI below-fold story presents only supported product outcomes", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "A deliberate path through your website." })).toBeVisible();
+  await expect(page.locator("[data-story-step=discover]")).toContainText("Public page response");
+  await expect(page.locator("[data-story-step=analyze]")).toContainText("Eight audit categories");
+  await expect(page.locator("[data-story-step=reveal]")).toContainText("Priority fixes");
+  await expect(page.locator("[data-story-step=improve]")).toContainText("Prioritized recommendations");
+  await expect(page.getByRole("heading", { name: "A useful answer, not another dashboard." })).toBeVisible();
+  await expect(page.getByText("SAMPLE REPORT STRUCTURE", { exact: true })).toBeVisible();
+  await expect(page.getByRole("contentinfo")).toBeVisible();
+
+  await expect(page.getByText("$19/mo", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Improvement service", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/continuous monitoring/i)).toHaveCount(0);
+  await expect(page.getByText(/trusted by/i)).toHaveCount(0);
+});
+
+test("NOQORI desktop story advances visual state through native scrolling", async ({ page }) => {
+  const browserErrors = collectBrowserErrors(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const story = page.locator("[data-story]");
+  const visual = page.locator("[data-story-visual]");
+  await expect(story).toHaveAttribute("data-story-ready", "true");
+  await expect(story).toHaveAttribute("data-story-mode", "sticky");
+
+  for (const state of ["discover", "analyze", "reveal", "improve"]) {
+    await page.locator(`[data-story-step=${state}]`).evaluate(element => {
+      element.scrollIntoView({ block: "center", behavior: "instant" });
+    });
+    await expect(story).toHaveAttribute("data-story-active", state);
+    await expect(visual).toHaveAttribute("data-active", state);
+  }
+
+  expect(browserErrors).toEqual([]);
+});
+
+test("NOQORI final CTA returns focus to the one real audit form", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("link", { name: "Start your audit" }).click();
+
+  await expect(page.getByLabel("Website URL")).toBeFocused();
+  await expect(page).toHaveURL(/#auditForm$/);
+  await expect(page.locator("form#auditForm")).toHaveCount(1);
+});
+
+test("NOQORI mobile story uses a readable flow and honors reduced motion", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+
+  const story = page.locator("[data-story]");
+  await expect(story).toHaveAttribute("data-story-mode", "flow");
+  await expect(page.locator(".nqStoryVisualColumn")).toBeHidden();
+  await expect(page.locator(".nqStoryMobileVisual")).toHaveCount(4);
+  await expect(page.locator(".nqStoryMobileVisual").first()).toBeVisible();
+
+  const motion = await page.locator("[data-story-step=discover]").evaluate(element => {
+    const styles = getComputedStyle(element);
+    return {
+      transitionDuration: styles.transitionDuration,
+      transform: styles.transform
+    };
+  });
+  expect(parseFloat(motion.transitionDuration)).toBeLessThanOrEqual(0.001);
+  expect(motion.transform).toBe("none");
 });
 
 test("NOQORI controls keep visible keyboard focus and reduce motion when requested", async ({ page }) => {
