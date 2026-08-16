@@ -93,7 +93,7 @@ export function buildRecommendationDetails(category, recommendations) {
 export function buildPriorityFixes(categories) {
   return [...categories]
     .sort((a, b) => a.score - b.score)
-    .slice(0, 4)
+    .slice(0, 3)
     .map((category, index) => ({
       title: category.recommendations[0],
       category: category.label,

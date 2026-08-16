@@ -375,7 +375,8 @@ test("main audit flow renders report and resets", async ({ page }) => {
   await expect(page.locator("#report").getByText("Audit report", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "example.com" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "How did this site do?" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Start with these findings." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your top 3 next actions." })).toBeVisible();
+  await expect(page.locator("#report .nqPriorityFinding")).toHaveCount(3);
   await expect(page.getByRole("heading", { name: "Recommendations by priority" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Go deeper when you need to." })).toBeVisible();
   await expect(page.getByRole("button", { name: /Print report/ })).toBeVisible();

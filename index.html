@@ -918,13 +918,13 @@
       }
       function buildPriorityFindings(result) {
         if (result.priorityFixes.length) {
-          return result.priorityFixes.slice(0, 4).map(fix => ({
+          return result.priorityFixes.slice(0, 3).map(fix => ({
             ...fix,
             categoryModel: categoryFor(result, fix.category)
           }));
         }
 
-        return [...result.cats].sort((first, second) => first.score - second.score).slice(0, 4).map(category => ({
+        return [...result.cats].sort((first, second) => first.score - second.score).slice(0, 3).map(category => ({
           title: category.recs[0] || category.text,
           category: category.name,
           priority: category.recommendationDetails[0]?.priority || (category.score < 58 ? "high" : "medium"),
@@ -940,8 +940,8 @@
           <section class="nqPrioritySection" aria-labelledby="priorityTitle">
             <div class="nqPriorityDecor" aria-hidden="true"><img src="/assets/noqori/noqori-expressive-prototype.png" alt="" /></div>
             <header class="nqReportSectionHeader nqPriorityHeader">
-              <div><p class="nqReportLabel"><span aria-hidden="true"></span>WHAT MATTERS MOST</p><h2 id="priorityTitle">Start with these findings.</h2></div>
-              <p>Ordered from the report’s highest-priority recommendations and lowest-scoring categories.</p>
+              <div><p class="nqReportLabel"><span aria-hidden="true"></span>WHAT MATTERS MOST</p><h2 id="priorityTitle">Your top 3 next actions.</h2></div>
+              <p>Three actions, ordered by recommendation priority and weakest category score. Each one links to the evidence behind it.</p>
             </header>
             <div class="nqPriorityList">
               ${findings.map((finding, index) => `

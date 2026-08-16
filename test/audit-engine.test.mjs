@@ -31,7 +31,7 @@ describe("audit domain", () => {
 
     assert.equal(first.domain, "luna-cafe.com");
     assert.equal(first.categories.length, 8);
-    assert.equal(first.priorityFixes.length, 4);
+    assert.equal(first.priorityFixes.length, 3);
     assert.equal(first.scanner.mode, "fallback");
     assert.equal(first.scanner.status, "html-fallback-used");
     assert.ok(first.scanner.warnings[0].includes("limited fallback checks"));
