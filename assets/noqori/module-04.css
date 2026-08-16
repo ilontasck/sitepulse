@@ -1045,3 +1045,8 @@
     transform: none !important;
   }
 }
+
+/* STE-26 WCAG AA contrast fix */
+.nqOutcomeGrid article > span {
+  color: #b83210;
+}

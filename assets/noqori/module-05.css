@@ -1677,3 +1677,29 @@ body.noqori-report-view > .blob {
     color: #0b0b0c !important;
   }
 }
+
+/* STE-26 WCAG AA contrast fix */
+.nqReportState[data-tone="warning"] {
+  color: #92400e;
+}
+
+.nqPriorityTag[data-priority="high"] {
+  color: #b83210;
+}
+
+.nqPriorityTag[data-priority="medium"] {
+  color: #92400e;
+}
+
+/* Dark priority cards need lighter semantic text colors. */
+.nqPrioritySection .nqPriorityTag[data-priority="high"] {
+  color: #ff8a6b;
+}
+
+.nqPrioritySection .nqPriorityTag[data-priority="medium"] {
+  color: #fbbf24;
+}
+
+.nqPrioritySection .nqPriorityTag[data-priority="low"] {
+  color: #86efac;
+}

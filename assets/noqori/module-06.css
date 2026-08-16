@@ -726,3 +726,8 @@ body.noqori-legal-view > .blob {
     break-inside: avoid;
   }
 }
+
+/* STE-26 WCAG AA contrast fix */
+.nqLegalPlaceholder {
+  color: #b83210;
+}
