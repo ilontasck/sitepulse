@@ -286,13 +286,25 @@
                   <span id="analysisStatusText">Connecting to the audit service.</span>
                 </div>
                 <div class="noqoriAnalysisProgress" aria-hidden="true"><span></span></div>
+                <p class="noqoriAnalysisGuidance" id="analysisGuidance">Submitting one audit request. This usually takes a moment.</p>
+                <ol class="noqoriAnalysisSteps" aria-label="Audit progress">
+                  <li data-analysis-step="request"><span>Request received</span><small class="noqoriAnalysisStepState">Current</small></li>
+                  <li data-analysis-step="queued"><span>Waiting for worker</span><small class="noqoriAnalysisStepState">Upcoming</small></li>
+                  <li data-analysis-step="running"><span>Inspecting website</span><small class="noqoriAnalysisStepState">Upcoming</small></li>
+                  <li data-analysis-step="building"><span>Preparing report</span><small class="noqoriAnalysisStepState">Upcoming</small></li>
+                </ol>
+                <p class="noqoriAnalysisDelay" id="analysisDelayMessage" hidden>This is taking longer than usual.</p>
+                <div class="noqoriAnalysisStopArea" id="analysisStopArea">
+                  <button class="noqoriAnalysisStop" id="analysisStop" type="button">Stop waiting</button>
+                  <span>This stops waiting in this tab.</span>
+                </div>
                 <div class="noqoriAnalysisError" id="analysisError" role="alert" hidden>
                   <p id="analysisErrorMessage"></p>
                   <details id="analysisErrorDetails" hidden>
                     <summary>Technical details</summary>
                     <code id="analysisErrorCode"></code>
                   </details>
-                  <button class="glassControl noqoriAnalysisRetry" id="analysisRetry" type="button">Try again <span class="controlArrow" aria-hidden="true">↗</span></button>
+                  <button class="glassControl noqoriAnalysisRetry" id="analysisRetry" type="button">Edit URL and retry <span class="controlArrow" aria-hidden="true">↗</span></button>
                 </div>
               </div>
             </div>
@@ -506,7 +518,15 @@
       const loading = document.getElementById("loading");
       const loadingText = document.getElementById("loadingText");
       const report = document.getElementById("report");
-      const analysisExperience = window.NOQORIAnalysisExperience.create({ input });
+      const analysisExperience = window.NOQORIAnalysisExperience.create({
+        input,
+        onStop() {
+          cancelActiveAuditRun();
+          loading.style.display = "none";
+          loadingText.textContent = "Starting your audit…";
+          document.getElementById("runBtn").disabled = false;
+        }
+      });
       const POLL_INTERVAL_MS = 1000;
       const POLL_MAX_WAIT_MS = 90000;
       const POLL_MAX_NETWORK_FAILURES = 3;

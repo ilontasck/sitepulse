@@ -395,6 +395,142 @@ test("NOQORI analysis remains truthful and usable with reduced motion", async ({
   expect(browserErrors).toEqual([]);
 });
 
+test("analysis communicates each job stage with semantic step state", async ({ page }) => {
+  const jobId = "44444444-4444-4444-8444-444444444444";
+  let releasePost;
+  let releaseReport;
+  let pollCount = 0;
+  const postGate = new Promise(resolve => { releasePost = resolve; });
+  const reportGate = new Promise(resolve => { releaseReport = resolve; });
+
+  await page.route("**/api/audits", async route => {
+    await postGate;
+    await fulfillJson(route, 202, {
+      job: { id: jobId, status: "queued", createdAt: "2026-08-13T10:00:00.000Z", statusUrl: `/api/audit-jobs/${jobId}` }
+    });
+  });
+  await page.route(`**/api/audit-jobs/${jobId}`, async route => {
+    const status = ["queued", "running", "completed"][Math.min(pollCount, 2)];
+    pollCount += 1;
+    await fulfillJson(route, 200, {
+      job: status === "completed"
+        ? { id: jobId, status, createdAt: "2026-08-13T10:00:00.000Z", completedAt: "2026-08-13T10:00:03.000Z", auditId: "audit-example.com", auditUrl: "/api/audits/audit-example.com" }
+        : { id: jobId, status, createdAt: "2026-08-13T10:00:00.000Z" }
+    });
+  });
+  await page.route("**/api/audits/audit-example.com", async route => {
+    await reportGate;
+    await fulfillJson(route, 200, { audit: createAudit() });
+  });
+
+  await page.goto("/");
+  await page.getByLabel("Website URL").fill("example.com");
+  await page.getByRole("button", { name: /Run audit/ }).click();
+
+  const analysis = page.locator("#analysisExperience");
+  const steps = analysis.getByRole("list", { name: "Audit progress" }).getByRole("listitem");
+  await expect(analysis).toHaveAttribute("data-analysis-state", "preparing");
+  await expect(page.getByRole("heading", { name: "Preparing analysis." })).toBeVisible();
+  await expect(page.locator("#analysisStatusText")).toContainText("audit service");
+  await expect(steps.nth(0)).toHaveAttribute("aria-current", "step");
+  await expect(page.getByRole("button", { name: "Stop waiting" })).toBeVisible();
+
+  releasePost();
+  await expect(analysis).toHaveAttribute("data-analysis-state", "queued");
+  await expect(page.locator("#analysisGuidance")).toContainText("waiting for an audit worker");
+  await expect(page.locator("#analysisGuidance")).toContainText("up to 90 seconds");
+  await expect(page.locator("#analysisStatusText")).toContainText("queued");
+  await expect(steps.nth(0)).toHaveAttribute("data-step-state", "complete");
+  await expect(steps.nth(0)).toContainText("Completed");
+  await expect(steps.nth(1)).toHaveAttribute("aria-current", "step");
+  await expect(analysis).not.toContainText("%");
+
+  await expect(analysis).toHaveAttribute("data-analysis-state", "running", { timeout: 4_000 });
+  await expect(page.locator("#analysisGuidance")).toContainText("observable website signals");
+  await expect(page.getByRole("heading", { name: "Analyzing your website." })).toBeVisible();
+  await expect(steps.nth(2)).toHaveAttribute("aria-current", "step");
+  await expect(page.locator(".noqoriAnalysisProgress span")).toBeVisible();
+
+  await expect(analysis).toHaveAttribute("data-analysis-state", "building", { timeout: 4_000 });
+  await expect(page.locator("#analysisGuidance")).toContainText("audit is complete");
+  await expect(page.getByRole("heading", { name: "Building your report." })).toBeVisible();
+  await expect(steps.nth(3)).toHaveAttribute("aria-current", "step");
+  releaseReport();
+  await expect(analysis).toHaveAttribute("data-analysis-state", "complete");
+  await expect(page.getByRole("heading", { name: "Analysis complete." })).toBeVisible();
+  await expect(page.locator("#report")).toBeVisible();
+});
+
+test("Stop waiting aborts this tab only and restores the audit form", async ({ page }) => {
+  const jobId = await mockQueuedJobCreation(page);
+  let postCount = 0;
+  let cancelRequests = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && request.url().includes("/api/audits")) postCount += 1;
+    if (["DELETE", "PATCH"].includes(request.method()) && request.url().includes("/api/audit-jobs/")) cancelRequests += 1;
+  });
+  await page.route(`**/api/audit-jobs/${jobId}`, async () => new Promise(() => {}));
+
+  await page.goto("/");
+  await page.getByLabel("Website URL").fill("example.com");
+  await page.getByRole("button", { name: /Run audit/ }).click();
+  await expect(page.locator("#analysisExperience")).toHaveAttribute("data-analysis-state", "queued");
+  await expect(page.getByText("This stops waiting in this tab.")).toBeVisible();
+  await page.getByRole("button", { name: "Stop waiting" }).click();
+
+  await expect(page.locator("#analysisExperience")).toBeHidden();
+  await expect(page.getByLabel("Website URL")).toBeFocused();
+  await expect(page.getByRole("button", { name: /Run audit/ })).toBeEnabled();
+  expect(postCount).toBe(1);
+  expect(cancelRequests).toBe(0);
+});
+
+test("delayed and reconnecting states keep one existing audit job", async ({ page }) => {
+  const browserErrors = collectBrowserErrors(page);
+  await page.clock.install({ time: new Date("2026-08-13T10:00:00.000Z") });
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window);
+    let simulatedNetworkFailure = false;
+    window.fetch = (resource, options) => {
+      if (!simulatedNetworkFailure && String(resource).includes("/api/audit-jobs/")) {
+        simulatedNetworkFailure = true;
+        return Promise.reject(new TypeError("Simulated offline status check"));
+      }
+      return originalFetch(resource, options);
+    };
+  });
+  const jobId = await mockQueuedJobCreation(page);
+  let postCount = 0;
+  let pollCount = 0;
+  let activePolls = 0;
+  let maxActivePolls = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && request.url().includes("/api/audits")) postCount += 1;
+  });
+  await page.route(`**/api/audit-jobs/${jobId}`, async route => {
+    pollCount += 1;
+    activePolls += 1;
+    maxActivePolls = Math.max(maxActivePolls, activePolls);
+    await fulfillJson(route, 200, { job: { id: jobId, status: "queued", createdAt: "2026-08-13T10:00:00.000Z" } });
+    activePolls -= 1;
+  });
+
+  await page.goto("/");
+  await page.getByLabel("Website URL").fill("example.com");
+  await page.getByRole("button", { name: /Run audit/ }).click();
+  await page.clock.runFor(1_100);
+  await expect(page.locator("#analysisExperience")).toHaveAttribute("data-analysis-state", "reconnecting");
+  await expect(page.locator("#analysisGuidance")).toContainText("No new audit was started");
+  await page.clock.runFor(15_000);
+  await expect(page.locator("#analysisDelayMessage")).toHaveText("This is taking longer than usual.");
+  await expect(page.locator("#analysisDelayMessage")).toBeVisible();
+  await expect(page.locator("#analysisExperience")).toHaveAttribute("data-analysis-state", "queued");
+  expect(postCount).toBe(1);
+  expect(pollCount).toBe(1);
+  expect(maxActivePolls).toBe(1);
+  expect(browserErrors).toEqual([]);
+});
+
 test("main audit flow renders report and resets", async ({ page }) => {
   const browserErrors = collectBrowserErrors(page);
   const auditRequests = [];
@@ -525,6 +661,10 @@ test("a new submit invalidates a stale completion from the previous job", async 
 test("a failed job shows its safe error and stops polling", async ({ page }) => {
   const jobId = await mockQueuedJobCreation(page);
   let pollCount = 0;
+  let postCount = 0;
+  page.on("request", request => {
+    if (request.method() === "POST" && request.url().includes("/api/audits")) postCount += 1;
+  });
 
   await page.route(`**/api/audit-jobs/${jobId}`, async (route) => {
     pollCount += 1;
@@ -548,18 +688,26 @@ test("a failed job shows its safe error and stops polling", async ({ page }) => 
 
   const analysis = page.locator("#analysisExperience");
   await expect(analysis).toHaveAttribute("data-analysis-state", "error");
+  await expect(page.getByRole("heading", { name: "We couldn’t complete this analysis." })).toBeVisible();
+  await expect(analysis.getByRole("listitem").nth(1)).toHaveAttribute("aria-current", "step");
   await expect(page.getByRole("alert")).toContainText("The website audit timed out. Please try again.");
+  const retry = page.getByRole("button", { name: "Edit URL and retry" });
+  await expect(retry).toBeVisible();
+  await expect(retry).toBeFocused();
   await expect(page.getByText("AUDIT_TIMEOUT", { exact: true })).toBeHidden();
   await page.getByText("Technical details", { exact: true }).click();
   await expect(page.getByText("AUDIT_TIMEOUT", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
   await page.waitForTimeout(1200);
   expect(pollCount).toBe(1);
 
-  await page.getByRole("button", { name: "Try again" }).click();
+  await retry.click();
   await expect(analysis).toBeHidden();
   await expect(page.getByRole("button", { name: /Run audit/ })).toBeVisible();
   await expect(page.getByLabel("Website URL")).toBeFocused();
+  expect(postCount).toBe(1);
+  await page.getByLabel("Website URL").fill("example.com");
+  await page.getByRole("button", { name: /Run audit/ }).click();
+  await expect.poll(() => postCount).toBe(2);
 });
 
 test("client polling timeout restores the form without failing the server job", async ({ page }) => {
@@ -581,7 +729,7 @@ test("client polling timeout restores the form without failing the server job", 
   await page.clock.fastForward(90_000);
 
   await expect(page.getByRole("alert")).toContainText("The audit is taking longer than expected. Please try again shortly.");
-  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit URL and retry" })).toBeVisible();
   await expect(page.locator("#loading")).toBeHidden();
   expect(pollCount).toBe(1);
 });
@@ -599,7 +747,7 @@ test("a malformed polling response fails safely without crashing the UI", async 
   await page.getByRole("button", { name: /Run audit/ }).click();
 
   await expect(page.getByRole("alert")).toContainText("NOQORI received an invalid audit status. Please try again.");
-  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit URL and retry" })).toBeVisible();
   expect(browserErrors).toEqual([]);
 });
 
@@ -616,7 +764,7 @@ test("a polling network failure shows a status-specific safe error", async ({ pa
   await page.getByRole("button", { name: /Run audit/ }).click();
 
   await expect(page.getByRole("alert")).toContainText("NOQORI could not check the audit status. Please try again.");
-  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit URL and retry" })).toBeVisible();
   expect(pollCount).toBe(3);
 });
 
@@ -641,7 +789,7 @@ test("an audit fetch failure does not expose a browser error", async ({ page }) 
   await page.getByRole("button", { name: /Run audit/ }).click();
 
   await expect(page.getByRole("alert")).toContainText("The audit finished, but the report could not be loaded. Please try again.");
-  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit URL and retry" })).toBeVisible();
 });
 
 test("signed-out frontend exposes the temporary backend login requirement safely", async ({ page }) => {
@@ -650,7 +798,7 @@ test("signed-out frontend exposes the temporary backend login requirement safely
   await page.getByRole("button", { name: /Run audit/ }).click();
 
   await expect(page.getByRole("alert")).toContainText("Sign in to continue.");
-  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit URL and retry" })).toBeVisible();
   await expect(page.locator("#report")).toBeHidden();
 });
 
@@ -681,7 +829,7 @@ test("an unavailable audit API shows a useful message instead of the browser Loa
     "The NOQORI audit service is unavailable. Please try again shortly."
   );
   await expect(page.getByRole("alert")).not.toContainText("Load failed");
-  await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit URL and retry" })).toBeVisible();
 });
 
 test("unsafe localhost URL is blocked with a readable error", async ({ page }) => {
@@ -719,6 +867,30 @@ test("real page performance stays understandable on mobile", async ({ page }) =>
   await expect(section.getByText("Optimize oversized images")).toBeVisible();
   const box = await section.boundingBox();
   expect(box.width).toBeLessThanOrEqual(390);
+});
+
+test("completed HTML fallback opens a truthful report without zero Lighthouse metrics", async ({ page }) => {
+  const fallbackAudit = createAudit();
+  fallbackAudit.scanner = {
+    mode: "fallback",
+    status: "html-fallback-used",
+    adapters: ["fallback"],
+    warnings: ["Rendered audit was unavailable; limited HTML fallback checks were used."]
+  };
+  fallbackAudit.signals = {};
+  await mockCompletedAuditFlow(page, { statuses: ["completed"], audit: fallbackAudit });
+
+  await page.goto("/");
+  await page.getByLabel("Website URL").fill("example.com");
+  await page.getByRole("button", { name: /Run audit/ }).click();
+
+  await expect(page.locator("#report")).toBeVisible();
+  await expect(page.getByText("HTML fallback used", { exact: true }).first()).toBeVisible();
+  const performance = page.locator("#real-page-performance");
+  await expect(performance).toContainText("A limited HTML fallback report is available.");
+  await expect(performance).toContainText("Missing Lighthouse values are not displayed as zero.");
+  await expect(performance).not.toContainText("0/100");
+  await expect(page.locator("#report .nqPriorityFinding")).toHaveCount(3);
 });
 
 for (const viewport of [
