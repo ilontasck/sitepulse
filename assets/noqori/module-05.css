@@ -1436,8 +1436,39 @@ body.noqori-report-view > .blob {
 
 @media (max-width: 600px) {
   .noqoriReport {
+    --nq-mobile-metadata-size: 0.75rem;
     width: calc(100% - 1.5rem);
     padding: 1.5rem 0 4rem;
+  }
+
+  .nqOverviewList a span small,
+  .nqPriorityTag,
+  .nqFindingMeta,
+  .nqFindingEvidence span,
+  .nqLabMetric em,
+  .nqLighthouseScores div span,
+  .nqLighthouseScores div em,
+  .nqRecommendationCard > span,
+  .nqRecommendationCard div b,
+  .nqCategoryIdentity small,
+  .nqTechnicalDetails summary small {
+    font-size: var(--nq-mobile-metadata-size);
+  }
+
+  .nqOverallColumn,
+  .nqCategoryOverview {
+    min-width: 0;
+  }
+
+  .nqAuditContext {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .nqAuditContext > * {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
   .nqReportSectionHeader {

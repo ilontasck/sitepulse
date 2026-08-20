@@ -132,6 +132,57 @@ function collectBrowserErrors(page) {
   return errors;
 }
 
+async function measureHorizontalOverflow(page) {
+  return page.evaluate(() => {
+    const viewportWidth = window.innerWidth;
+    const offenders = [...document.querySelectorAll("body *")]
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const ownOverflow = element.scrollWidth - element.clientWidth;
+        return {
+          selector: element.id
+            ? `#${element.id}`
+            : `${element.tagName.toLowerCase()}${[...element.classList].map((name) => `.${name}`).join("")}`,
+          left: Math.round(rect.left * 100) / 100,
+          right: Math.round(rect.right * 100) / 100,
+          width: Math.round(rect.width * 100) / 100,
+          ownOverflow
+        };
+      })
+      .filter(({ left, right, ownOverflow }) => left < -0.5 || right > viewportWidth + 0.5 || ownOverflow > 1);
+
+    return {
+      viewportWidth,
+      rootScrollWidth: document.documentElement.scrollWidth,
+      offenders
+    };
+  });
+}
+
+async function measureMeaningfulReportMetadata(page) {
+  const selectors = [
+    ".nqOverviewList small",
+    ".nqPriorityTag",
+    ".nqFindingMeta",
+    ".nqFindingEvidence span",
+    ".nqLabMetric em",
+    ".nqLighthouseScores span",
+    ".nqLighthouseScores em",
+    ".nqRecommendationCard > span",
+    ".nqRecommendationCard div b",
+    ".nqCategoryIdentity small",
+    ".nqTechnicalDetails summary small"
+  ];
+
+  return page.evaluate((testedSelectors) => testedSelectors.flatMap((selector) =>
+    [...document.querySelectorAll(selector)].map((element) => ({
+      selector,
+      text: element.textContent.trim(),
+      fontSize: parseFloat(getComputedStyle(element).fontSize)
+    }))
+  ), selectors);
+}
+
 test("NOQORI header and hero expose the real audit entry without invented navigation", async ({ page }) => {
   await page.goto("/");
   const headerNavigation = page.getByRole("navigation", { name: "Primary navigation" });
@@ -669,6 +720,53 @@ test("real page performance stays understandable on mobile", async ({ page }) =>
   const box = await section.boundingBox();
   expect(box.width).toBeLessThanOrEqual(390);
 });
+
+for (const viewport of [
+  { label: "mobile", width: 390, height: 844 },
+  { label: "tablet", width: 768, height: 1024 },
+  { label: "desktop", width: 1440, height: 900 }
+]) {
+  test(`report and expanded category avoid horizontal overflow on ${viewport.label}`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    const lab = {
+      metrics: { lcpMs: 2800, cls: 0.08, fcpMs: 1700, speedIndexMs: 3100, tbtMs: 180, inpMs: null, inpLabProxy: "TBT" },
+      scores: { performance: 78, accessibility: 91, bestPractices: 96, seo: 92 },
+      findings: [{ title: "Optimize oversized images", action: "Compress the images identified by Lighthouse." }]
+    };
+    const audit = createAudit("example.com", lab);
+    audit.scanner.status = "full-rendered-completed";
+    audit.scanner.mode = "rendered-lighthouse";
+    await mockCompletedAuditFlow(page, {
+      statuses: ["completed"],
+      audit
+    });
+    await page.goto("/");
+    await page.getByLabel("Website URL").fill("example.com");
+    await page.getByRole("button", { name: /Run audit/ }).click();
+    await expect(page.locator("#report")).toBeVisible();
+
+    const reportMeasurement = await measureHorizontalOverflow(page);
+    expect(
+      reportMeasurement.rootScrollWidth,
+      `Report overflow: ${JSON.stringify(reportMeasurement.offenders)}`
+    ).toBeLessThanOrEqual(viewport.width + 1);
+
+    if (viewport.width === 390) {
+      const metadataMeasurements = await measureMeaningfulReportMetadata(page);
+      const undersizedMetadata = metadataMeasurements.filter(({ fontSize }) => fontSize < 12);
+      expect(undersizedMetadata, `Undersized report metadata: ${JSON.stringify(undersizedMetadata)}`).toEqual([]);
+    }
+
+    const category = page.locator(".nqCategory").first();
+    await category.locator(":scope > summary").click();
+    await expect(category).toHaveAttribute("open", "");
+    const categoryMeasurement = await measureHorizontalOverflow(page);
+    expect(
+      categoryMeasurement.rootScrollWidth,
+      `Expanded category overflow: ${JSON.stringify(categoryMeasurement.offenders)}`
+    ).toBeLessThanOrEqual(viewport.width + 1);
+  });
+}
 
 // ── Module 06: Legal pages E2E ─────────────────────────────────────────────
 
