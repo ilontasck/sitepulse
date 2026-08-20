@@ -27,11 +27,11 @@ body.noqori-legal-view > .blob {
   display: inline-block;
   padding: 0.15rem 0.55rem;
   border: 1.5px dashed var(--nq-ember);
-  border-radius: 0.35rem;
-  background: rgba(255, 74, 26, 0.07);
+  border-radius: var(--nq-radius-xs);
+  background: var(--nq-ember-surface-subtle);
   color: var(--nq-ember);
   font-family: var(--nq-mono);
-  font-size: 0.78rem;
+  font-size: var(--nq-type-ui);
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1.5;
@@ -41,23 +41,23 @@ body.noqori-legal-view > .blob {
 .nqLegalNotReady {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
+  gap: var(--nq-space-4);
   margin-bottom: 2.5rem;
   padding: 1.25rem 1.5rem;
   border: 1.5px dashed var(--nq-ember);
   border-radius: var(--nq-radius-md);
-  background: rgba(255, 74, 26, 0.06);
-  color: #7d250f;
+  background: var(--nq-ember-surface-faint);
+  color: var(--nq-ember-text-deep);
 }
 
 .nqLegalNotReady > span:first-child {
   flex-shrink: 0;
-  font-size: 1.2rem;
+  font-size: var(--nq-type-heading-md);
 }
 
 .nqLegalNotReady b {
   display: block;
-  font-size: 0.9rem;
+  font-size: var(--nq-type-copy-sm);
   font-weight: 700;
   letter-spacing: 0.02em;
   margin-bottom: 0.25rem;
@@ -65,7 +65,7 @@ body.noqori-legal-view > .blob {
 
 .nqLegalNotReady p {
   margin: 0;
-  font-size: 0.84rem;
+  font-size: var(--nq-type-body);
   line-height: 1.55;
 }
 
@@ -100,13 +100,13 @@ body.noqori-legal-view > .blob {
   justify-content: space-between;
   min-height: 5.5rem;
   padding: 1rem 0;
-  gap: 1.5rem;
+  gap: var(--nq-space-5);
 }
 
 .nqLegalBrand {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--nq-space-3);
   color: var(--nq-ink);
   text-decoration: none;
 }
@@ -118,7 +118,7 @@ body.noqori-legal-view > .blob {
   overflow: hidden;
   place-items: center;
   border: 1px solid var(--nq-border);
-  border-radius: 0.7rem;
+  border-radius: var(--nq-radius-sm);
   background: var(--nq-surface-strong);
 }
 
@@ -130,7 +130,7 @@ body.noqori-legal-view > .blob {
 }
 
 .nqLegalBrandName {
-  font-size: 0.78rem;
+  font-size: var(--nq-type-ui);
   font-weight: 700;
   letter-spacing: 0.2em;
   font-family: var(--nq-mono);
@@ -146,15 +146,15 @@ body.noqori-legal-view > .blob {
   background: var(--nq-surface-strong);
   color: var(--nq-graphite);
   text-decoration: none;
-  font-size: 0.82rem;
+  font-size: var(--nq-type-body-sm);
   font-weight: 600;
-  transition: transform 160ms var(--nq-ease), border-color 160ms ease, background 160ms ease;
+  transition: transform var(--nq-motion-fast) var(--nq-ease), border-color var(--nq-motion-fast) ease, background var(--nq-motion-fast) ease;
 }
 
 .nqLegalHeaderBack:hover {
   transform: translateY(-1px);
   border-color: var(--nq-ink);
-  background: #fff;
+  background: var(--nq-white);
 }
 
 .nqLegalHeaderBack:focus-visible {
@@ -187,7 +187,7 @@ body.noqori-legal-view > .blob {
   margin: 0 0 1rem;
   color: var(--nq-muted);
   font-family: var(--nq-mono);
-  font-size: 0.66rem;
+  font-size: var(--nq-type-meta-xs);
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -210,9 +210,9 @@ body.noqori-legal-view > .blob {
   margin-left: -1px;
   color: var(--nq-muted);
   text-decoration: none;
-  font-size: 0.8rem;
+  font-size: var(--nq-type-body-xs);
   line-height: 1.45;
-  transition: color 160ms ease, border-color 160ms ease;
+  transition: color var(--nq-motion-fast) ease, border-color var(--nq-motion-fast) ease;
 }
 
 .nqLegalTocList a:hover {
@@ -229,7 +229,7 @@ body.noqori-legal-view > .blob {
 .nqLegalTocList a:focus-visible {
   outline: 2px solid var(--nq-ember);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: var(--nq-radius-hairline);
 }
 
 /* --------------------------------------------------------------------------
@@ -251,11 +251,11 @@ body.noqori-legal-view > .blob {
 .nqLegalPageKicker {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--nq-space-2);
   margin: 0 0 1rem;
   color: var(--nq-muted);
   font-family: var(--nq-mono);
-  font-size: 0.68rem;
+  font-size: var(--nq-type-meta-sm);
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -264,7 +264,7 @@ body.noqori-legal-view > .blob {
 .nqLegalPageKicker > span {
   width: 0.38rem;
   height: 0.38rem;
-  border-radius: 50%;
+  border-radius: var(--nq-radius-circle);
   background: var(--nq-ember);
   flex-shrink: 0;
 }
@@ -283,7 +283,7 @@ body.noqori-legal-view > .blob {
   gap: 0.4rem 1.5rem;
   color: var(--nq-muted);
   font-family: var(--nq-mono);
-  font-size: 0.72rem;
+  font-size: var(--nq-type-meta-md);
   letter-spacing: 0.06em;
 }
 
@@ -317,7 +317,7 @@ body.noqori-legal-view > .blob {
 
 .nqLegalSection h3 {
   margin: 2rem 0 0.75rem;
-  font-size: 1.05rem;
+  font-size: var(--nq-type-heading-xs);
   font-weight: 600;
   letter-spacing: -0.015em;
   color: var(--nq-graphite);
@@ -325,7 +325,7 @@ body.noqori-legal-view > .blob {
 
 .nqLegalSection p {
   margin: 0 0 1rem;
-  font-size: 1rem;
+  font-size: var(--nq-type-base);
   line-height: 1.75;
   color: var(--nq-graphite);
   max-width: 68ch;
@@ -342,7 +342,7 @@ body.noqori-legal-view > .blob {
 }
 
 .nqLegalSection li {
-  font-size: 1rem;
+  font-size: var(--nq-type-base);
   line-height: 1.7;
   color: var(--nq-graphite);
   margin-bottom: 0.35rem;
@@ -358,7 +358,7 @@ body.noqori-legal-view > .blob {
   text-decoration: underline;
   text-decoration-color: rgba(11, 11, 12, 0.3);
   text-underline-offset: 3px;
-  transition: text-decoration-color 160ms ease;
+  transition: text-decoration-color var(--nq-motion-fast) ease;
 }
 
 .nqLegalSection a:hover {
@@ -368,7 +368,7 @@ body.noqori-legal-view > .blob {
 .nqLegalSection a:focus-visible {
   outline: 2px solid var(--nq-ember);
   outline-offset: 3px;
-  border-radius: 2px;
+  border-radius: var(--nq-radius-hairline);
 }
 
 /* --------------------------------------------------------------------------
@@ -382,7 +382,7 @@ body.noqori-legal-view > .blob {
   background: var(--nq-surface-strong);
   color: var(--nq-graphite);
   font-family: var(--nq-mono);
-  font-size: 0.68rem;
+  font-size: var(--nq-type-meta-sm);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -394,16 +394,16 @@ body.noqori-legal-view > .blob {
 .nqLegalDl {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.5rem 1.5rem;
+  gap: var(--nq-space-2) 1.5rem;
   margin: 0 0 1rem;
-  font-size: 0.92rem;
+  font-size: var(--nq-type-copy);
   line-height: 1.6;
 }
 
 .nqLegalDl dt {
   color: var(--nq-muted);
   font-family: var(--nq-mono);
-  font-size: 0.72rem;
+  font-size: var(--nq-type-meta-md);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -423,7 +423,7 @@ body.noqori-legal-view > .blob {
   width: 100%;
   border-collapse: collapse;
   margin: 0 0 1rem;
-  font-size: 0.88rem;
+  font-size: var(--nq-type-body-lg);
 }
 
 .nqLegalTable th {
@@ -433,7 +433,7 @@ body.noqori-legal-view > .blob {
   background: var(--nq-surface);
   color: var(--nq-muted);
   font-family: var(--nq-mono);
-  font-size: 0.68rem;
+  font-size: var(--nq-type-meta-sm);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -454,7 +454,7 @@ body.noqori-legal-view > .blob {
 
 .nqLegalTable td:first-child {
   font-family: var(--nq-mono);
-  font-size: 0.78rem;
+  font-size: var(--nq-type-ui);
   font-weight: 700;
   color: var(--nq-ink);
   white-space: nowrap;
@@ -478,26 +478,26 @@ body.noqori-legal-view > .blob {
   background: var(--nq-surface);
   border-radius: 0 var(--nq-radius-sm) var(--nq-radius-sm) 0;
   margin: 0 0 1rem;
-  font-size: 0.9rem;
+  font-size: var(--nq-type-copy-sm);
   line-height: 1.65;
   color: var(--nq-graphite);
 }
 
 .nqLegalNote[data-tone="review"] {
   border-left-color: var(--nq-ember);
-  background: rgba(255, 74, 26, 0.05);
-  color: #5c1e0a;
+  background: var(--nq-ember-surface-quiet);
+  color: var(--nq-ember-text-deepest);
 }
 
 .nqLegalNote[data-tone="info"] {
-  border-left-color: #3b82f6;
+  border-left-color: var(--nq-info-signal);
   background: rgba(59, 130, 246, 0.05);
-  color: #1e3a5f;
+  color: var(--nq-info-text);
 }
 
 .nqLegalNote > span:first-child {
   flex-shrink: 0;
-  font-size: 1rem;
+  font-size: var(--nq-type-base);
   margin-top: 0.1rem;
 }
 
@@ -522,12 +522,12 @@ body.noqori-legal-view > .blob {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: var(--nq-space-4);
   min-height: 5rem;
   padding: 1.25rem 0;
   color: var(--nq-muted);
   font-family: var(--nq-mono);
-  font-size: 0.68rem;
+  font-size: var(--nq-type-meta-sm);
   letter-spacing: 0.08em;
 }
 
@@ -540,8 +540,8 @@ body.noqori-legal-view > .blob {
 .nqLegalFooterLinks a {
   color: var(--nq-muted);
   text-decoration: none;
-  font-size: 0.68rem;
-  transition: color 160ms ease;
+  font-size: var(--nq-type-meta-sm);
+  transition: color var(--nq-motion-fast) ease;
 }
 
 .nqLegalFooterLinks a:hover {
@@ -551,7 +551,7 @@ body.noqori-legal-view > .blob {
 .nqLegalFooterLinks a:focus-visible {
   outline: 2px solid var(--nq-ember);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: var(--nq-radius-hairline);
 }
 
 /* --------------------------------------------------------------------------
@@ -574,7 +574,7 @@ body.noqori-legal-view > .blob {
   .nqLegalTocList {
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 0.25rem 0;
+    gap: var(--nq-space-1) 0;
     border-left: 0;
     border-top: 1px solid var(--nq-border);
     padding-top: 0.75rem;
@@ -585,7 +585,7 @@ body.noqori-legal-view > .blob {
     border-bottom: 2px solid transparent;
     padding: 0.35rem 0.75rem;
     margin: 0;
-    font-size: 0.78rem;
+    font-size: var(--nq-type-ui);
   }
 
   .nqLegalTocList a.is-active {
@@ -628,7 +628,7 @@ body.noqori-legal-view > .blob {
     align-items: flex-start;
     min-height: auto;
     padding: 1.5rem 0;
-    gap: 0.75rem;
+    gap: var(--nq-space-3);
   }
 }
 
@@ -656,9 +656,9 @@ body.noqori-legal-view > .blob {
   }
 
   body.noqori-legal-view {
-    background: #fff !important;
-    color: #0b0b0c !important;
-    font-size: 10pt;
+    background: var(--nq-white) !important;
+    color: var(--nq-ink) !important;
+    font-size: var(--nq-type-print-body);
   }
 
   .nqLegalHeader,
@@ -678,34 +678,34 @@ body.noqori-legal-view > .blob {
   }
 
   .nqLegalSection h2 {
-    font-size: 13pt;
+    font-size: var(--nq-type-print-heading);
     page-break-after: avoid;
     break-after: avoid;
   }
 
   .nqLegalSection h3 {
-    font-size: 11pt;
+    font-size: var(--nq-type-print-copy);
     page-break-after: avoid;
     break-after: avoid;
   }
 
   .nqLegalSection p,
   .nqLegalSection li {
-    font-size: 10pt;
+    font-size: var(--nq-type-print-body);
     line-height: 1.6;
-    color: #0b0b0c !important;
+    color: var(--nq-ink) !important;
   }
 
   .nqLegalPlaceholder {
-    border: 1px solid #ff4a1a !important;
-    background: #fff !important;
-    color: #ff4a1a !important;
-    font-size: 8pt;
+    border: 1px solid var(--nq-ember) !important;
+    background: var(--nq-white) !important;
+    color: var(--nq-ember) !important;
+    font-size: var(--nq-type-print-meta);
   }
 
   .nqLegalNotReady {
-    border: 1px dashed #ff4a1a !important;
-    background: #fff8f6 !important;
+    border: 1px dashed var(--nq-ember) !important;
+    background: var(--nq-info-surface) !important;
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -716,12 +716,12 @@ body.noqori-legal-view > .blob {
 
   .nqLegalTable th,
   .nqLegalTable td {
-    font-size: 8.5pt;
+    font-size: var(--nq-type-print-meta-lg);
   }
 
   .nqLegalNote {
-    border: 1px solid #cbd5e1 !important;
-    background: #f8fafc !important;
+    border: 1px solid var(--nq-print-border) !important;
+    background: var(--nq-print-surface) !important;
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -729,5 +729,5 @@ body.noqori-legal-view > .blob {
 
 /* STE-26 WCAG AA contrast fix */
 .nqLegalPlaceholder {
-  color: #b83210;
+  color: var(--nq-ember-text);
 }

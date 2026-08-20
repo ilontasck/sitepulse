@@ -1,4 +1,5 @@
 :root {
+  /* Brand and surface colors */
   --nq-canvas: #f5f5f2;
   --nq-surface: #fbfbf8;
   --nq-surface-strong: #ffffff;
@@ -6,11 +7,121 @@
   --nq-graphite: #1a1c20;
   --nq-silver: #b4b7bc;
   --nq-muted: #666970;
+  --nq-muted-strong: #777a80;
   --nq-border: rgba(11, 11, 12, 0.13);
   --nq-border-strong: rgba(11, 11, 12, 0.22);
   --nq-ember: #ff4a1a;
+  --nq-ember-hover: #ff6b3d;
+  --nq-ember-text: #b83210;
+  --nq-ember-text-deep: #7d250f;
+  --nq-ember-text-dark: #67230f;
+  --nq-ember-text-deepest: #5c1e0a;
+  --nq-ember-on-dark: #ff8a6b;
+  --nq-ember-border: rgba(255, 74, 26, 0.35);
+  --nq-ember-border-strong: rgba(255, 74, 26, 0.4);
+  --nq-ember-border-stage: rgba(255, 74, 26, 0.72);
+  --nq-ember-border-subtle: rgba(255, 74, 26, 0.22);
+  --nq-ember-surface: rgba(255, 74, 26, 0.1);
+  --nq-ember-surface-soft: rgba(255, 74, 26, 0.08);
+  --nq-ember-surface-subtle: rgba(255, 74, 26, 0.07);
+  --nq-ember-surface-faint: rgba(255, 74, 26, 0.06);
+  --nq-ember-surface-quiet: rgba(255, 74, 26, 0.05);
   --nq-dark-surface: #101113;
+  --nq-dark-surface-raised: #121316;
+  --nq-dark-scene: #0d0e10;
+  --nq-dark-foreground-muted: #a8abb0;
+  --nq-dark-foreground-soft: #9fa1a7;
+  --nq-dark-foreground-alt: #a9abb0;
+  --nq-dark-foreground-strong: #dadbd8;
   --nq-dark-foreground: #f5f5f2;
+  --nq-light-muted: #ecece8;
+  --nq-white: #ffffff;
+  --nq-black: #000000;
+
+  /* Semantic states */
+  --nq-good-text: #15803d;
+  --nq-good-text-dark: #86efac;
+  --nq-good-signal: #16a34a;
+  --nq-good-border: rgba(34, 197, 94, 0.3);
+  --nq-good-border-soft: rgba(34, 197, 94, 0.28);
+  --nq-good-surface: rgba(34, 197, 94, 0.08);
+  --nq-good-surface-strong: rgba(34, 197, 94, 0.12);
+  --nq-warning-text: #b45309;
+  --nq-warning-text-strong: #92400e;
+  --nq-warning-text-dark: #fbbf24;
+  --nq-warning-signal: #d97706;
+  --nq-warning-border: rgba(245, 158, 11, 0.35);
+  --nq-warning-border-soft: rgba(245, 158, 11, 0.32);
+  --nq-warning-surface: rgba(245, 158, 11, 0.09);
+  --nq-warning-surface-soft: rgba(245, 158, 11, 0.08);
+  --nq-warning-surface-strong: rgba(245, 158, 11, 0.1);
+  --nq-critical-text: #b91c1c;
+  --nq-critical-signal: #dc2626;
+  --nq-critical-border: rgba(239, 68, 68, 0.32);
+  --nq-critical-border-strong: rgba(239, 68, 68, 0.35);
+  --nq-critical-surface: rgba(239, 68, 68, 0.09);
+  --nq-critical-surface-strong: rgba(239, 68, 68, 0.12);
+  --nq-unavailable-text: #64748b;
+  --nq-unavailable-signal: #94a3b8;
+  --nq-unavailable-border: rgba(100, 116, 139, 0.25);
+  --nq-unavailable-surface: rgba(100, 116, 139, 0.08);
+  --nq-info-text: #1e3a5f;
+  --nq-info-signal: #3b82f6;
+  --nq-info-surface: #fff8f6;
+
+  /* Print colors */
+  --nq-print-ink: #0b0b0c;
+  --nq-print-surface: #f8fafc;
+  --nq-print-border: #cbd5e1;
+  --nq-print-border-soft: #e2e8f0;
+  --nq-print-muted: #475569;
+  --nq-print-white: #ffffff;
+
+  /* Fixed type scale; responsive display sizes remain local clamp() values. */
+  --nq-type-micro: 0.5rem;
+  --nq-type-fine: 0.52rem;
+  --nq-type-caption-xs: 0.55rem;
+  --nq-type-caption-sm: 0.56rem;
+  --nq-type-caption: 0.58rem;
+  --nq-type-footer: 0.59rem;
+  --nq-type-label-xs: 0.6rem;
+  --nq-type-label-sm: 0.61rem;
+  --nq-type-label: 0.62rem;
+  --nq-type-label-md: 0.63rem;
+  --nq-type-label-lg: 0.65rem;
+  --nq-type-meta-xs: 0.66rem;
+  --nq-type-meta-sm: 0.68rem;
+  --nq-type-meta: 0.7rem;
+  --nq-type-meta-md: 0.72rem;
+  --nq-type-ui-xs: 0.75rem;
+  --nq-type-ui-sm: 0.76rem;
+  --nq-type-ui: 0.78rem;
+  --nq-type-body-xs: 0.8rem;
+  --nq-type-body-sm: 0.82rem;
+  --nq-type-body: 0.84rem;
+  --nq-type-body-md: 0.85rem;
+  --nq-type-ui-md: 0.86rem;
+  --nq-type-body-lg: 0.88rem;
+  --nq-type-copy-sm: 0.9rem;
+  --nq-type-copy: 0.92rem;
+  --nq-type-copy-lg: 0.95rem;
+  --nq-type-base: 1rem;
+  --nq-type-heading-xs: 1.05rem;
+  --nq-type-heading-sm: 1.1rem;
+  --nq-type-heading: 1.15rem;
+  --nq-type-heading-md: 1.2rem;
+  --nq-type-heading-lg: 1.25rem;
+  --nq-type-heading-xl: 1.35rem;
+  --nq-type-heading-2xl: 1.45rem;
+  --nq-type-display-sm: 2rem;
+  --nq-type-print-body: 10pt;
+  --nq-type-print-meta: 8pt;
+  --nq-type-print-meta-lg: 8.5pt;
+  --nq-type-print-copy: 11pt;
+  --nq-type-print-heading: 13pt;
+  --nq-type-print-title: 14pt;
+
+  /* Spacing */
   --nq-space-1: 0.25rem;
   --nq-space-2: 0.5rem;
   --nq-space-3: 0.75rem;
@@ -19,17 +130,60 @@
   --nq-space-6: 2rem;
   --nq-space-7: 3rem;
   --nq-space-8: 4.5rem;
+
+  /* Radii */
+  --nq-radius-none: 0;
+  --nq-radius-hairline: 2px;
+  --nq-radius-xs: 0.35rem;
+  --nq-radius-control: 0.55rem;
+  --nq-radius-compact: 0.65rem;
   --nq-radius-sm: 0.7rem;
+  --nq-radius-control-sm: 0.68rem;
+  --nq-radius-control-md: 0.72rem;
+  --nq-radius-control-lg: 0.8rem;
   --nq-radius-md: 1rem;
+  --nq-radius-card: 1.2rem;
+  --nq-radius-panel: 1.35rem;
   --nq-radius-lg: 1.5rem;
+  --nq-radius-mobile: 1.9rem;
   --nq-radius-pill: 999px;
+  --nq-radius-circle: 50%;
+
+  /* Shadows and glass */
   --nq-shadow-soft: 0 1rem 3rem rgba(16, 17, 19, 0.08);
   --nq-shadow-control: 0 0.75rem 1.8rem rgba(16, 17, 19, 0.1);
+  --nq-shadow-card: 0 1.4rem 4rem rgba(11, 11, 12, 0.08);
+  --nq-shadow-panel: 0 1.8rem 4rem rgba(11, 11, 12, 0.12);
+  --nq-shadow-stage: 0 3rem 8rem rgba(11, 11, 12, 0.17);
+  --nq-shadow-stage-soft: 0 3rem 8rem rgba(11, 11, 12, 0.14);
+  --nq-shadow-stage-dark: 0 3rem 9rem rgba(0, 0, 0, 0.54);
+  --nq-shadow-priority: 0 2rem 5rem rgba(11, 11, 12, 0.28);
+  --nq-shadow-control-subtle: 0 2px 6px rgba(11, 11, 12, 0.04);
+  --nq-shadow-control-strong: 0 0.8rem 1.8rem rgba(11, 11, 12, 0.18);
+  --nq-shadow-control-deep: 0 1rem 2.2rem rgba(11, 11, 12, 0.22);
+  --nq-shadow-hover: 0 4px 12px rgba(11, 11, 12, 0.06);
+  --nq-shadow-score: 0 4px 14px rgba(11, 11, 12, 0.04);
+  --nq-glow-ember: 0 0 1.5rem rgba(255, 74, 26, 0.35);
+  --nq-glow-ember-soft: 0 0 4rem rgba(255, 74, 26, 0.18);
+  --nq-glow-ember-strong: 0 0 1.25rem rgba(255, 74, 26, 0.48);
+  --nq-ring-ember-soft: 0 0 0 0.25rem rgba(255, 74, 26, 0.08);
+  --nq-ring-ember-compact: 0 0 0 0.24rem rgba(255, 74, 26, 0.08);
   --nq-glass: rgba(255, 255, 255, 0.62);
   --nq-glass-highlight: rgba(255, 255, 255, 0.88);
   --nq-focus: 0 0 0 3px rgba(255, 74, 26, 0.28);
+
+  /* Motion */
+  --nq-motion-instant: 120ms;
   --nq-motion-fast: 160ms;
   --nq-motion-base: 260ms;
+  --nq-motion-slow: 360ms;
+  --nq-motion-reveal: 420ms;
+  --nq-motion-crossfade: 440ms;
+  --nq-motion-panel: 520ms;
+  --nq-motion-settle: 540ms;
+  --nq-motion-scene: 560ms;
+  --nq-motion-stage: 640ms;
+  --nq-motion-hero: 700ms;
   --nq-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --nq-display: "Avenir Next", Avenir, "Helvetica Neue", Arial, sans-serif;
   --nq-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
@@ -99,7 +253,7 @@ body.noqori-public {
   overflow: hidden;
   place-items: center;
   border: 1px solid var(--nq-border);
-  border-radius: 0.8rem;
+  border-radius: var(--nq-radius-control-lg);
   background: var(--nq-surface-strong);
 }
 
@@ -111,7 +265,7 @@ body.noqori-public {
 }
 
 .noqoriBrandName {
-  font-size: 0.84rem;
+  font-size: var(--nq-type-body);
   font-weight: 650;
   letter-spacing: 0.2em;
 }
@@ -139,7 +293,7 @@ body.noqori-public {
   -webkit-backdrop-filter: blur(1rem) saturate(1.08);
   backdrop-filter: blur(1rem);
   text-decoration: none;
-  font-size: 0.84rem;
+  font-size: var(--nq-type-body);
   font-weight: 650;
   transition:
     transform var(--nq-motion-base) var(--nq-ease),
@@ -162,7 +316,7 @@ body.noqori-public {
   border-color: rgba(11, 11, 12, 0.25);
   box-shadow:
     0 1rem 2.35rem rgba(16, 17, 19, 0.13),
-    inset 0 1px 0 #fff,
+    inset 0 1px 0 var(--nq-white),
     inset 0 -1px 0 rgba(11, 11, 12, 0.045);
 }
 
@@ -198,16 +352,16 @@ body.noqori-public {
   gap: var(--nq-space-3);
   color: var(--nq-graphite);
   font-family: var(--nq-mono);
-  font-size: 0.72rem;
+  font-size: var(--nq-type-meta-md);
   letter-spacing: 0.12em;
 }
 
 .noqoriSignal {
   width: 0.46rem;
   height: 0.46rem;
-  border-radius: 50%;
+  border-radius: var(--nq-radius-circle);
   background: var(--nq-ember);
-  box-shadow: 0 0 0 0.25rem rgba(255, 74, 26, 0.08);
+  box-shadow: var(--nq-ring-ember-soft);
 }
 
 .noqoriHero h1 {
@@ -246,7 +400,7 @@ body.noqori-public {
   box-shadow:
     0 1.05rem 2.8rem rgba(16, 17, 19, 0.075),
     0 1px 0 rgba(255, 255, 255, 0.72),
-    inset 0 1px 0 #fff,
+    inset 0 1px 0 var(--nq-white),
     inset 0 0 0 1px rgba(255, 255, 255, 0.24);
   -webkit-backdrop-filter: blur(1.25rem) saturate(1.08);
   backdrop-filter: blur(1.25rem);
@@ -262,21 +416,21 @@ body.noqori-public {
   box-shadow:
     0 1rem 3rem rgba(16, 17, 19, 0.09),
     0 0 0 0.24rem rgba(255, 74, 26, 0.055),
-    inset 0 1px 0 #fff;
+    inset 0 1px 0 var(--nq-white);
 }
 
 .noqoriHero .auditEntry input {
   min-width: 0;
   min-height: 3.4rem;
   border: 1px solid transparent;
-  border-radius: 0.72rem;
+  border-radius: var(--nq-radius-control-md);
   color: var(--nq-ink);
   background: transparent;
   padding: 0 var(--nq-space-4);
 }
 
 .noqoriHero .auditEntry input::placeholder {
-  color: #777a80;
+  color: var(--nq-muted-strong);
 }
 
 .noqoriHero .auditEntry input:focus {
@@ -288,10 +442,10 @@ body.noqori-public {
   min-width: 8.4rem;
   min-height: 3.4rem;
   border: 1px solid var(--nq-ink);
-  border-radius: 0.72rem;
+  border-radius: var(--nq-radius-control-md);
   color: var(--nq-dark-foreground);
   background: var(--nq-ink);
-  box-shadow: 0 0.8rem 1.8rem rgba(11, 11, 12, 0.18);
+  box-shadow: var(--nq-shadow-control-strong);
   font-weight: 650;
   transition:
     transform var(--nq-motion-base) var(--nq-ease),
@@ -300,10 +454,10 @@ body.noqori-public {
 }
 
 .noqoriHero .auditEntry .btn:hover {
-  color: #fff;
+  color: var(--nq-white);
   background: var(--nq-graphite);
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 1rem 2.2rem rgba(11, 11, 12, 0.22);
+  box-shadow: var(--nq-shadow-control-deep);
 }
 
 .noqoriHero .auditEntry .btn:hover span {
@@ -324,7 +478,7 @@ body.noqori-public {
   width: min(100%, 39rem);
   margin-top: var(--nq-space-3);
   border-color: rgba(177, 45, 15, 0.3);
-  color: #7d250f;
+  color: var(--nq-ember-text-deep);
   background: rgba(255, 74, 26, 0.08);
 }
 
@@ -366,10 +520,10 @@ body.noqori-public {
     linear-gradient(var(--nq-border) 1px, transparent 1px),
     linear-gradient(90deg, var(--nq-border) 1px, transparent 1px);
   background-size: 25% 25%;
-  mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, var(--nq-black) 18%, var(--nq-black) 82%, transparent);
   pointer-events: none;
   transform: translate3d(var(--nq-grid-x), var(--nq-grid-y), 0) scale(1.03);
-  transition: transform 700ms var(--nq-ease);
+  transition: transform var(--nq-motion-hero) var(--nq-ease);
   will-change: transform;
 }
 
@@ -378,16 +532,16 @@ body.noqori-public {
   height: 0.55rem;
   right: 7%;
   bottom: 12%;
-  border-radius: 50%;
+  border-radius: var(--nq-radius-circle);
   background: var(--nq-ember);
-  box-shadow: 0 0 1.5rem rgba(255, 74, 26, 0.35);
+  box-shadow: var(--nq-glow-ember);
 }
 
 .noqoriAmbientHalo {
   position: absolute;
   width: min(92%, 31rem);
   aspect-ratio: 1;
-  border-radius: 50%;
+  border-radius: var(--nq-radius-circle);
   background:
     radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.94) 0 38%, rgba(255, 255, 255, 0.48) 58%, transparent 72%),
     radial-gradient(circle at 64% 68%, rgba(255, 74, 26, 0.08), transparent 32%);
@@ -403,12 +557,12 @@ body.noqori-public {
   aspect-ratio: 1;
   transform: translate3d(var(--nq-pointer-x), var(--nq-pointer-y), 0) rotateX(var(--nq-pointer-rx)) rotateY(var(--nq-pointer-ry));
   transform-style: preserve-3d;
-  transition: transform 560ms var(--nq-ease);
+  transition: transform var(--nq-motion-scene) var(--nq-ease);
   will-change: transform;
 }
 
 .noqoriHeroVisual[data-pointer-active="true"] .noqoriMotionRig {
-  transition-duration: 120ms;
+  transition-duration: var(--nq-motion-instant);
 }
 
 .noqoriMotionFloat {
@@ -432,7 +586,7 @@ body.noqori-public {
   width: 58%;
   height: 13%;
   top: 73%;
-  border-radius: 50%;
+  border-radius: var(--nq-radius-circle);
   background: rgba(11, 11, 12, 0.26);
   filter: blur(1.1rem);
   opacity: 0.62;
@@ -445,7 +599,7 @@ body.noqori-public {
   width: 28%;
   height: 8%;
   top: 63%;
-  border-radius: 50%;
+  border-radius: var(--nq-radius-circle);
   background: rgba(255, 74, 26, 0.22);
   filter: blur(1rem);
   transform: translate3d(1.6rem, 0, 0.3rem) rotate(-8deg);
@@ -461,7 +615,7 @@ body.noqori-public {
   overflow: visible;
   place-items: center;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--nq-radius-none);
   background: transparent;
   box-shadow: none;
   transform: translateZ(1.4rem);
@@ -502,7 +656,7 @@ body.noqori-public {
   max-width: 12rem;
   color: var(--nq-muted);
   font-family: var(--nq-mono);
-  font-size: 0.66rem;
+  font-size: var(--nq-type-meta-xs);
   letter-spacing: 0.1em;
   line-height: 1.6;
   text-transform: uppercase;
@@ -538,18 +692,18 @@ body.noqori-public {
   .noqoriBrandMark {
     width: 2.15rem;
     height: 2.15rem;
-    border-radius: 0.68rem;
+    border-radius: var(--nq-radius-control-sm);
   }
 
   .noqoriBrandName {
-    font-size: 0.72rem;
+    font-size: var(--nq-type-meta-md);
     letter-spacing: 0.15em;
   }
 
   .glassControl {
     min-height: 2.45rem;
     padding: 0.55rem 0.72rem;
-    font-size: 0.76rem;
+    font-size: var(--nq-type-ui-sm);
   }
 
   .noqoriHero {
@@ -566,7 +720,7 @@ body.noqori-public {
   .noqoriHero .lead {
     max-width: 18rem;
     margin-top: var(--nq-space-4);
-    font-size: 1rem;
+    font-size: var(--nq-type-base);
   }
 
   .noqoriHero .auditEntry {
@@ -591,7 +745,7 @@ body.noqori-public {
     right: 2%;
     bottom: 0;
     max-width: 9rem;
-    font-size: 0.58rem;
+    font-size: var(--nq-type-caption);
   }
 }
 

@@ -52,7 +52,7 @@
   right: 1.5rem;
   color: rgba(11, 11, 12, 0.38);
   font-family: var(--nq-mono);
-  font-size: 0.58rem;
+  font-size: var(--nq-type-caption);
   letter-spacing: 0.14em;
 }
 
@@ -69,7 +69,7 @@
   position: absolute;
   inset: 0;
   border: 1px solid rgba(11, 11, 12, 0.09);
-  border-radius: 50%;
+  border-radius: var(--nq-radius-circle);
   background:
     radial-gradient(circle, transparent 31%, rgba(11, 11, 12, 0.055) 31.4% 31.8%, transparent 32.2%),
     radial-gradient(circle, transparent 48%, rgba(11, 11, 12, 0.045) 48.4% 48.8%, transparent 49.2%),
@@ -153,11 +153,11 @@
   width: 0.46rem;
   height: 0.46rem;
   margin: -0.23rem;
-  border-radius: 50%;
+  border-radius: var(--nq-radius-circle);
   background: var(--nq-ember);
   box-shadow:
-    0 0 0 0.24rem rgba(255, 74, 26, 0.1),
-    0 0 1.25rem rgba(255, 74, 26, 0.48);
+    0 0 0 0.24rem var(--nq-ember-surface),
+    var(--nq-glow-ember-strong);
   animation: noqoriAnalysisSignal 5.2s var(--nq-ease) infinite;
 }
 
@@ -174,7 +174,7 @@
   margin: 0;
   color: var(--nq-graphite);
   font-family: var(--nq-mono);
-  font-size: 0.66rem;
+  font-size: var(--nq-type-meta-xs);
   letter-spacing: 0.13em;
 }
 
@@ -183,12 +183,12 @@
   flex: 0 0 auto;
   width: 0.42rem;
   height: 0.42rem;
-  border-radius: 50%;
+  border-radius: var(--nq-radius-circle);
   background: var(--nq-ember);
 }
 
 .noqoriAnalysisKickerSignal {
-  box-shadow: 0 0 0 0.24rem rgba(255, 74, 26, 0.08);
+  box-shadow: var(--nq-ring-ember-compact);
 }
 
 .noqoriAnalysisCopy h2 {
@@ -207,7 +207,7 @@
   margin: var(--nq-space-4) 0 0;
   color: var(--nq-muted);
   font-family: var(--nq-mono);
-  font-size: 0.82rem;
+  font-size: var(--nq-type-body-sm);
   letter-spacing: 0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -221,7 +221,7 @@
   margin-top: var(--nq-space-6);
   border-top: 1px solid var(--nq-border);
   color: var(--nq-graphite);
-  font-size: 0.92rem;
+  font-size: var(--nq-type-copy);
   line-height: 1.45;
 }
 
@@ -251,12 +251,12 @@
 .noqoriAnalysisError {
   margin-top: var(--nq-space-5);
   padding-top: var(--nq-space-5);
-  border-top: 1px solid rgba(255, 74, 26, 0.22);
+  border-top: 1px solid var(--nq-ember-border-subtle);
 }
 
 .noqoriAnalysisError p {
   margin: 0;
-  color: #67230f;
+  color: var(--nq-ember-text-dark);
   line-height: 1.6;
 }
 
@@ -265,7 +265,7 @@
   padding: 0;
   color: var(--nq-muted);
   font-family: var(--nq-mono);
-  font-size: 0.7rem;
+  font-size: var(--nq-type-meta);
 }
 
 .noqoriAnalysisError summary {
@@ -298,12 +298,12 @@
   background: var(--nq-ember);
   transform: translateX(0);
   animation: none;
-  transition: width 360ms var(--nq-ease);
+  transition: width var(--nq-motion-slow) var(--nq-ease);
 }
 
 .noqoriAnalysis[data-analysis-state="complete"] .noqoriAnalysisStatusDot {
   animation: none;
-  box-shadow: 0 0 0 0.25rem rgba(255, 74, 26, 0.08);
+  box-shadow: var(--nq-ring-ember-soft);
 }
 
 .noqoriAnalysis[data-analysis-state="error"] .noqoriAnalysisVisual {
@@ -422,7 +422,7 @@
   .noqoriAnalysisPanel::before {
     top: 0.8rem;
     right: 1rem;
-    font-size: 0.5rem;
+    font-size: var(--nq-type-micro);
   }
 
   .noqoriAnalysisVisual {
@@ -449,7 +449,7 @@
   .noqoriAnalysisStatus {
     min-height: 2.5rem;
     margin-top: var(--nq-space-4);
-    font-size: 0.82rem;
+    font-size: var(--nq-type-body-sm);
   }
 
   .noqoriAnalysisRetry {
