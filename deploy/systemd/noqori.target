@@ -1,0 +1,8 @@
+[Unit]
+Description=NOQORI API and audit worker
+Requires=noqori-migrate.service
+Wants=noqori-api.service noqori-worker.service
+After=noqori-migrate.service noqori-api.service noqori-worker.service
+
+[Install]
+WantedBy=multi-user.target

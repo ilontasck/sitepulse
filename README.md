@@ -162,6 +162,8 @@ Start the audit worker in terminal 2, using the same `.env` and `DATABASE_FILE_P
 pnpm worker
 ```
 
+The worker exposes loopback-only liveness/readiness endpoints on port `3001` by default. Production process supervision for a single VM is documented in [docs/PRODUCTION_PROCESS_SUPERVISION.md](docs/PRODUCTION_PROCESS_SUPERVISION.md).
+
 Open:
 
 ```text
@@ -322,6 +324,7 @@ HOST=127.0.0.1
 PORT=3000
 NODE_ENV=development
 DATABASE_FILE_PATH=./data/sitepulse.sqlite
+MIGRATIONS_MANAGED_EXTERNALLY=false
 ADMIN_API_KEY=
 REQUEST_BODY_LIMIT_BYTES=32768
 RATE_LIMIT_WINDOW_MS=60000
@@ -330,6 +333,8 @@ RENDERED_AUDIT_ENABLED=false
 RENDERED_AUDIT_TIMEOUT_MS=45000
 RENDERED_AUDIT_MAX_CONCURRENCY=1
 AUDIT_WORKER_POLL_INTERVAL_MS=500
+WORKER_HEALTH_HOST=127.0.0.1
+WORKER_HEALTH_PORT=3001
 AUDIT_JOB_LEASE_MS=30000
 AUDIT_JOB_HEARTBEAT_MS=10000
 TELEMETRY_ENABLED=true
@@ -344,11 +349,13 @@ AUDIT_USER_RATE_LIMIT_MAX=10
 Notes:
 
 - `DATABASE_FILE_PATH` controls the SQLite database location.
+- `MIGRATIONS_MANAGED_EXTERNALLY=true` is reserved for supervised production services whose shared oneshot migration unit runs first. Local web and worker startup keep the default `false`.
 - `ADMIN_API_KEY` enables protected `GET /api/audits` summaries.
 - `RENDERED_AUDIT_ENABLED=true` enables the slower Lighthouse/Playwright adapter. The default keeps the original HTML audit behavior.
 - `RENDERED_AUDIT_TIMEOUT_MS` bounds the Lighthouse phase. Navigation or Chromium failures become scanner warnings and keep the HTML result.
 - `RENDERED_AUDIT_MAX_CONCURRENCY` limits active Chromium audits per Node process. The beta default is `1`; excess requests complete with HTML findings instead of waiting in an unbounded queue.
 - `AUDIT_WORKER_POLL_INTERVAL_MS` controls how often the worker looks for queued jobs while idle.
+- `WORKER_HEALTH_HOST` is restricted to loopback and `WORKER_HEALTH_PORT` exposes worker `/healthz` and `/readyz` checks without publishing them externally.
 - `AUDIT_JOB_LEASE_MS` and `AUDIT_JOB_HEARTBEAT_MS` protect running jobs from duplicate completion; the heartbeat must be shorter than the lease.
 - `PUBLIC_ORIGIN` is the exact trusted Origin for cookie-authenticated mutations; production requires HTTPS.
 - `AUDIT_USER_RATE_LIMIT_*` limits new audits per authenticated user. The closed-beta default is 10 per hour, in addition to the coarse IP limiter.
@@ -359,7 +366,7 @@ Notes:
 
 ### `GET /api/health`
 
-Returns service health.
+Returns API process liveness. `GET /api/ready` separately verifies that the shared SQLite schema is current.
 
 ### `POST /api/audits`
 

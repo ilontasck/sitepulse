@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { createAuthService } from "../auth/auth-service.mjs";
 import { createPasswordService } from "../auth/password.mjs";
 import { startSessionCleanupScheduler } from "../auth/session-cleanup-scheduler.mjs";
+import { createSqliteReadinessCheck } from "../health/sqlite-readiness.mjs";
 import { createAuditJobStore } from "../storage/audit-job-store.mjs";
 import { createAuditStore } from "../storage/audit-store.mjs";
 import { createAuthStore } from "../storage/auth-store.mjs";
@@ -20,7 +21,9 @@ import { serveStaticFile } from "./static-files.mjs";
 
 export function createApp(config, dependencies = {}) {
   const publicRoot = config.projectRoot;
-  (dependencies.runMigrations || runMigrations)(config.databaseFilePath);
+  if (!config.migrationsManagedExternally) {
+    (dependencies.runMigrations || runMigrations)(config.databaseFilePath);
+  }
   const store = dependencies.store || createAuditStore(config.databaseFilePath);
   const jobStore = dependencies.jobStore || createAuditJobStore(config.databaseFilePath);
   const authStore = dependencies.authStore || createAuthStore(config.databaseFilePath);
@@ -28,6 +31,7 @@ export function createApp(config, dependencies = {}) {
   const authService = dependencies.authService || createAuthService({ authStore, passwordService });
   const cookiePolicy = dependencies.cookiePolicy || createSessionCookiePolicy({ publicOrigin: config.publicOrigin });
   const telemetry = dependencies.telemetry || createAuditTelemetry({ enabled: config.telemetryEnabled && config.env !== "test" });
+  const readinessCheck = dependencies.readinessCheck || createSqliteReadinessCheck(config.databaseFilePath);
   const enforceRateLimit =
     dependencies.enforceRateLimit ||
     createRateLimiter({
@@ -60,6 +64,7 @@ export function createApp(config, dependencies = {}) {
       keySelector: (_request, user) => `user:${user.id}`
     })
   };
+  let stopping = false;
 
   const server = createServer(async (request, response) => {
     applySecurityHeaders(response);
@@ -70,15 +75,28 @@ export function createApp(config, dependencies = {}) {
         if (url.pathname.startsWith("/api/auth")) {
           response.setHeader("Cache-Control", "no-store");
         }
-        enforceRateLimit(request, response);
 
         if (request.method === "GET" && url.pathname === "/api/health") {
+          response.setHeader("Cache-Control", "no-store");
           return sendJson(response, 200, {
             ok: true,
             service: "sitepulse",
             environment: config.env
           });
         }
+
+        if (request.method === "GET" && url.pathname === "/api/ready") {
+          response.setHeader("Cache-Control", "no-store");
+          const readiness = await readinessCheck();
+          const ready = !stopping && readiness?.ready === true;
+          return sendJson(response, ready ? 200 : 503, {
+            ok: ready,
+            service: "noqori-api",
+            status: stopping ? "stopping" : ready ? "ready" : "not-ready"
+          });
+        }
+
+        enforceRateLimit(request, response);
 
         const authHandled = await handleAuthApi({
           request,
@@ -157,6 +175,9 @@ export function createApp(config, dependencies = {}) {
     telemetry
   });
   server.once("close", () => sessionCleanup.stop());
+  server.markStopping = () => {
+    stopping = true;
+  };
 
   return server;
 }

@@ -2,14 +2,22 @@ import { fileURLToPath } from "node:url";
 
 const projectRoot = fileURLToPath(new URL("../../", import.meta.url));
 
-function parsePort(value) {
-  const port = Number(value ?? 3000);
+function parsePort(name, value, fallback) {
+  const port = Number(value ?? fallback);
 
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
-    throw new Error("PORT must be an integer between 0 and 65535.");
+    throw new Error(`${name} must be an integer between 0 and 65535.`);
   }
 
   return port;
+}
+
+function parseLoopbackHost(name, value, fallback) {
+  const host = String(value ?? fallback);
+  if (host !== "127.0.0.1" && host !== "::1") {
+    throw new Error(`${name} must be 127.0.0.1 or ::1.`);
+  }
+  return host;
 }
 
 function parsePositiveInteger(name, value, fallback) {
@@ -76,7 +84,7 @@ function parsePublicOrigin(value, { environment, host, port }) {
 export function loadConfig(overrides = {}) {
   const env = overrides.NODE_ENV || process.env.NODE_ENV || "development";
   const host = overrides.HOST || process.env.HOST || "127.0.0.1";
-  const port = parsePort(overrides.PORT ?? process.env.PORT);
+  const port = parsePort("PORT", overrides.PORT ?? process.env.PORT, 3000);
   const databaseFilePath =
     overrides.DATABASE_FILE_PATH ||
     process.env.DATABASE_FILE_PATH ||
@@ -109,6 +117,11 @@ export function loadConfig(overrides = {}) {
     projectRoot,
     adminApiKey: overrides.ADMIN_API_KEY || process.env.ADMIN_API_KEY || "",
     databaseFilePath,
+    migrationsManagedExternally: parseBoolean(
+      "MIGRATIONS_MANAGED_EXTERNALLY",
+      overrides.MIGRATIONS_MANAGED_EXTERNALLY ?? process.env.MIGRATIONS_MANAGED_EXTERNALLY,
+      false
+    ),
     requestBodyLimitBytes: parsePositiveInteger(
       "REQUEST_BODY_LIMIT_BYTES",
       overrides.REQUEST_BODY_LIMIT_BYTES ?? process.env.REQUEST_BODY_LIMIT_BYTES,
@@ -139,6 +152,16 @@ export function loadConfig(overrides = {}) {
       "AUDIT_WORKER_POLL_INTERVAL_MS",
       overrides.AUDIT_WORKER_POLL_INTERVAL_MS ?? process.env.AUDIT_WORKER_POLL_INTERVAL_MS,
       500
+    ),
+    workerHealthHost: parseLoopbackHost(
+      "WORKER_HEALTH_HOST",
+      overrides.WORKER_HEALTH_HOST ?? process.env.WORKER_HEALTH_HOST,
+      "127.0.0.1"
+    ),
+    workerHealthPort: parsePort(
+      "WORKER_HEALTH_PORT",
+      overrides.WORKER_HEALTH_PORT ?? process.env.WORKER_HEALTH_PORT,
+      3001
     ),
     auditJobLeaseMs,
     auditJobHeartbeatMs,
