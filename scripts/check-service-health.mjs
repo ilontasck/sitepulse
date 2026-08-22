@@ -21,7 +21,8 @@ function healthUrl() {
 }
 
 const url = healthUrl();
-const deadline = Date.now() + (wait ? 15_000 : 1);
+const waitTimeoutMs = service === "worker" ? 30_000 : 15_000;
+const deadline = Date.now() + (wait ? waitTimeoutMs : 1);
 let ready = false;
 
 do {

@@ -155,6 +155,49 @@ describe("audit runner Unix RPC", () => {
     }
   });
 
+  it("cancels the active audit when the client half-closes its connection", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "noqori-runner-rpc-"));
+    const socketPath = join(directory, "audit.sock");
+    let markAborted;
+    const aborted = new Promise((resolve) => { markAborted = resolve; });
+    const server = createAuditRunnerServer({
+      socketPath,
+      auditGenerator: async (_url, { signal }) => new Promise((resolve, reject) => {
+        signal.addEventListener("abort", () => {
+          markAborted();
+          reject(signal.reason);
+        }, { once: true });
+      })
+    });
+
+    try {
+      await server.start();
+      const socket = createConnection({ path: socketPath });
+      let buffer = "";
+      await new Promise((resolve, reject) => {
+        socket.on("connect", () => socket.write('{"protocolVersion":1,"type":"hello"}\n'));
+        socket.on("data", (chunk) => {
+          buffer += chunk.toString("utf8");
+          if (!buffer.includes("\n")) return;
+          socket.end('{"protocolVersion":1,"type":"audit","requestId":"00000000-0000-4000-8000-000000000001","normalizedUrl":"https://example.com","options":{"renderedAuditEnabled":false}}\n');
+          resolve();
+        });
+        socket.on("error", reject);
+      });
+
+      await Promise.race([
+        aborted,
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Audit was not cancelled.")), 250))
+      ]);
+      while (server.snapshot().activeRequest) await new Promise((resolve) => setTimeout(resolve, 1));
+      assert.deepEqual(server.snapshot(), { activeRequest: false });
+      socket.destroy();
+    } finally {
+      await server.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it("serves at most one audit and rejects excess work without a queue", async () => {
     const directory = mkdtempSync(join(tmpdir(), "noqori-runner-rpc-"));
     const socketPath = join(directory, "audit.sock");

@@ -1,0 +1,79 @@
+table netdev noqori_audit_host {
+	set blocked_ipv4 {
+		type ipv4_addr
+		flags interval
+		elements = { 0.0.0.0/8, 10.0.0.0/8,
+			     100.64.0.0/10, 127.0.0.0/8,
+			     169.254.0.0/16, 172.16.0.0/12,
+			     192.0.0.0/24, 192.0.2.0/24,
+			     192.31.196.0/24, 192.52.193.0/24,
+			     192.88.99.0/24, 192.168.0.0/16,
+			     192.175.48.0/24, 198.18.0.0/15,
+			     198.51.100.0/24, 203.0.113.0/24,
+			     224.0.0.0/4, 240.0.0.0/4 }
+	}
+
+	set dns_ipv4 {
+		type ipv4_addr
+		elements = { 8.8.8.8, 167.233.141.10 }
+	}
+
+	chain audit_ingress {
+		type filter hook ingress device "nq-audit-host" priority -500; policy drop;
+		iifname "nq-audit-host" arp operation request arp daddr ip 198.19.0.1 accept
+		iifname "nq-audit-host" arp operation reply arp saddr ip 198.19.0.2 arp daddr ip 198.19.0.1 accept
+		iifname "nq-audit-host" udp dport 443 drop
+		iifname "nq-audit-host" fib daddr type local drop
+		iifname "nq-audit-host" ip daddr 198.19.0.1 drop
+		iifname "nq-audit-host" ip daddr 157.90.241.241 drop
+		iifname "nq-audit-host" ip daddr @dns_ipv4 udp dport 53 accept
+		iifname "nq-audit-host" ip daddr @dns_ipv4 tcp dport 53 accept
+		iifname "nq-audit-host" ip daddr @blocked_ipv4 drop
+		iifname "nq-audit-host" ip daddr != @dns_ipv4 tcp dport { 80, 443 } accept
+	}
+}
+table inet noqori_audit_forward {
+	set blocked_ipv4 {
+		type ipv4_addr
+		flags interval
+		elements = { 0.0.0.0/8, 10.0.0.0/8,
+			     100.64.0.0/10, 127.0.0.0/8,
+			     169.254.0.0/16, 172.16.0.0/12,
+			     192.0.0.0/24, 192.0.2.0/24,
+			     192.31.196.0/24, 192.52.193.0/24,
+			     192.88.99.0/24, 192.168.0.0/16,
+			     192.175.48.0/24, 198.18.0.0/15,
+			     198.51.100.0/24, 203.0.113.0/24,
+			     224.0.0.0/4, 240.0.0.0/4 }
+	}
+
+	set dns_ipv4 {
+		type ipv4_addr
+		elements = { 8.8.8.8, 167.233.141.10 }
+	}
+
+	chain forward {
+		type filter hook forward priority -500; policy accept;
+		oifname "nq-audit-host" ct state established,related accept
+		oifname "nq-audit-host" drop
+		iifname "nq-audit-host" jump audit_egress
+	}
+
+	chain audit_egress {
+		udp dport 443 drop
+		fib daddr type local drop
+		ip daddr 198.19.0.1 drop
+		ip daddr 157.90.241.241 drop
+		ip daddr @dns_ipv4 udp dport 53 accept
+		ip daddr @dns_ipv4 tcp dport 53 accept
+		ip daddr @blocked_ipv4 drop
+		ip daddr != @dns_ipv4 tcp dport { 80, 443 } accept
+		drop
+	}
+}
+table ip noqori_audit_nat {
+	chain postrouting {
+		type nat hook postrouting priority srcnat; policy accept;
+		iifname "nq-audit-host" oifname "eth0" masquerade
+	}
+}

@@ -12,19 +12,29 @@ function withTimeout(promise, timeoutMs, signal) {
     timer = setTimeout(() => reject(new Error(`Rendered audit exceeded ${timeoutMs}ms timeout.`)), timeoutMs);
   });
 
-  const cancelled = signal
-    ? new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason || new Error("Audit cancelled.")), { once: true }))
+  const cancelled = signal?.aborted
+    ? Promise.reject(signal.reason || new Error("Audit cancelled."))
+    : signal
+      ? new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason || new Error("Audit cancelled.")), { once: true }))
     : new Promise(() => {});
   return Promise.race([promise, timeout, cancelled]).finally(() => clearTimeout(timer));
 }
 
+function isExpectedAbortedTargetClose(error) {
+  return error?.name === "TargetCloseError" && /Target closed/i.test(error.message || "");
+}
+
 export function browserChildEnvironment(environment = process.env) {
   const allowed = ["PATH", "LANG", "LC_ALL", "TZ", "TMPDIR", "PLAYWRIGHT_BROWSERS_PATH"];
-  return Object.fromEntries(allowed.filter((key) => environment[key] !== undefined).map((key) => [key, environment[key]]));
+  return {
+    ...Object.fromEntries(allowed.filter((key) => environment[key] !== undefined).map((key) => [key, environment[key]])),
+    HOME: environment.TMPDIR || "/tmp"
+  };
 }
 
 export async function runLighthousePlaywrightAdapter(target, options = {}) {
   const timeoutMs = options.timeoutMs || 45_000;
+  if (options.signal?.aborted) throw options.signal.reason || new Error("Audit cancelled.");
   const chrome = await chromeLauncher.launch({
     handleSIGINT: false,
     envVars: browserChildEnvironment(),
@@ -42,8 +52,20 @@ export async function runLighthousePlaywrightAdapter(target, options = {}) {
   });
   let browser;
   let transport;
+  const asynchronousCleanupErrors = [];
+  const captureAsynchronousCleanupError = (error) => asynchronousCleanupErrors.push(error);
+  process.on("unhandledRejection", captureAsynchronousCleanupError);
+  const abortChrome = () => {
+    try {
+      chrome.kill();
+    } catch {
+      // The finalizer below remains the process-tree cleanup backstop.
+    }
+  };
+  options.signal?.addEventListener("abort", abortChrome, { once: true });
 
   try {
+    if (options.signal?.aborted) throw options.signal.reason || new Error("Audit cancelled.");
     if (!chrome.remoteDebuggingPipes) {
       throw Object.assign(new Error("Chrome did not provide a debugging pipe."), { code: "BROWSER_CRASH" });
     }
@@ -121,12 +143,22 @@ export async function runLighthousePlaywrightAdapter(target, options = {}) {
     await assertSafeUrl(runnerResult.lhr.finalDisplayedUrl || runnerResult.lhr.finalUrl, options);
     return mapLighthouseResult(runnerResult.lhr, diagnostics);
   } finally {
+    options.signal?.removeEventListener("abort", abortChrome);
     try {
-      await chrome.kill();
-    } catch {
-      // Chrome may already have exited after a Lighthouse or timeout failure.
+      try {
+        await chrome.kill();
+      } catch {
+        // Chrome may already have exited after a Lighthouse or timeout failure.
+      }
+      await browser?.disconnect().catch(() => {});
+      transport?.close();
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      process.removeListener("unhandledRejection", captureAsynchronousCleanupError);
     }
-    await browser?.disconnect().catch(() => {});
-    transport?.close();
+    const unexpectedCleanupError = asynchronousCleanupErrors.find(
+      (error) => !options.signal?.aborted || !isExpectedAbortedTargetClose(error)
+    );
+    if (unexpectedCleanupError) throw unexpectedCleanupError;
   }
 }

@@ -1,0 +1,475 @@
+$ pnpm test && pnpm test:e2e
+$ node --test
+(node:16719) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ backend core
+  ✔ serves health endpoint (13.499334ms)
+  ✔ serves the frontend shell (6.856459ms)
+  ✔ adds security headers (3.579334ms)
+✔ backend core (42.573166ms)
+(node:16720) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ asynchronous audit API
+  ✔ enqueues websiteUrl and returns the 202 job contract without running an audit (15.977042ms)
+  ✔ accepts the legacy url request field (4.724792ms)
+  ✔ rejects invalid JSON and non-object bodies without creating jobs (5.630209ms)
+  ✔ rejects invalid public domains without creating jobs (3.044917ms)
+  ✔ rejects private targets before enqueue (18.29ms)
+  ✔ preserves unsupported media type handling (9.266958ms)
+  ✔ returns only the public queued job shape (8.221791ms)
+  ✔ returns only the public running job shape (14.802792ms)
+  ✔ returns completed job links without internal ownership fields (15.992125ms)
+  ✔ returns a safe failed shape without retry, worker, lease, or raw error data (15.538958ms)
+  ✔ returns the same safe 404 for malformed and unknown job IDs (4.974458ms)
+  ✔ returns 405 for unsupported methods on a job resource (1.418917ms)
+  ✔ keeps existing audit detail and admin history endpoints unchanged (4.81225ms)
+✔ asynchronous audit API (206.483292ms)
+▶ async audit integration
+  ✔ flows from POST through one worker run to status and readable audit (31.073375ms)
+  ✔ allows practical one-second polling within the existing 60/minute limiter (122.842833ms)
+✔ async audit integration (154.076958ms)
+✔ propagates runner cancellation instead of converting it into an HTML fallback (0.52975ms)
+▶ audit domain
+  ✔ normalizes valid website URLs (0.677291ms)
+  ✔ rejects invalid or private-style URLs (0.231875ms)
+  ✔ generates a complete deterministic fallback audit (6.182ms)
+  ✔ uses HTML scanner signals when available (0.436125ms)
+  ✔ does not invoke the rendered adapter when the feature flag is disabled (0.394792ms)
+  ✔ runs HTML real-check adapters and returns structured checks (9.795958ms)
+  ✔ merges an enabled rendered audit without changing the public report shape (0.244834ms)
+  ✔ retains HTML results when the rendered audit fails (0.282667ms)
+  ✔ keeps rendered failure messages user-safe across common failure modes (0.356166ms)
+  ✔ keeps simultaneous excess requests on HTML without starting another rendered audit (0.274542ms)
+  ✔ calculates score status bands (0.057167ms)
+  ✔ calculates overall score (0.039167ms)
+  ✔ contains a catastrophic Lighthouse performance result within its matching category (0.090083ms)
+✔ audit domain (19.70775ms)
+▶ audit failure classifier
+  ✔ fails deterministic validation and security errors without exposing raw details (0.931875ms)
+  ✔ retries known transient worker failures (0.304083ms)
+  ✔ classifies trusted browser failure types without parsing their messages (0.39275ms)
+  ✔ does not retry transient DNS preflight failures before enqueue (0.063209ms)
+  ✔ fails unknown exceptions with a stable safe result (0.055542ms)
+✔ audit failure classifier (6.131125ms)
+(node:16724) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ audit job store
+  ✔ enqueues and finds a normalized queued job (27.0685ms)
+  ✔ requires a valid persisted user owner for every new job (8.075208ms)
+  ✔ claims the oldest eligible queued job and skips future work (15.563792ms)
+  ✔ fences a running job and renews its lease only for the current owner (11.561292ms)
+  ✔ atomically creates an audit and completes its owned job (25.639667ms)
+  ✔ rejects stale completion without leaving an orphan audit (9.575416ms)
+  ✔ requeues a retryable first failure, uses a fresh lease, and fails after attempt two (12.465417ms)
+  ✔ fails a terminal error immediately and keeps terminal jobs immutable (9.374042ms)
+  ✔ recovers an expired first attempt to queued without decrementing attempts (12.334042ms)
+  ✔ fails an expired second attempt and does not recover completed or failed jobs (11.254458ms)
+✔ audit job store (144.042333ms)
+(node:16725) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ audit job worker
+  ✔ recovers, claims, validates, generates, and completes one job (0.581667ms)
+  ✔ returns idle without invoking the audit generator when no job exists (0.071375ms)
+  ✔ does not claim queued work while the isolated audit executor is unavailable (0.06575ms)
+  ✔ persists terminal and retryable failures using only safe classifier output (0.299208ms)
+  ✔ fails unknown audit exceptions safely (0.337333ms)
+  ✔ fails a retryable exception when the claimed job is already on attempt two (0.098083ms)
+  ✔ renews the lease without overlapping heartbeats and cleans the timer after success (0.171458ms)
+  ✔ prevents persistence after heartbeat ownership loss and cleans the timer (0.128167ms)
+  ✔ cleans the heartbeat timer after an audit error (0.125416ms)
+  ✔ graceful stop during active work prevents another claim (0.16775ms)
+  ✔ integrates a queued SQLite job with a lightweight audit and persisted report (15.328458ms)
+✔ audit job worker (17.900917ms)
+(node:16726) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ authenticated audit ownership
+  ✔ authenticates before URL work and requires exact Origin before enqueue (59.021209ms)
+  ✔ persists only the authenticated owner and ignores client ownership fields (27.180209ms)
+  ✔ propagates persisted ownership atomically and closes cross-user IDOR (56.523542ms)
+  ✔ keeps legacy NULL ownership recoverable by workers but private from users (22.888208ms)
+  ✔ rate limits audit creation per user and keeps operator history separate (24.251458ms)
+✔ authenticated audit ownership (190.957625ms)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ audit queue resilience
+  ✔ drains ten same-time jobs once in the current FIFO tie-break order (82.089667ms)
+  ✔ lets two worker cores drain ten jobs without duplicate claims or audits (63.873625ms)
+  ✔ drains a mixed-user FIFO queue without mixing persisted audit ownership (28.397334ms)
+  ✔ recovers a crashed first attempt and fences its stale result (10.44925ms)
+  ✔ fails an expired second attempt without creating a third claim or audit (12.546625ms)
+  ✔ retries known transient network and browser failures once before completing (72.338292ms)
+  ✔ fails an exhausted retry with only classified safe error data (24.745458ms)
+  ✔ fails deterministic URL and security errors immediately without an audit (44.38025ms)
+  ✔ keeps a long audit owned by renewing its lease before another worker recovers (15.254375ms)
+  ✔ drops a stale result when heartbeat renewal loses ownership (7.277333ms)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✔ serializes concurrent enqueues from independent Node workers without losing jobs (57.108667ms)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✔ allows exactly one independent Node worker to claim a queued job (55.66ms)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✔ waits through a short SQLite writer lock and commits audit completion atomically (230.364834ms)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✔ applies migrations once when two fresh processes start concurrently (50.749209ms)
+(node:16727) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✔ waits for a concurrent writer before initializing WAL on a fresh database (199.693125ms)
+  ✔ recovers persisted queued and expired work after a simulated process restart (14.388917ms)
+  ✔ accepts a ten-request API burst quickly, then drains jobs without mixing reports (277.601916ms)
+✔ audit queue resilience (1248.829083ms)
+▶ audit runner Unix RPC
+  ✔ negotiates protocol v1 and returns the audit for the same request ID (9.448916ms)
+  ✔ rejects a malformed audit envelope without reflecting untrusted data (2.556625ms)
+  ✔ rejects a result envelope containing unapproved internal fields (3.091084ms)
+  ✔ cancels the active audit when the worker request times out (38.446875ms)
+  ✔ cancels the active audit when the client half-closes its connection (4.106917ms)
+  ✔ serves at most one audit and rejects excess work without a queue (4.30975ms)
+  ✔ rejects a truncated frame without taking the runner out of service (3.012292ms)
+  ✔ bounds oversized request payloads and does not execute them (0.900625ms)
+  ✔ rejects rendered work at the runner boundary until VM acceptance (1.61625ms)
+  ✔ preserves safe terminal and retryable classifications across RPC (9.240666ms)
+  ✔ strictly validates hello responses and closes idle handshakes (36.460708ms)
+✔ audit runner Unix RPC (114.32725ms)
+(node:16729) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ audit store
+  ✔ creates SQLite audit records, lists summaries, and finds full reports (11.811292ms)
+  ✔ returns null for unknown IDs (3.572625ms)
+✔ audit store (15.93925ms)
+▶ audit telemetry
+  ✔ records beta counters and emits allowlisted structured fields only (1.611834ms)
+✔ audit telemetry (2.964083ms)
+(node:16731) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ authentication HTTP API
+  ✔ registers safely, sets the development cookie, and persists no raw token (45.463916ms)
+  ✔ returns safe registration validation, duplicate, CSRF, media-type, capacity, and rate-limit errors (59.949875ms)
+  ✔ sets the __Host cookie with Secure in production (12.24425ms)
+  ✔ uses indistinguishable login failures and one expensive path for wrong, missing, disabled, and malformed accounts (25.900083ms)
+  ✔ logs in with rotation while preserving unrelated sessions (19.879167ms)
+  ✔ enforces Origin, JSON content type, and the dedicated login rate limit (36.549167ms)
+  ✔ resolves only valid sessions through /me without exposing internals (18.880625ms)
+  ✔ logs out idempotently, clears the cookie, and rejects missing Origin (40.127666ms)
+  ✔ requires authentication and trusted Origin for audit creation after ownership migration (23.840875ms)
+✔ authentication HTTP API (283.5715ms)
+▶ email identity
+  ✔ preserves the trimmed submitted form and normalizes ASCII identity (1.627834ms)
+  ✔ converts an internationalized domain without changing the ASCII-only local-part policy (0.112958ms)
+  ✔ rejects unsafe or unsupported email input with a safe typed error (0.520583ms)
+✔ email identity (3.490458ms)
+▶ production scrypt integration
+  ✔ derives and verifies with the approved N=2^17 profile (919.413792ms)
+✔ production scrypt integration (919.868958ms)
+▶ password input and hashing
+  ✔ accepts spaces and Unicode without trimming or normalization (0.9695ms)
+  ✔ rejects short, oversized, non-string, and unpaired-surrogate input safely (0.503625ms)
+  ✔ encodes and verifies the exact v1 format through an injected derivation seam (1.300417ms)
+  ✔ uses a fresh salt for every password hash (0.128083ms)
+  ✔ rejects malformed, extra-field, and attacker-controlled hash parameters without deriving (0.10325ms)
+  ✔ keeps the approved production scrypt resource parameters (0.049ms)
+  ✔ routes both hash and verify work through the same bounded limiter (0.299167ms)
+✔ password input and hashing (4.287459ms)
+▶ bounded scrypt concurrency
+  ✔ rejects excess work immediately instead of creating a wait queue (0.471292ms)
+  ✔ releases capacity after both success and failure (0.096708ms)
+✔ bounded scrypt concurrency (0.955042ms)
+(node:16736) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ authentication service
+  ✔ registers a normalized user and persists only the session-token hash (12.212833ms)
+  ✔ uses the same generic failure with real or dummy verification (6.857208ms)
+  ✔ rotates only the presented session and authenticates the fresh token (9.329666ms)
+✔ authentication service (29.381042ms)
+▶ session token crypto
+  ✔ generates unique 256-bit unpadded base64url tokens (0.91675ms)
+  ✔ hashes valid tokens to a 32-byte SHA-256 buffer and rejects malformed tokens (0.388709ms)
+  ✔ hashes the opaque cookie value rather than persisting its decoded random bytes (0.068542ms)
+✔ session token crypto (2.281667ms)
+(node:16738) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ authentication storage
+  ✔ atomically creates a user and active session without returning or storing a raw token (16.926542ms)
+  ✔ keeps user creation atomic when email or session uniqueness fails (10.307959ms)
+  ✔ rejects expired, revoked, and disabled sessions (9.979041ms)
+  ✔ rotates only the presented session and leaves other sessions active (10.3535ms)
+  ✔ rolls back previous-session revocation when fresh-session insertion fails (4.844ms)
+  ✔ cleans sessions in bounded batches and preserves cascade deletion (11.93975ms)
+✔ authentication storage (65.236333ms)
+▶ browser network sandbox contracts
+  ✔ pins deterministic special-purpose ranges and fails closed on resolver placeholders (7.734417ms)
+  ✔ copies the complete pnpm dependency closure into the symlink-free bundle (2.831333ms)
+  ✔ uses isolated default-deny nftables boundaries without global flushes (1.588333ms)
+  ✔ wires socket activation and runner isolation into the systemd graph (2.108334ms)
+  ✔ disables QUIC and documents an actual Linux-only kernel suite (1.009125ms)
+  ✔ requires truthful Linux gates for systemd, cancellation, worker cardinality, and resource budgets (0.707667ms)
+  ✔ strips socket-activation metadata before Chromium; Linux acceptance checks descriptors (580.416666ms)
+✔ browser network sandbox contracts (597.220208ms)
+▶ browser sandbox attestation
+  ✔ accepts only a root-owned boot-bound attestation with the expected configuration hash (0.772041ms)
+  ✔ binds acceptance to the current root-owned namespace handle inode (0.579625ms)
+  ✔ lets the runner trust rendered acceptance only from root credentials for its current namespace (0.960208ms)
+  ✔ requires complete reboot-bound VM evidence before acceptance can be recorded (0.318667ms)
+  ✔ accepts kernel evidence only with measured systemd, cancellation, and cgroup gates (0.325666ms)
+✔ browser sandbox attestation (3.698042ms)
+▶ browser sandbox immutable bundle
+  ✔ binds acceptance to paths and bytes across source and dependency closure (7.799375ms)
+  ✔ accepts only exact installed unit bytes with no drop-ins (0.49425ms)
+✔ browser sandbox immutable bundle (9.050792ms)
+▶ browser sandbox platform fingerprint
+  ✔ changes when a security-relevant host or Chromium component changes (0.719209ms)
+  ✔ hashes a root-owned Chromium binary without executing it as root (0.387083ms)
+✔ browser sandbox platform fingerprint (1.449459ms)
+▶ browser sandbox production preflight
+  ✔ reads the systemd version through systemctl on Ubuntu 26.04 (1.815417ms)
+  ✔ requires the fixed Linux/systemd 259 baseline and root-owned configuration (0.29575ms)
+  ✔ fails closed for resolver placeholders, IPv6, QUIC, or missing host tools (2.177083ms)
+✔ browser sandbox production preflight (4.8845ms)
+▶ configuration
+  ✔ rejects invalid resource and rate-limit values (1.201459ms)
+  ✔ keeps rendered audits off by default and validates their settings (0.523458ms)
+  ✔ validates worker polling and keeps heartbeat shorter than the lease (0.357166ms)
+  ✔ bounds closed-beta scrypt concurrency (0.297167ms)
+  ✔ validates and normalizes the trusted public origin (0.682875ms)
+  ✔ provides bounded beta auth rate-limit defaults (0.308917ms)
+✔ configuration (4.805042ms)
+(node:16745) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ legal pages
+  ✔ serves /privacy with 200 and text/html (20.464459ms)
+  ✔ serves /impressum with 200 and text/html (6.349542ms)
+  ✔ serves /terms with 200 and text/html (2.572417ms)
+  ✔ applies security headers to /privacy (1.417083ms)
+  ✔ applies security headers to /impressum (1.774375ms)
+  ✔ applies security headers to /terms (0.9285ms)
+  ✔ /privacy contains NOQORI identity and page title (4.918959ms)
+  ✔ /impressum contains NOQORI identity and Impressum heading (1.68375ms)
+  ✔ /terms contains NOQORI identity and Terms heading (4.2615ms)
+  ✔ /privacy contains required development placeholders (4.08225ms)
+  ✔ /impressum contains required development placeholders (1.705459ms)
+  ✔ /terms contains required development placeholders (1.434875ms)
+  ✔ /privacy does not contain a fabricated email address (2.430333ms)
+  ✔ /impressum does not contain a fabricated email address (2.389125ms)
+  ✔ /terms does not contain a fabricated email address (0.935542ms)
+  ✔ /privacy links to /impressum and /terms (1.267708ms)
+  ✔ /impressum links to /privacy and /terms (1.108416ms)
+  ✔ /terms links to /privacy and /impressum (1.576625ms)
+  ✔ /privacy references module-06.css (1.524125ms)
+  ✔ module-06.css is served correctly (1.415542ms)
+  ✔ landing page footer contains Privacy link (1.14225ms)
+  ✔ landing page footer contains Impressum link (1.194958ms)
+  ✔ landing page footer contains Terms link (1.235042ms)
+  ✔ unknown non-API non-legal paths return 404 (0.489042ms)
+  ✔ /api/privacy returns 404 not found (1.600416ms)
+✔ legal pages (85.063875ms)
+▶ legal placeholder detection
+  ✔ detects placeholder strings in privacy.html on disk (2.045ms)
+  ✔ detects placeholder strings in impressum.html on disk (0.327083ms)
+  ✔ detects placeholder strings in terms.html on disk (0.7125ms)
+  ✔ pattern correctly identifies a placeholder string (0.246875ms)
+  ✔ pattern does not flag a resolved value (0.049958ms)
+✔ legal placeholder detection (3.553291ms)
+▶ Lighthouse result mapping
+  ✔ maps lab metrics, category scores, and the TBT proxy honestly (0.711959ms)
+  ✔ does not score unavailable partial metrics as failures (0.099167ms)
+✔ Lighthouse result mapping (1.167875ms)
+▶ owned nftables state
+  ✔ produces a stable semantic hash but detects any installed policy mutation (11.489541ms)
+✔ owned nftables state (11.847417ms)
+▶ NOQORI design token registry
+  ✔ defines the shared color, semantic, type, spacing, radius, shadow, glass, and motion contracts (0.504417ms)
+  ✔ keeps raw hexadecimal colors inside the module-01 registry only (0.17575ms)
+  ✔ defines every referenced NOQORI custom property and contains no self-referencing token (1.571708ms)
+  ✔ routes fixed product typography through the shared type scale (0.465584ms)
+  ✔ uses shared type and motion tokens in every product CSS module (0.205375ms)
+✔ NOQORI design token registry (3.483458ms)
+▶ strict mutation origin policy
+  ✔ accepts only the exact configured origin (0.462042ms)
+✔ strict mutation origin policy (0.78525ms)
+(node:16750) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ privacy controls
+  ✔ disables audit history endpoint when no admin key is configured (16.049084ms)
+  ✔ allows only the authenticated owner to fetch a completed report (21.112916ms)
+✔ privacy controls (48.119708ms)
+(node:16751) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ production process supervision
+  ✔ enforces protected process settings against conflicting host configuration (0.797459ms)
+  ✔ loads the service only after protected settings become effective (0.101ms)
+  ✔ fails production startup safely when rendered audit is requested before STE-12 (36.143958ms)
+  ✔ runs API and worker as independent restartable systemd services (5.82675ms)
+  ✔ keeps crash recovery enabled without a permanent systemd start-limit stop (0.672584ms)
+  ✔ reports systemd verification unavailable off Linux and verifies all units on Linux (0.167084ms)
+  ✔ serializes migrations before both services and pins SQLite to persistent host storage (1.060458ms)
+  ✔ enables reboot startup, bounded graceful stops, and readiness-gated service starts (1.479333ms)
+  ✔ publishes worker readiness before entering the claim loop (0.921833ms)
+  ✔ documents a secret-free single-VM operating contract and future browser sandbox seam (1.365708ms)
+  ✔ lets production services delegate migrations only when explicitly configured (0.291542ms)
+  ✔ does not run web-process migrations when the migration unit owns startup (0.571291ms)
+  ✔ provides one standalone migration entrypoint for supervised startup (39.362ms)
+  ✔ reports API readiness separately from process liveness (25.316083ms)
+  ✔ keeps operational probes outside the public API rate limit (54.105125ms)
+  ✔ reports worker liveness, readiness, and draining state independently (11.881ms)
+  ✔ keeps the worker health listener on a configurable loopback endpoint (0.327333ms)
+  ✔ starts the real worker independently and exits cleanly on SIGTERM (942.85225ms)
+  ✔ drains the real API process and exits cleanly on SIGTERM (65.678ms)
+  ✔ keeps API available and completes a persisted job in the queue crash-recovery harness (421.037958ms)
+  ✔ lets an active job finish before a SIGTERM worker shutdown (262.416959ms)
+✔ production process supervision (1874.440208ms)
+(node:16752) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ NOQORI production assets
+  ✔ ships every required PNG at its exact production dimensions (13.404334ms)
+  ✔ ships a valid multi-size ICO (1.850583ms)
+  ✔ keeps touch and app marks inside their specified optical padding (18.650542ms)
+  ✔ keeps every important maskable pixel inside the central safe circle (8.864458ms)
+  ✔ uses a crisp four-part optical adaptation for every favicon (3.076625ms)
+  ✔ declares installable any and maskable icons in the manifest (1.090125ms)
+  ✔ connects production icons and theme metadata from every HTML head (1.251833ms)
+  ✔ publishes only root-relative Open Graph and Twitter preview metadata (0.828375ms)
+  ✔ keeps production asset metadata free of internal and legacy labels (8.001875ms)
+  ✔ serves production raster and manifest files with exact MIME types (35.675875ms)
+  ✔ does not modify the three approved source marks (14.730709ms)
+✔ NOQORI production assets (119.299875ms)
+▶ production audit routing
+  ✔ uses only the isolated runner and never loads the host-network generator (1.397584ms)
+  ✔ keeps a rendered worker unready until the runner advertises root-attested acceptance (0.184542ms)
+✔ production audit routing (2.337125ms)
+▶ bounded in-process rate limiting
+  ✔ rejects new buckets at capacity and reclaims expired buckets (0.482208ms)
+  ✔ supports a safe caller-selected ownership key without using request credentials (0.339625ms)
+✔ bounded in-process rate limiting (1.161667ms)
+▶ rendered audit concurrency limiter
+  ✔ rejects excess work immediately without creating a queue (1.483208ms)
+  ✔ releases its slot after crashes and timeouts (0.200167ms)
+✔ rendered audit concurrency limiter (2.238541ms)
+▶ rendered browser network safety
+  ✔ allows browser-internal and public requests (6.884375ms)
+  ✔ blocks private main requests, redirects, and subresources (1.489708ms)
+  ✔ applies the same destination policy to WebSockets (0.137ms)
+✔ rendered browser network safety (9.133375ms)
+(node:16759) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ security hardening
+  ✔ does not expose backend source files as static assets (14.848709ms)
+  ✔ rate limits API calls (5.933625ms)
+✔ security hardening (34.213542ms)
+(node:16760) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ session cleanup scheduler
+  ✔ runs one bounded cleanup at startup and schedules the next hourly run (3.887334ms)
+  ✔ runs cleanup from the hourly timer without overlapping active work (0.9965ms)
+  ✔ contains cleanup failures and retries on the next scheduled run (0.920291ms)
+  ✔ wires cleanup after migrations and never triggers it from requests (25.247958ms)
+✔ session cleanup scheduler (31.792042ms)
+▶ session cookie policy
+  ✔ serializes a host-only secure production cookie (1.293625ms)
+  ✔ uses the localhost-compatible development cookie and matching clear attributes (0.116125ms)
+  ✔ parses one canonical token and rejects malformed, oversized, or duplicate cookies (0.101292ms)
+✔ session cookie policy (1.960917ms)
+(node:16763) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+▶ SQLite migrations
+  ✔ migrates a clean database through audit ownership (9.455416ms)
+  ✔ adopts a legacy audits database without losing readable records (4.234125ms)
+  ✔ is idempotent after all migrations are applied (5.873041ms)
+  ✔ upgrades an existing 001/002 database without changing audits or queued jobs (5.412375ms)
+  ✔ adds nullable restricted ownership without changing legacy audits or jobs (6.498916ms)
+  ✔ enforces user and session identity, hash, expiry, and cascade constraints (4.57425ms)
+  ✔ enforces audit job indexes, foreign keys, statuses, attempts, and state consistency (4.376583ms)
+  ✔ rolls back a failed migration without recording its version (3.769791ms)
+  ✔ rolls back every pending migration when a fresh migration run fails (2.3525ms)
+✔ SQLite migrations (47.569667ms)
+(node:16764) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ SQLite readiness requires the complete ordered migration ledger (13.691666ms)
+▶ URL safety
+  ✔ detects private and internal IP addresses (4.659917ms)
+  ✔ rejects unsafe URL protocols and private hosts (0.509083ms)
+  ✔ accepts valid public HTML responses (13.871167ms)
+  ✔ accepts a modern JS-heavy HTML document above the former 250 KB limit (0.584ms)
+  ✔ handles redirects safely and rejects private redirect targets (0.204541ms)
+  ✔ limits redirect count and HTML size (0.340375ms)
+✔ URL safety (20.658042ms)
+ℹ tests 260
+ℹ suites 44
+ℹ pass 260
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2635.565917
+$ playwright test
+[WebServer] (node:16790) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:16790) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+
+Running 38 tests using 1 worker
+
+(node:16791) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/sitepulse.spec.mjs:186:1 › NOQORI header and hero expose the real audit entry without invented navigation (274ms)
+  ✓   2 [chromium] › e2e/sitepulse.spec.mjs:203:1 › NOQORI header CTA moves keyboard focus to the real audit input (163ms)
+  ✓   3 [chromium] › e2e/sitepulse.spec.mjs:212:1 › NOQORI expressive stage uses restrained pointer motion without browser errors (535ms)
+  ✓   4 [chromium] › e2e/sitepulse.spec.mjs:248:1 › NOQORI audit entry stays usable without horizontal overflow across target widths (190ms)
+  ✓   5 [chromium] › e2e/sitepulse.spec.mjs:273:1 › NOQORI below-fold story presents only supported product outcomes (118ms)
+  ✓   6 [chromium] › e2e/sitepulse.spec.mjs:291:1 › NOQORI desktop story advances visual state through native scrolling (220ms)
+  ✓   7 [chromium] › e2e/sitepulse.spec.mjs:312:1 › NOQORI final CTA returns focus to the one real audit form (132ms)
+  ✓   8 [chromium] › e2e/sitepulse.spec.mjs:322:1 › NOQORI mobile story uses a readable flow and honors reduced motion (100ms)
+  ✓   9 [chromium] › e2e/sitepulse.spec.mjs:344:1 › NOQORI controls keep visible keyboard focus and reduce motion when requested (106ms)
+  ✓  10 [chromium] › e2e/sitepulse.spec.mjs:371:1 › NOQORI analysis remains truthful and usable with reduced motion (3.6s)
+  ✓  11 [chromium] › e2e/sitepulse.spec.mjs:398:1 › analysis communicates each job stage with semantic step state (4.1s)
+  ✓  12 [chromium] › e2e/sitepulse.spec.mjs:464:1 › Stop waiting aborts this tab only and restores the audit form (432ms)
+  ✓  13 [chromium] › e2e/sitepulse.spec.mjs:488:1 › delayed and reconnecting states keep one existing audit job (1.4s)
+  ✓  14 [chromium] › e2e/sitepulse.spec.mjs:534:1 › main audit flow renders report and resets (5.4s)
+  ✓  15 [chromium] › e2e/sitepulse.spec.mjs:593:1 › a new submit invalidates a stale completion from the previous job (5.3s)
+  ✓  16 [chromium] › e2e/sitepulse.spec.mjs:661:1 › a failed job shows its safe error and stops polling (2.8s)
+  ✓  17 [chromium] › e2e/sitepulse.spec.mjs:713:1 › client polling timeout restores the form without failing the server job (298ms)
+  ✓  18 [chromium] › e2e/sitepulse.spec.mjs:737:1 › a malformed polling response fails safely without crashing the UI (1.4s)
+  ✓  19 [chromium] › e2e/sitepulse.spec.mjs:754:1 › a polling network failure shows a status-specific safe error (3.5s)
+  ✓  20 [chromium] › e2e/sitepulse.spec.mjs:771:1 › an audit fetch failure does not expose a browser error (1.4s)
+  ✓  21 [chromium] › e2e/sitepulse.spec.mjs:795:1 › signed-out frontend exposes the temporary backend login requirement safely (161ms)
+  ✓  22 [chromium] › e2e/sitepulse.spec.mjs:805:1 › validation errors are visible and do not break the page (157ms)
+  ✓  23 [chromium] › e2e/sitepulse.spec.mjs:821:1 › an unavailable audit API shows a useful message instead of the browser Load failed text (153ms)
+  ✓  24 [chromium] › e2e/sitepulse.spec.mjs:835:1 › unsafe localhost URL is blocked with a readable error (128ms)
+  ✓  25 [chromium] › e2e/sitepulse.spec.mjs:848:1 › real page performance stays understandable on mobile (2.0s)
+  ✓  26 [chromium] › e2e/sitepulse.spec.mjs:872:1 › completed HTML fallback opens a truthful report without zero Lighthouse metrics (2.0s)
+  ✓  27 [chromium] › e2e/sitepulse.spec.mjs:901:3 › report and expanded category avoid horizontal overflow on mobile (2.2s)
+  ✓  28 [chromium] › e2e/sitepulse.spec.mjs:901:3 › report and expanded category avoid horizontal overflow on tablet (2.2s)
+  ✓  29 [chromium] › e2e/sitepulse.spec.mjs:901:3 › report and expanded category avoid horizontal overflow on desktop (2.2s)
+  ✓  30 [chromium] › e2e/sitepulse.spec.mjs:945:1 › footer contains working Privacy, Impressum, and Terms links (110ms)
+  ✓  31 [chromium] › e2e/sitepulse.spec.mjs:969:1 › Privacy page loads, shows NOQORI identity, and exposes no console errors (87ms)
+  ✓  32 [chromium] › e2e/sitepulse.spec.mjs:990:1 › Impressum page loads with German headings and no console errors (74ms)
+  ✓  33 [chromium] › e2e/sitepulse.spec.mjs:1005:1 › Terms page loads, shows correct headings, and exposes no console errors (77ms)
+  ✓  34 [chromium] › e2e/sitepulse.spec.mjs:1020:1 › Privacy page has no horizontal overflow at desktop width (66ms)
+  ✓  35 [chromium] › e2e/sitepulse.spec.mjs:1027:1 › Privacy page has no horizontal overflow at mobile width (71ms)
+  ✓  36 [chromium] › e2e/sitepulse.spec.mjs:1034:1 › legal pages are keyboard navigable and TOC links work (101ms)
+  ✓  37 [chromium] › e2e/sitepulse.spec.mjs:1051:1 › back link on Privacy page navigates to the landing page (75ms)
+  ✓  38 [chromium] › e2e/sitepulse.spec.mjs:1058:1 › existing audit flow is unaffected by Module 06 changes (91ms)
+
+  38 passed (44.1s)

@@ -5,6 +5,7 @@ import { browserSandboxConfigPath } from "../src/production/browser-sandbox-pref
 import {
   browserSandboxKernelPolicyHashPath,
   browserSandboxBundleHashPath,
+  browserSandboxPlatformHashPath,
   browserSandboxNamespacePath,
   browserSandboxOwnershipPath,
   computeBrowserSandboxConfigHash
@@ -43,6 +44,8 @@ try {
   const rpcGid = Number(rpcGidResult.stdout.split(":")[2]);
   const storedHash = readFileSync("/run/noqori-audit/expected-config.sha256", "utf8").trim();
   const storedBundleHash = readFileSync(browserSandboxBundleHashPath, "utf8").trim();
+  const platformHashStat = statSync(browserSandboxPlatformHashPath);
+  const storedPlatformHash = readFileSync(browserSandboxPlatformHashPath, "utf8").trim();
   const currentBundleHash = computeBrowserSandboxBundleHash();
   const kernelHashStat = statSync(browserSandboxKernelPolicyHashPath);
   const storedKernelHash = readFileSync(browserSandboxKernelPolicyHashPath, "utf8").trim();
@@ -55,6 +58,7 @@ try {
   const valid =
     attestation.valid === true &&
     attestation.platformHash === currentPlatformHash &&
+    platformHashStat.uid === 0 && (platformHashStat.mode & 0o222) === 0 && storedPlatformHash === currentPlatformHash &&
     attestation.bundleHash === currentBundleHash && storedBundleHash === currentBundleHash &&
     verifyInstalledBrowserSandboxUnits() &&
     namespaceStat.ino === attestation.namespaceInode &&

@@ -3,6 +3,8 @@ table netdev noqori_audit_host {
   set dns_ipv4 { type ipv4_addr; elements = { @DNS_IPV4@ } }
   chain audit_ingress {
     type filter hook ingress device "nq-audit-host" priority -500; policy drop;
+    iifname "nq-audit-host" ether type arp arp operation request arp daddr ip @GATEWAY_IPV4@ accept
+    iifname "nq-audit-host" ether type arp arp operation reply arp saddr ip @NAMESPACE_IPV4@ arp daddr ip @GATEWAY_IPV4@ accept
     iifname "nq-audit-host" udp dport 443 drop
     iifname "nq-audit-host" fib daddr type local drop
     iifname "nq-audit-host" ip daddr @GATEWAY_IPV4@ drop

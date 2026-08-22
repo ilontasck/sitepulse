@@ -153,10 +153,16 @@ export function createAuditRunnerServer({
       onError: fail
     });
     socket.on("data", read);
-    socket.on("end", read.end);
+    const abortActiveRequest = () => {
+      activeController?.abort(new Error("Audit runner client disconnected."));
+    };
+    socket.on("end", () => {
+      read.end();
+      abortActiveRequest();
+    });
     socket.on("close", () => {
       sockets.delete(socket);
-      activeController?.abort(new Error("Audit runner client disconnected."));
+      abortActiveRequest();
     });
   });
 

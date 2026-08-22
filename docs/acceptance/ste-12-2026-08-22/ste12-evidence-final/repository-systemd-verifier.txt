@@ -1,0 +1,2 @@
+$ node scripts/verify-systemd-units.mjs
+{"type":"noqori.systemd.verify","status":"PASS","units":["noqori.target","noqori-migrate.service","noqori-api.service","noqori-worker.service","noqori-audit-sandbox.service","noqori-audit-sandbox-verify.service","noqori-audit-runner.socket","noqori-audit-runner.service"]}

@@ -1,0 +1,14 @@
+[Unit]
+Description=STE-12 authoritative DNS fixture
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/ste12-dns/dns_server.py
+Restart=on-failure
+RestartSec=2s
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

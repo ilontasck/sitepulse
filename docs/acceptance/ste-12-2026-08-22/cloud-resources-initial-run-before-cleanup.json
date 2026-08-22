@@ -1,0 +1,294 @@
+{
+  "captured_at": "2026-08-22T14:18:14.539347+00:00",
+  "estimated_total_cost_upper_bound_eur": 0.1466,
+  "forbidden_paid_resource_counts": {
+    "floating_ips": 0,
+    "load_balancers": 0,
+    "primary_ips": 0,
+    "volumes": 0
+  },
+  "label_selector": "purpose=ste12-acceptance",
+  "resources": {
+    "certificates": [],
+    "firewalls": [
+      {
+        "applied_to": [
+          {
+            "server": {
+              "id": 163117699
+            },
+            "type": "server"
+          }
+        ],
+        "created": "2026-08-22T09:43:36Z",
+        "id": 11503008,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "acceptance"
+        },
+        "name": "ste12-acceptance-fw-20260822094241-8dd05f",
+        "rules": [
+          {
+            "description": "temporary acceptance SSH",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "22",
+            "protocol": "tcp",
+            "source_ips": [
+              "<ADMIN_IP>/32"
+            ]
+          }
+        ]
+      },
+      {
+        "applied_to": [
+          {
+            "server": {
+              "id": 163117701
+            },
+            "type": "server"
+          }
+        ],
+        "created": "2026-08-22T09:43:36Z",
+        "id": 11503009,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "fixture"
+        },
+        "name": "ste12-fixture-fw-20260822094241-8dd05f",
+        "rules": [
+          {
+            "description": "temporary acceptance SSH",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "22",
+            "protocol": "tcp",
+            "source_ips": [
+              "<ADMIN_IP>/32"
+            ]
+          },
+          {
+            "description": "acceptance DNS TCP",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "53",
+            "protocol": "tcp",
+            "source_ips": [
+              "167.233.20.67/32"
+            ]
+          },
+          {
+            "description": "acceptance DNS UDP",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "53",
+            "protocol": "udp",
+            "source_ips": [
+              "167.233.20.67/32"
+            ]
+          },
+          {
+            "description": "acceptance HTTP fixtures",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "80",
+            "protocol": "tcp",
+            "source_ips": [
+              "167.233.20.67/32"
+            ]
+          },
+          {
+            "description": "acceptance HTTPS fixtures",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "443",
+            "protocol": "tcp",
+            "source_ips": [
+              "167.233.20.67/32"
+            ]
+          },
+          {
+            "description": "acceptance QUIC denial fixture",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "443",
+            "protocol": "udp",
+            "source_ips": [
+              "167.233.20.67/32"
+            ]
+          }
+        ]
+      },
+      {
+        "applied_to": [
+          {
+            "server": {
+              "id": 163121569
+            },
+            "type": "server"
+          }
+        ],
+        "created": "2026-08-22T10:38:35Z",
+        "id": 11503202,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "fixture-dns"
+        },
+        "name": "ste12-dns-fw-20260822094241-8dd05f",
+        "rules": [
+          {
+            "description": "temporary acceptance SSH",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "22",
+            "protocol": "tcp",
+            "source_ips": [
+              "<ADMIN_IP>/32"
+            ]
+          },
+          {
+            "description": "acceptance DNS TCP",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "53",
+            "protocol": "tcp",
+            "source_ips": [
+              "167.233.20.67/32"
+            ]
+          },
+          {
+            "description": "acceptance DNS UDP",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "53",
+            "protocol": "udp",
+            "source_ips": [
+              "167.233.20.67/32"
+            ]
+          }
+        ]
+      }
+    ],
+    "floating_ips": [],
+    "load_balancers": [],
+    "networks": [],
+    "placement_groups": [],
+    "primary_ips": [],
+    "servers": [
+      {
+        "architecture": "x86",
+        "created": "2026-08-22T09:43:36Z",
+        "id": 163117699,
+        "image": "ubuntu-26.04",
+        "included_traffic": 21990232555520,
+        "ipv4": "167.233.20.67",
+        "ipv6": null,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "acceptance"
+        },
+        "location": null,
+        "name": "ste12-acceptance-20260822094241-8dd05f",
+        "protection": {
+          "delete": false,
+          "rebuild": false
+        },
+        "server_type": "cx23",
+        "server_type_id": 114,
+        "status": "running"
+      },
+      {
+        "architecture": "x86",
+        "created": "2026-08-22T09:43:36Z",
+        "id": 163117701,
+        "image": "ubuntu-26.04",
+        "included_traffic": 21990232555520,
+        "ipv4": "157.90.241.241",
+        "ipv6": null,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "fixture"
+        },
+        "location": null,
+        "name": "ste12-fixture-20260822094241-8dd05f",
+        "protection": {
+          "delete": false,
+          "rebuild": false
+        },
+        "server_type": "cx23",
+        "server_type_id": 114,
+        "status": "running"
+      },
+      {
+        "architecture": "x86",
+        "created": "2026-08-22T10:38:47Z",
+        "id": 163121569,
+        "image": "ubuntu-26.04",
+        "included_traffic": 21990232555520,
+        "ipv4": "167.233.141.10",
+        "ipv6": null,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "fixture-dns"
+        },
+        "location": null,
+        "name": "ste12-dns-20260822094241-8dd05f",
+        "protection": {
+          "delete": false,
+          "rebuild": false
+        },
+        "server_type": "cx23",
+        "server_type_id": 114,
+        "status": "running"
+      }
+    ],
+    "ssh_keys": [
+      {
+        "created": "2026-08-22T09:43:36Z",
+        "fingerprint": "05:26:fe:ab:b9:99:b7:6e:3f:dc:00:11:4c:61:c1:bb",
+        "id": 117655502,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "temporary-ssh"
+        },
+        "name": "ste12-key-20260822094241-8dd05f"
+      }
+    ],
+    "volumes": []
+  },
+  "server_prices": [
+    {
+      "billed_hours_upper_bound": 5,
+      "estimated_cost_upper_bound_eur": 0.0524,
+      "hourly_gross_eur": 0.010472,
+      "location": null,
+      "monthly_gross_eur": 6.5331,
+      "price_location": "fsn1",
+      "runtime_hours": 4.577,
+      "server_id": 163117699,
+      "server_type": "cx23"
+    },
+    {
+      "billed_hours_upper_bound": 5,
+      "estimated_cost_upper_bound_eur": 0.0524,
+      "hourly_gross_eur": 0.010472,
+      "location": null,
+      "monthly_gross_eur": 6.5331,
+      "price_location": "fsn1",
+      "runtime_hours": 4.577,
+      "server_id": 163117701,
+      "server_type": "cx23"
+    },
+    {
+      "billed_hours_upper_bound": 4,
+      "estimated_cost_upper_bound_eur": 0.0419,
+      "hourly_gross_eur": 0.010472,
+      "location": null,
+      "monthly_gross_eur": 6.5331,
+      "price_location": "fsn1",
+      "runtime_hours": 3.658,
+      "server_id": 163121569,
+      "server_type": "cx23"
+    }
+  ]
+}

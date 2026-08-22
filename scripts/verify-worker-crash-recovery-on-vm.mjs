@@ -55,10 +55,13 @@ if (process.platform !== "linux" || process.getuid?.() !== 0 || !slowUrl) {
       INSERT INTO users (id, email_original, email_normalized, password_hash, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(userId, `acceptance-${userId}@example.invalid`, `acceptance-${userId}@example.invalid`, "x".repeat(64), now, now));
+    systemctl("start", "noqori-worker.service");
+    const workerReady = await fetch("http://127.0.0.1:3001/readyz");
+    if (!workerReady.ok) throw new Error("VM_ACCEPTANCE_WORKER_NOT_READY_BEFORE_CLAIM");
+    const readyAt = new Date().toISOString();
     const jobStore = createAuditJobStore(databasePath);
     const job = jobStore.enqueue({ normalizedUrl: slowUrl, userId });
-
-    systemctl("start", "noqori-worker.service");
+    const enqueuedAt = new Date().toISOString();
     const firstAttempt = await waitFor(
       () => jobStore.findById(job.id),
       (candidate) => candidate?.status === "running" && candidate.attemptCount === 1,
@@ -97,7 +100,7 @@ if (process.platform !== "linux" || process.getuid?.() !== 0 || !slowUrl) {
     }
     const current = JSON.parse(readFileSync(browserSandboxAttestationPath, "utf8"));
     writeRootResult({
-      schemaVersion: 1,
+      schemaVersion: 2,
       configHash: current.configHash,
       bundleHash: current.bundleHash,
       platformHash: current.platformHash,
@@ -107,6 +110,9 @@ if (process.platform !== "linux" || process.getuid?.() !== 0 || !slowUrl) {
       replacementPid,
       workerProcessCount,
       namespaceInode: namespaceInodeBefore,
+      readyBeforeClaim: readyAt <= enqueuedAt,
+      readyAt,
+      enqueuedAt,
       attemptCount: completed.attemptCount,
       auditId: completed.auditId,
       completedAt: new Date().toISOString()

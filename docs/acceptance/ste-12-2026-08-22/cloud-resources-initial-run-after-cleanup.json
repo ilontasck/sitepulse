@@ -1,0 +1,39 @@
+{
+  "all_resources_removed": true,
+  "deleted": [
+    {
+      "id": 11503008,
+      "kind": "firewalls",
+      "name": "ste12-acceptance-fw-20260822094241-8dd05f"
+    },
+    {
+      "id": 11503009,
+      "kind": "firewalls",
+      "name": "ste12-fixture-fw-20260822094241-8dd05f"
+    },
+    {
+      "id": 11503202,
+      "kind": "firewalls",
+      "name": "ste12-dns-fw-20260822094241-8dd05f"
+    },
+    {
+      "id": 117655502,
+      "kind": "ssh_keys",
+      "name": "ste12-key-20260822094241-8dd05f"
+    }
+  ],
+  "label_selector": "purpose=ste12-acceptance",
+  "remaining_counts": {
+    "certificates": 0,
+    "firewalls": 0,
+    "floating_ips": 0,
+    "load_balancers": 0,
+    "networks": 0,
+    "placement_groups": 0,
+    "primary_ips": 0,
+    "servers": 0,
+    "ssh_keys": 0,
+    "volumes": 0
+  },
+  "verified_at": "2026-08-22T14:19:53.816966+00:00"
+}

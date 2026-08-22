@@ -1,0 +1,270 @@
+
+===== noqori.target =====
+# /etc/systemd/system/noqori.target
+[Unit]
+Description=NOQORI API and audit worker
+Requires=noqori-migrate.service
+Wants=noqori-api.service noqori-audit-sandbox.service noqori-audit-runner.socket noqori-worker.service
+After=noqori-migrate.service noqori-api.service noqori-audit-sandbox.service noqori-audit-runner.socket noqori-worker.service
+
+[Install]
+WantedBy=multi-user.target
+
+===== noqori-migrate.service =====
+# /etc/systemd/system/noqori-migrate.service
+[Unit]
+Description=NOQORI SQLite migrations
+Before=noqori-api.service noqori-worker.service
+PartOf=noqori.target
+
+[Service]
+Type=oneshot
+User=noqori
+Group=noqori
+WorkingDirectory=/opt/noqori/current
+EnvironmentFile=/etc/noqori/noqori.env
+ExecStartPre=/usr/bin/test -x /usr/bin/node
+ExecStart=/usr/bin/node scripts/run-production-service.mjs migrate
+RemainAfterExit=yes
+StateDirectory=noqori
+StateDirectoryMode=0750
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/noqori
+RestrictSUIDSGID=true
+LockPersonality=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=noqori.target
+
+===== noqori-api.service =====
+# /etc/systemd/system/noqori-api.service
+[Unit]
+Description=NOQORI API
+After=network-online.target noqori-migrate.service
+Wants=network-online.target
+Requires=noqori-migrate.service
+PartOf=noqori.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=noqori
+Group=noqori
+WorkingDirectory=/opt/noqori/current
+EnvironmentFile=/etc/noqori/noqori.env
+EnvironmentFile=-/etc/noqori/noqori-secrets.env
+ExecStartPre=/usr/bin/test -x /usr/bin/node
+ExecStart=/usr/bin/node scripts/run-production-service.mjs api
+ExecStartPost=/usr/bin/node scripts/check-service-health.mjs api --wait
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+KillMode=mixed
+StateDirectory=noqori
+StateDirectoryMode=0750
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/noqori
+RestrictSUIDSGID=true
+LockPersonality=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=noqori.target
+
+===== noqori-worker.service =====
+# /etc/systemd/system/noqori-worker.service
+[Unit]
+Description=NOQORI audit worker
+After=network-online.target noqori-migrate.service noqori-audit-sandbox.service noqori-audit-runner.socket
+Wants=network-online.target noqori-audit-runner.socket
+Requires=noqori-migrate.service
+Requires=noqori-audit-sandbox.service
+PartOf=noqori.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=noqori
+Group=noqori
+SupplementaryGroups=noqori-audit-rpc
+WorkingDirectory=/opt/noqori/current
+EnvironmentFile=/etc/noqori/noqori.env
+ExecStartPre=/usr/bin/test -x /usr/bin/node
+ExecStart=/usr/bin/node scripts/run-production-service.mjs worker
+ExecStartPost=/usr/bin/node scripts/check-service-health.mjs worker --wait
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=90s
+KillMode=mixed
+StateDirectory=noqori
+StateDirectoryMode=0750
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/noqori
+RestrictSUIDSGID=true
+LockPersonality=true
+TasksMax=512
+MemoryMax=2G
+CPUQuota=200%
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=noqori.target
+
+===== noqori-audit-sandbox.service =====
+# /etc/systemd/system/noqori-audit-sandbox.service
+[Unit]
+Description=NOQORI browser audit network sandbox
+Wants=network-online.target
+After=network-online.target
+Before=noqori-audit-runner.service
+PartOf=noqori.target
+
+[Service]
+Type=oneshot
+User=root
+Group=noqori
+WorkingDirectory=/usr/local/lib/noqori-browser-sandbox
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/noqori/shared/ms-playwright
+ExecStartPre=/usr/bin/test -x /usr/bin/node
+ExecStartPre=/bin/sh -ec 'for path in /usr/local /usr/local/lib /usr/local/lib/noqori-browser-sandbox; do test ! -L "$path"; done'
+ExecStartPre=/bin/sh -ec 'test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev -type l -print -quit)" && test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev \\( ! -user root -o -perm /022 \\) -print -quit)"'
+ExecStart=/usr/bin/node scripts/setup-browser-sandbox.mjs
+ExecStop=/usr/bin/node scripts/setup-browser-sandbox.mjs --teardown
+RemainAfterExit=yes
+RuntimeDirectory=noqori-audit
+RuntimeDirectoryMode=0750
+UMask=0077
+NoNewPrivileges=false
+# Host-visible named network namespaces require the host mount namespace.
+# The immutable root-owned bundle and narrow capability set are the boundary here.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+AmbientCapabilities=CAP_NET_ADMIN CAP_SYS_ADMIN
+LockPersonality=true
+RestrictSUIDSGID=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=noqori.target
+
+===== noqori-audit-sandbox-verify.service =====
+# /etc/systemd/system/noqori-audit-sandbox-verify.service
+[Unit]
+Description=Verify NOQORI browser audit sandbox
+Requires=noqori-audit-sandbox.service noqori-audit-runner.socket
+After=noqori-audit-sandbox.service noqori-audit-runner.socket
+Before=noqori-audit-runner.service
+PartOf=noqori.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/usr/local/lib/noqori-browser-sandbox
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/noqori/shared/ms-playwright
+ExecStartPre=/usr/bin/test -x /usr/bin/node
+ExecStartPre=/bin/sh -ec 'for path in /usr/local /usr/local/lib /usr/local/lib/noqori-browser-sandbox; do test ! -L "$path"; done'
+ExecStartPre=/bin/sh -ec 'test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev -type l -print -quit)" && test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev \\( ! -user root -o -perm /022 \\) -print -quit)"'
+ExecStart=/usr/bin/node scripts/verify-browser-sandbox.mjs
+UMask=0077
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SYS_ADMIN CAP_DAC_READ_SEARCH
+NoNewPrivileges=true
+LockPersonality=true
+RestrictSUIDSGID=true
+StandardOutput=journal
+StandardError=journal
+
+===== noqori-audit-runner.socket =====
+# /etc/systemd/system/noqori-audit-runner.socket
+[Unit]
+Description=NOQORI browser audit runner RPC socket
+PartOf=noqori.target
+
+[Socket]
+ListenStream=/run/noqori-audit.sock
+SocketUser=root
+SocketGroup=noqori-audit-rpc
+SocketMode=0660
+RemoveOnStop=yes
+Accept=no
+Service=noqori-audit-runner.service
+
+[Install]
+WantedBy=noqori.target
+
+===== noqori-audit-runner.service =====
+# /etc/systemd/system/noqori-audit-runner.service
+[Unit]
+Description=NOQORI isolated browser audit runner
+Requires=noqori-audit-sandbox.service noqori-audit-sandbox-verify.service
+After=noqori-audit-sandbox.service noqori-audit-sandbox-verify.service
+PartOf=noqori.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Sockets=noqori-audit-runner.socket
+User=noqori-browser
+Group=noqori-browser
+WorkingDirectory=/usr/local/lib/noqori-browser-sandbox
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/noqori/shared/ms-playwright
+LoadCredential=sandbox-attestation:/run/noqori-audit/attestation.json
+LoadCredential=sandbox-config-hash:/run/noqori-audit/expected-config.sha256
+LoadCredential=sandbox-bundle-hash:/run/noqori-audit/bundle.sha256
+LoadCredential=sandbox-platform-hash:/run/noqori-audit/platform.sha256
+LoadCredential=sandbox-acceptance-test:/run/noqori-audit/acceptance-test.json
+ExecStartPre=/usr/bin/test -x /usr/bin/node
+ExecStartPre=/bin/sh -ec 'for path in /usr/local /usr/local/lib /usr/local/lib/noqori-browser-sandbox; do test ! -L "$path"; done'
+ExecStartPre=/bin/sh -ec 'test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev -type l -print -quit)" && test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev \\( ! -user root -o -perm /022 \\) -print -quit)"'
+ExecStart=/usr/bin/node scripts/run-audit-runner.mjs
+NetworkNamespacePath=/run/netns/noqori-audit
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=65s
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+InaccessiblePaths=/var/lib/noqori /etc/noqori /var/backups /root /home
+ReadOnlyPaths=/run /etc/netns/noqori-audit/resolv.conf
+BindReadOnlyPaths=/etc/netns/noqori-audit/resolv.conf:/etc/resolv.conf
+CapabilityBoundingSet=
+AmbientCapabilities=
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_NETLINK
+TasksMax=512
+MemoryMax=2G
+CPUQuota=200%
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=noqori.target

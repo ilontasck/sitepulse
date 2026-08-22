@@ -288,6 +288,19 @@ describe("production process supervision", () => {
     }
   });
 
+  it("publishes worker readiness before entering the claim loop", async () => {
+    const workerEntrypoint = await readFile(new URL("../worker.mjs", import.meta.url), "utf8");
+    const initialReadiness = workerEntrypoint.indexOf("await waitForInitialWorkerReadiness()");
+    const markReady = workerEntrypoint.indexOf("healthServer.markReady()");
+    const readyEvent = workerEntrypoint.indexOf('status: "ready-before-claim"');
+    const runLoop = workerEntrypoint.indexOf("await worker.run()");
+
+    assert.ok(initialReadiness > 0);
+    assert.ok(initialReadiness < markReady);
+    assert.ok(markReady < readyEvent);
+    assert.ok(readyEvent < runLoop);
+  });
+
   it("documents a secret-free single-VM operating contract and future browser sandbox seam", async () => {
     const [environment, operations] = await Promise.all([
       readFile(deploymentFile("noqori.env.example"), "utf8"),

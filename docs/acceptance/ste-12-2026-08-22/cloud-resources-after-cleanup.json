@@ -1,0 +1,54 @@
+{
+  "all_resources_removed": true,
+  "deleted": [
+    {
+      "id": 163144207,
+      "kind": "servers",
+      "name": "ste12-acceptance-20260822-reviewfix-a91c"
+    },
+    {
+      "id": 163144208,
+      "kind": "servers",
+      "name": "ste12-fixture-20260822-reviewfix-a91c"
+    },
+    {
+      "id": 163144209,
+      "kind": "servers",
+      "name": "ste12-dns-20260822-reviewfix-a91c"
+    },
+    {
+      "id": 11503890,
+      "kind": "firewalls",
+      "name": "ste12-acceptance-fw-20260822-reviewfix-a91c"
+    },
+    {
+      "id": 11503891,
+      "kind": "firewalls",
+      "name": "ste12-fixture-fw-20260822-reviewfix-a91c"
+    },
+    {
+      "id": 11503892,
+      "kind": "firewalls",
+      "name": "ste12-dns-fw-20260822-reviewfix-a91c"
+    },
+    {
+      "id": 117671476,
+      "kind": "ssh_keys",
+      "name": "ste12-key-20260822-reviewfix-a91c"
+    }
+  ],
+  "label_selector": "purpose=ste12-acceptance",
+  "remaining_counts": {
+    "certificates": 0,
+    "firewalls": 0,
+    "floating_ips": 0,
+    "load_balancers": 0,
+    "networks": 0,
+    "placement_groups": 0,
+    "primary_ips": 0,
+    "servers": 0,
+    "ssh_keys": 0,
+    "volumes": 0
+  },
+  "verified_at": "2026-08-22T15:26:43.691138+00:00"
+}

@@ -7,6 +7,7 @@ import { runBrowserSandboxPreflight, browserSandboxConfigPath } from "../src/pro
 import {
   browserSandboxAttestationPath,
   browserSandboxBundleHashPath,
+  browserSandboxPlatformHashPath,
   browserSandboxAcceptanceTestPath,
   browserSandboxAcceptancePath,
   browserSandboxExpectedHashPath,
@@ -19,6 +20,15 @@ import {
 import { computeBrowserSandboxBundleHash, verifyInstalledBrowserSandboxUnits } from "../src/production/browser-sandbox-bundle.mjs";
 import { hashOwnedNftablesState } from "../src/production/nftables-state.mjs";
 import { collectBrowserSandboxPlatform } from "../src/production/browser-sandbox-platform.mjs";
+
+const browserSandboxRuntimeArtifactPaths = [
+  browserSandboxAttestationPath,
+  browserSandboxAcceptanceTestPath,
+  browserSandboxExpectedHashPath,
+  browserSandboxKernelPolicyHashPath,
+  browserSandboxBundleHashPath,
+  browserSandboxPlatformHashPath
+];
 
 function command(name, args, { allowFailure = false, input } = {}) {
   const result = spawnSync(name, args, { encoding: "utf8", input });
@@ -78,7 +88,7 @@ function ownsResources(config) {
 }
 
 function teardown(config, { trustedOwnership = false } = {}) {
-  for (const path of [browserSandboxAttestationPath, browserSandboxAcceptanceTestPath, browserSandboxExpectedHashPath, browserSandboxKernelPolicyHashPath, browserSandboxBundleHashPath]) {
+  for (const path of browserSandboxRuntimeArtifactPaths) {
     removeFile(path);
   }
   const resourcesExist = exists("ip", ["netns", "exec", config.namespace, "true"]) ||
@@ -106,7 +116,7 @@ if (!preflight.ready) {
   } else {
     let trustedOwnership = false;
     try {
-      for (const path of [browserSandboxAttestationPath, browserSandboxAcceptanceTestPath, browserSandboxExpectedHashPath, browserSandboxKernelPolicyHashPath, browserSandboxBundleHashPath]) {
+      for (const path of browserSandboxRuntimeArtifactPaths) {
         removeFile(path);
       }
       if (!isIP(config.hostPublicIpv4) || config.hostPublicIpv4 === "0.0.0.0" || !/^[a-zA-Z0-9_.-]{1,15}$/.test(config.hostInterface)) {
@@ -136,6 +146,12 @@ if (!preflight.ready) {
         };
         writeAtomicRootFile(browserSandboxOwnershipPath, `${JSON.stringify(owner)}\n`, 0o440);
       }
+      const netnsDirectoryStat = statSync("/run/netns");
+      if (!netnsDirectoryStat.isDirectory() || netnsDirectoryStat.uid !== 0) {
+        throw new Error("SANDBOX_RESOURCE_OWNERSHIP_MISMATCH");
+      }
+      chownSync("/run/netns", 0, 0);
+      chmodSync("/run/netns", 0o755);
       command("ip", ["address", "replace", config.hostAddress, "dev", config.hostVeth]);
       command("ip", ["link", "set", config.hostVeth, "up"]);
       command("ip", ["-n", config.namespace, "address", "replace", config.namespaceAddress, "dev", config.namespaceVeth]);
@@ -153,6 +169,7 @@ if (!preflight.ready) {
         BLOCKED_IPV4: registry.blockedPrefixes.join(", "),
         DNS_IPV4: config.dnsResolvers.join(", "),
         GATEWAY_IPV4: gateway,
+        NAMESPACE_IPV4: config.namespaceAddress.split("/")[0],
         HOST_PUBLIC_IPV4: config.hostPublicIpv4,
         HOST_INTERFACE: config.hostInterface
       };
@@ -187,6 +204,7 @@ if (!preflight.ready) {
       }
       writeAtomicRootFile(browserSandboxExpectedHashPath, `${configHash}\n`, 0o444);
       writeAtomicRootFile(browserSandboxBundleHashPath, `${bundleHash}\n`, 0o444);
+      writeAtomicRootFile(browserSandboxPlatformHashPath, `${platformHash}\n`, 0o444);
       writeAtomicRootFile(browserSandboxKernelPolicyHashPath, `${hashOwnedNftablesState(readOwnedNftablesState(config))}\n`, 0o444);
       writeAtomicRootFile(browserSandboxAcceptanceTestPath, `${JSON.stringify({
         schemaVersion: 2,

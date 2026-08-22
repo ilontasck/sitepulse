@@ -50,13 +50,16 @@ sudo chown -R root:root /opt/noqori/shared/ms-playwright
 sudo chmod -R go-w /opt/noqori/shared/ms-playwright
 ```
 
-The two privileged sandbox units never execute JavaScript from the mutable/current application release. Provision a separate root-owned, symlink-free copy of the security implementation and its dependency closure. `cp -aL` is intentional: it dereferences pnpm links into the immutable copy. Perform this while the sandbox units are stopped and publish the completed directory atomically with the provisioning tool; never edit it in place.
+The two privileged sandbox units never execute JavaScript from the mutable/current application release. Provision a separate root-owned, symlink-free copy of the security implementation and its dependency closure. `cp -aL` is intentional: it dereferences pnpm links into the immutable copy. Dereferencing only the top-level direct-package links loses pnpm's virtual-hoist siblings, so overlay the dereferenced virtual-hoist tree before ownership is sealed. Perform this while the sandbox units are stopped and publish the completed directory atomically with the provisioning tool; never edit it in place.
 
 ```bash
 sudo install -d -o root -g root -m 0755 /usr/local/lib/noqori-browser-sandbox.new
 sudo cp -aL deploy scripts src test node_modules package.json pnpm-lock.yaml /usr/local/lib/noqori-browser-sandbox.new/
+sudo cp -aL node_modules/.pnpm/node_modules/. /usr/local/lib/noqori-browser-sandbox.new/node_modules/
 sudo chown -R root:root /usr/local/lib/noqori-browser-sandbox.new
 sudo chmod -R go-w /usr/local/lib/noqori-browser-sandbox.new
+sudo install -o root -g root -m 0644 deploy/apparmor/noqori-chromium /etc/apparmor.d/noqori-chromium
+sudo apparmor_parser -r /etc/apparmor.d/noqori-chromium
 # Provisioning must atomically replace /usr/local/lib/noqori-browser-sandbox
 # only after stopping noqori-audit-sandbox.service.
 ```
@@ -78,6 +81,8 @@ sudo systemctl enable --now noqori.target
 
 The privileged setup unit intentionally does not use systemd filesystem namespacing directives: `ip netns add` must publish the named namespace mount into the host `/run/netns` so `NetworkNamespacePath=` can consume it after the oneshot exits. The unit still executes only the immutable, root-owned attested bundle with a narrow capability set. The verifier and unprivileged runner retain strict filesystem hardening. Setup is ordered after `network-online.target`; the two-boot VM gate must prove the namespace remains host-visible after cold boot.
 
+Ubuntu's AppArmor restriction on unprivileged user namespaces requires the tracked `noqori-chromium` profile. It grants `userns` only to the installed Playwright Chromium path; the profile is otherwise unconfined because the runner's systemd unit and network namespace are the process/filesystem/network containment boundary. Do not replace it with Chromium's `--no-sandbox` flag. Chrome receives `HOME=/tmp` inside systemd `PrivateTmp` so crash reporting and profile discovery never require a real service-user home.
+
 The checked-in IPv4 deny data is a deterministic snapshot of the [IANA IPv4 Special-Purpose Address Registry](https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml), last updated 2025-10-09, plus multicast coverage. Production startup never downloads registry data. Updating that snapshot or any hashed enforcement file invalidates prior VM acceptance.
 
 The root verifier checks the namespace inode, routes/veth, host and namespace tables, default-drop chains, NAT, fixed resolver file, IPv6 sysctl, socket mode, and the boot-bound policy hash before each runner activation. Acceptance is also bound to a measured platform fingerprint covering the OS release, kernel, systemd, nftables, iproute2, Node, and the root-owned installed Chromium executable path/revision and SHA-256. Chromium is never executed as root to obtain this measurement. Any platform change clears VM acceptance until the two-boot suite is rerun. The root-owned attestation and expected hash contain no secrets. Missing, stale, writable, wrong-boot, wrong-inode, platform-mismatched, or configuration-mismatched files prevent the production worker from starting. An environment variable alone cannot enable rendered mode.
@@ -86,7 +91,7 @@ The root verifier checks the namespace inode, routes/veth, host and namespace ta
 
 The runner is socket activated, serves one request, and uses fresh Chrome profiles. RPC disconnect, request timeout, or runner SIGTERM aborts the audit; Playwright closes and Chrome is killed. `KillMode=control-group` and `TimeoutStopSec=65s` provide the final process-tree boundary. The worker does not claim while the runner handshake is unavailable. If the runner fails after claim, the typed infrastructure error follows the existing retry/lease/fencing policy, and a stale result cannot complete a newer attempt.
 
-`MemoryMax=2G`, `CPUQuota=200%`, and `TasksMax=512` are provisional HTML-only/acceptance values. Re-measure the entire runner cgroup during VM acceptance before allowing rendered Chromium traffic. Do not add `CAP_NET_ADMIN` to the runner. `AF_INET6` and `AF_PACKET` remain unavailable; `AF_NETLINK` is not allowlisted by `RestrictAddressFamilies` and must be tested against the pinned Chromium build before any policy relaxation.
+`MemoryMax=2G`, `CPUQuota=200%`, and `TasksMax=512` are provisional HTML-only/acceptance values. Re-measure the entire runner cgroup during VM acceptance before allowing rendered Chromium traffic. Do not add `CAP_NET_ADMIN` to the runner. `AF_INET6` and `AF_PACKET` remain unavailable. The pinned Chromium build requires `AF_NETLINK` for read-only network-change tracking, so it is allowlisted without any capabilities; VM acceptance must still prove that the runner cannot inspect nftables, create a network namespace, or open a raw socket.
 
 ## Tests and release gate
 
@@ -100,11 +105,11 @@ sudo /usr/bin/node scripts/run-browser-sandbox-vm-acceptance.mjs prepare-reboot
 sudo reboot
 ```
 
-After reboot, provide purpose-built public/private fixture URLs and complete the suite. `NOQORI_SLOW_RENDERED_URL` must keep Chromium active long enough for descriptor inspection; `NOQORI_SLOW_HTML_URL` must keep the first HTML attempt active until the worker is killed.
+After reboot, provide purpose-built public/private fixture URLs and complete the suite. `NOQORI_QUIC_ASSERT_URL` must report whether the fixture received the harness's UDP/443 probe; acceptance requires that it did not. `NOQORI_SLOW_RENDERED_URL` must keep Chromium active long enough for descriptor inspection; `NOQORI_SLOW_HTML_URL` must keep the first HTML attempt active until the worker is killed.
 
 ```bash
 cd /usr/local/lib/noqori-browser-sandbox
-sudo --preserve-env=NOQORI_PUBLIC_HTTP_URL,NOQORI_PUBLIC_HTTPS_URL,NOQORI_PRIVATE_REDIRECT_URL,NOQORI_PRIVATE_SUBRESOURCE_URL,NOQORI_PRIVATE_WEBSOCKET_URL,NOQORI_DNS_REBIND_URL,NOQORI_MIXED_A_AAAA_URL,NOQORI_FIXTURE_ASSERT_BASE_URL,NOQORI_SLOW_RENDERED_URL,NOQORI_SLOW_HTML_URL \
+sudo --preserve-env=NOQORI_PUBLIC_HTTP_URL,NOQORI_PUBLIC_HTTPS_URL,NOQORI_QUIC_ASSERT_URL,NOQORI_PRIVATE_REDIRECT_URL,NOQORI_PRIVATE_SUBRESOURCE_URL,NOQORI_PRIVATE_WEBSOCKET_URL,NOQORI_DNS_REBIND_URL,NOQORI_MIXED_A_AAAA_URL,NOQORI_FIXTURE_ASSERT_BASE_URL,NOQORI_SLOW_RENDERED_URL,NOQORI_SLOW_HTML_URL \
   /usr/bin/node scripts/run-browser-sandbox-vm-acceptance.mjs complete
 ```
 

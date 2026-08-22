@@ -30,7 +30,7 @@ export function runBrowserSandboxPreflight({
     if (!/^ID=ubuntu$/m.test(osRelease) || !/^VERSION_ID="?26\.04"?$/m.test(osRelease)) {
       return unavailable("UBUNTU_26_04_REQUIRED");
     }
-    const systemd = command("systemd", ["--version"]);
+    const systemd = command("systemctl", ["--version"]);
     const systemdVersion = Number(systemd.stdout.match(/systemd\s+(\d+)/)?.[1]);
     if (systemd.status !== 0 || systemdVersion < 259) return unavailable("SYSTEMD_259_REQUIRED");
     if (command("systemd-analyze", ["verify", "deploy/systemd/noqori-audit-runner.service"]).status !== 0) {

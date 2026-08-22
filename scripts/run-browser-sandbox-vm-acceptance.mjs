@@ -64,25 +64,31 @@ if (process.platform !== "linux" || process.getuid?.() !== 0 || !["prepare-reboo
         throw new Error("VM_ACCEPTANCE_REBOOT_NOT_PROVEN");
       }
       run("scripts/run-browser-sandbox-integration.mjs");
+      const restoredAttestation = loadBrowserSandboxAttestation();
+      if (!restoredAttestation.valid) throw new Error("VM_ACCEPTANCE_RESTORED_ATTESTATION_INVALID");
+      const restored = JSON.parse(readFileSync(browserSandboxAttestationPath, "utf8"));
+      if (restored.configHash !== current.configHash || restored.bundleHash !== current.bundleHash || restored.platformHash !== current.platformHash || restored.bootId !== current.bootId) {
+        throw new Error("VM_ACCEPTANCE_RESTORED_ATTESTATION_MISMATCH");
+      }
       if (!verifyBrowserSandboxKernelEvidence({
         evidencePath: browserSandboxKernelEvidencePath,
-        expectedConfigHash: current.configHash,
-        expectedBundleHash: current.bundleHash,
-        expectedPlatformHash: current.platformHash,
-        currentBootId: current.bootId
+        expectedConfigHash: restored.configHash,
+        expectedBundleHash: restored.bundleHash,
+        expectedPlatformHash: restored.platformHash,
+        currentBootId: restored.bootId
       }).valid) throw new Error("VM_ACCEPTANCE_KERNEL_EVIDENCE_INVALID");
       run("scripts/verify-worker-crash-recovery-on-vm.mjs");
       const queue = readRootFile(queueResultPath);
-      if (queue.configHash !== current.configHash || queue.bundleHash !== current.bundleHash || queue.platformHash !== current.platformHash || queue.bootId !== current.bootId || queue.namespaceInode !== current.namespaceInode || queue.attemptCount !== 2 || queue.workerProcessCount !== 1) {
+      if (queue.schemaVersion !== 2 || queue.configHash !== restored.configHash || queue.bundleHash !== restored.bundleHash || queue.platformHash !== restored.platformHash || queue.bootId !== restored.bootId || queue.namespaceInode !== restored.namespaceInode || queue.readyBeforeClaim !== true || queue.attemptCount !== 2 || queue.workerProcessCount !== 1) {
         throw new Error("VM_ACCEPTANCE_QUEUE_EVIDENCE_INVALID");
       }
       writeRootFile(browserSandboxAcceptanceEvidencePath, {
         schemaVersion: 2,
-        configHash: current.configHash,
-        bundleHash: current.bundleHash,
-        platformHash: current.platformHash,
+        configHash: restored.configHash,
+        bundleHash: restored.bundleHash,
+        platformHash: restored.platformHash,
         beforeRebootBootId: before.bootId,
-        afterRebootBootId: current.bootId,
+        afterRebootBootId: restored.bootId,
         checks: browserSandboxAcceptanceChecks,
         completedAt: new Date().toISOString()
       });

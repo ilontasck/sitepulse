@@ -1,0 +1,9 @@
+abi <abi/4.0>,
+include <tunables/global>
+
+# Ubuntu restricts unprivileged user namespaces unless the executable has an
+# AppArmor profile. All other containment remains owned by the runner's systemd
+# unit, dedicated network namespace, nftables policy, and Chromium sandbox.
+profile noqori-chromium /opt/noqori/shared/ms-playwright/chromium-*/chrome-linux64/chrome flags=(unconfined) {
+  userns,
+}

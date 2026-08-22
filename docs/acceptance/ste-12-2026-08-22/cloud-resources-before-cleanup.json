@@ -1,0 +1,281 @@
+{
+  "captured_at": "2026-08-22T15:26:17.405800+00:00",
+  "estimated_total_cost_upper_bound_eur": 0.0314,
+  "forbidden_paid_resource_counts": {
+    "floating_ips": 0,
+    "load_balancers": 0,
+    "primary_ips": 0,
+    "volumes": 0
+  },
+  "label_selector": "purpose=ste12-acceptance",
+  "resources": {
+    "certificates": [],
+    "firewalls": [
+      {
+        "applied_to": [
+          {
+            "server": {
+              "id": 163144207
+            },
+            "type": "server"
+          }
+        ],
+        "created": "2026-08-22T14:41:03Z",
+        "id": 11503890,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "acceptance",
+          "run": "20260822-reviewfix-a91c"
+        },
+        "name": "ste12-acceptance-fw-20260822-reviewfix-a91c",
+        "rules": [
+          {
+            "description": "temporary acceptance SSH",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "22",
+            "protocol": "tcp",
+            "source_ips": [
+              "REDACTED_OPERATOR_CIDR"
+            ]
+          }
+        ]
+      },
+      {
+        "applied_to": [
+          {
+            "server": {
+              "id": 163144208
+            },
+            "type": "server"
+          }
+        ],
+        "created": "2026-08-22T14:41:04Z",
+        "id": 11503891,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "fixture",
+          "run": "20260822-reviewfix-a91c"
+        },
+        "name": "ste12-fixture-fw-20260822-reviewfix-a91c",
+        "rules": [
+          {
+            "description": "temporary acceptance SSH",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "22",
+            "protocol": "tcp",
+            "source_ips": [
+              "REDACTED_OPERATOR_CIDR"
+            ]
+          },
+          {
+            "description": "acceptance HTTP fixtures",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "80",
+            "protocol": "tcp",
+            "source_ips": [
+              "157.90.241.241/32"
+            ]
+          },
+          {
+            "description": "acceptance HTTPS fixtures",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "443",
+            "protocol": "tcp",
+            "source_ips": [
+              "157.90.241.241/32"
+            ]
+          },
+          {
+            "description": "acceptance UDP 443 denial fixture",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "443",
+            "protocol": "udp",
+            "source_ips": [
+              "157.90.241.241/32"
+            ]
+          }
+        ]
+      },
+      {
+        "applied_to": [
+          {
+            "server": {
+              "id": 163144209
+            },
+            "type": "server"
+          }
+        ],
+        "created": "2026-08-22T14:41:04Z",
+        "id": 11503892,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "fixture-dns",
+          "run": "20260822-reviewfix-a91c"
+        },
+        "name": "ste12-dns-fw-20260822-reviewfix-a91c",
+        "rules": [
+          {
+            "description": "temporary acceptance SSH",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "22",
+            "protocol": "tcp",
+            "source_ips": [
+              "REDACTED_OPERATOR_CIDR"
+            ]
+          },
+          {
+            "description": "acceptance DNS TCP",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "53",
+            "protocol": "tcp",
+            "source_ips": [
+              "157.90.241.241/32"
+            ]
+          },
+          {
+            "description": "acceptance DNS UDP",
+            "destination_ips": [],
+            "direction": "in",
+            "port": "53",
+            "protocol": "udp",
+            "source_ips": [
+              "157.90.241.241/32"
+            ]
+          }
+        ]
+      }
+    ],
+    "floating_ips": [],
+    "load_balancers": [],
+    "networks": [],
+    "placement_groups": [],
+    "primary_ips": [],
+    "servers": [
+      {
+        "architecture": "x86",
+        "created": "2026-08-22T14:41:03Z",
+        "id": 163144207,
+        "image": "ubuntu-26.04",
+        "included_traffic": 21990232555520,
+        "ipv4": "157.90.241.241",
+        "ipv6": null,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "acceptance",
+          "run": "20260822-reviewfix-a91c"
+        },
+        "location": null,
+        "name": "ste12-acceptance-20260822-reviewfix-a91c",
+        "protection": {
+          "delete": false,
+          "rebuild": false
+        },
+        "server_type": "cx23",
+        "server_type_id": 114,
+        "status": "running"
+      },
+      {
+        "architecture": "x86",
+        "created": "2026-08-22T14:41:04Z",
+        "id": 163144208,
+        "image": "ubuntu-26.04",
+        "included_traffic": 21990232555520,
+        "ipv4": "167.233.20.67",
+        "ipv6": null,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "fixture",
+          "run": "20260822-reviewfix-a91c"
+        },
+        "location": null,
+        "name": "ste12-fixture-20260822-reviewfix-a91c",
+        "protection": {
+          "delete": false,
+          "rebuild": false
+        },
+        "server_type": "cx23",
+        "server_type_id": 114,
+        "status": "running"
+      },
+      {
+        "architecture": "x86",
+        "created": "2026-08-22T14:41:04Z",
+        "id": 163144209,
+        "image": "ubuntu-26.04",
+        "included_traffic": 21990232555520,
+        "ipv4": "167.233.141.10",
+        "ipv6": null,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "fixture-dns",
+          "run": "20260822-reviewfix-a91c"
+        },
+        "location": null,
+        "name": "ste12-dns-20260822-reviewfix-a91c",
+        "protection": {
+          "delete": false,
+          "rebuild": false
+        },
+        "server_type": "cx23",
+        "server_type_id": 114,
+        "status": "running"
+      }
+    ],
+    "ssh_keys": [
+      {
+        "created": "2026-08-22T14:41:03Z",
+        "fingerprint": "0d:a1:7d:e5:9f:92:89:8a:ea:22:e3:73:1a:a8:e2:fe",
+        "id": 117671476,
+        "labels": {
+          "purpose": "ste12-acceptance",
+          "role": "temporary-ssh",
+          "run": "20260822-reviewfix-a91c"
+        },
+        "name": "ste12-key-20260822-reviewfix-a91c"
+      }
+    ],
+    "volumes": []
+  },
+  "server_prices": [
+    {
+      "billed_hours_upper_bound": 1,
+      "estimated_cost_upper_bound_eur": 0.0105,
+      "hourly_gross_eur": 0.010472,
+      "location": null,
+      "monthly_gross_eur": 6.5331,
+      "price_location": "fsn1",
+      "runtime_hours": 0.754,
+      "server_id": 163144207,
+      "server_type": "cx23"
+    },
+    {
+      "billed_hours_upper_bound": 1,
+      "estimated_cost_upper_bound_eur": 0.0105,
+      "hourly_gross_eur": 0.010472,
+      "location": null,
+      "monthly_gross_eur": 6.5331,
+      "price_location": "fsn1",
+      "runtime_hours": 0.754,
+      "server_id": 163144208,
+      "server_type": "cx23"
+    },
+    {
+      "billed_hours_upper_bound": 1,
+      "estimated_cost_upper_bound_eur": 0.0105,
+      "hourly_gross_eur": 0.010472,
+      "location": null,
+      "monthly_gross_eur": 6.5331,
+      "price_location": "fsn1",
+      "runtime_hours": 0.754,
+      "server_id": 163144209,
+      "server_type": "cx23"
+    }
+  ]
+}

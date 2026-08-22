@@ -1,0 +1,7 @@
+/run/netns/noqori-audit uid=0 gid=0 mode=444 inode=4026532439
+/run/noqori-audit/attestation.json uid=0 gid=0 mode=444 inode=3257
+/etc/noqori/audit-vm-acceptance.json uid=0 gid=0 mode=440 inode=305754
+/var/lib/noqori/browser-sandbox-acceptance-result.json uid=0 gid=0 mode=440 inode=305753
+/var/lib/noqori/browser-sandbox-kernel-result.json uid=0 gid=0 mode=440 inode=305750
+/var/lib/noqori/browser-sandbox-pre-reboot.json uid=0 gid=0 mode=440 inode=305751
+/var/lib/noqori/browser-sandbox-queue-result.json uid=0 gid=0 mode=440 inode=305752

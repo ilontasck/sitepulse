@@ -34,16 +34,25 @@ const worker = createAuditJobWorker({
   }
 });
 const sqliteReadiness = createSqliteReadinessCheck(config.databaseFilePath);
+const workerReadinessCheck = async () => {
+  const [database, executor] = await Promise.all([
+    sqliteReadiness(),
+    auditExecution.executorReadiness().catch(() => ({ ready: false }))
+  ]);
+  return { ready: database?.ready === true && executor?.ready === true };
+};
+const waitForInitialWorkerReadiness = async (timeoutMs = 30_000) => {
+  const deadline = Date.now() + timeoutMs;
+  do {
+    if ((await workerReadinessCheck())?.ready === true) return true;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  } while (Date.now() < deadline);
+  return false;
+};
 const healthServer = createWorkerHealthServer({
   host: config.workerHealthHost,
   port: config.workerHealthPort,
-  readinessCheck: async () => {
-    const [database, executor] = await Promise.all([
-      sqliteReadiness(),
-      auditExecution.executorReadiness().catch(() => ({ ready: false }))
-    ]);
-    return { ready: database?.ready === true && executor?.ready === true };
-  },
+  readinessCheck: workerReadinessCheck,
   workerSnapshot: worker.snapshot
 });
 
@@ -60,7 +69,11 @@ process.once("SIGTERM", requestShutdown);
 
 try {
   await healthServer.start();
+  if (!await waitForInitialWorkerReadiness()) {
+    throw new Error("AUDIT_WORKER_INITIAL_READINESS_FAILED");
+  }
   healthServer.markReady();
+  console.log(JSON.stringify({ type: "noqori.worker", status: "ready-before-claim" }));
   await worker.run();
 } catch {
   telemetry.record("audit_worker_stopped", { outcome: "failure", reason: "worker-loop-error" });

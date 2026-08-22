@@ -1,0 +1,6 @@
+subject=
+issuer=C=US, O=Let's Encrypt, CN=YE1
+notBefore=Aug 22 13:50:35 2026 GMT
+notAfter=Aug 29 05:50:34 2026 GMT
+X509v3 Subject Alternative Name: critical
+    IP Address:167.233.20.67

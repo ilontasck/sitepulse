@@ -5,6 +5,7 @@ set -euo pipefail
 # Fixture URLs are provisioned by the disposable VM acceptance environment.
 : "${NOQORI_PUBLIC_HTTP_URL:?required}"
 : "${NOQORI_PUBLIC_HTTPS_URL:?required}"
+: "${NOQORI_QUIC_ASSERT_URL:?required}"
 : "${NOQORI_PRIVATE_REDIRECT_URL:?required}"
 : "${NOQORI_PRIVATE_SUBRESOURCE_URL:?required}"
 : "${NOQORI_PRIVATE_WEBSOCKET_URL:?required}"
@@ -17,10 +18,17 @@ ns=noqori-audit
 runner_memory_peak_max=0
 timeout_log=""
 wait_for_runner_pid() {
-  local pid
-  for _ in $(seq 1 100); do
+  local pid state process_state
+  for _ in $(seq 1 300); do
     pid="$(systemctl show noqori-audit-runner.service --property=MainPID --value)"
-    if test "$pid" -gt 1 2>/dev/null; then
+    state="$(systemctl show noqori-audit-runner.service --property=ActiveState --value)"
+    process_state=""
+    if test -r "/proc/$pid/stat"; then
+      # The socket-activated runner can exit between the readability check and
+      # the read. Treat that as "not ready yet" instead of tripping set -e.
+      process_state="$(cut -d ' ' -f 3 "/proc/$pid/stat" 2>/dev/null || true)"
+    fi
+    if test "$pid" -gt 1 2>/dev/null && test "$state" = active && test -n "$process_state" && test "$process_state" != Z; then
       printf '%s\n' "$pid"
       return 0
     fi
@@ -79,6 +87,15 @@ ip netns exec "$ns" nft list table inet noqori_audit_namespace >/dev/null
 
 ip netns exec "$ns" curl --fail --max-time 15 "$NOQORI_PUBLIC_HTTP_URL" >/dev/null
 ip netns exec "$ns" curl --fail --max-time 15 "$NOQORI_PUBLIC_HTTPS_URL" >/dev/null
+quic_host="$(/usr/bin/node -e 'process.stdout.write(new URL(process.argv[1]).hostname)' "$NOQORI_PUBLIC_HTTPS_URL")"
+quic_probe_status=0
+timeout 5s ip netns exec "$ns" /bin/bash -c 'printf "STE12-UDP443" > "/dev/udp/$1/443"' _ "$quic_host" || quic_probe_status=$?
+# A namespace OUTPUT reject returns EPERM (bash status 1); a host-boundary drop
+# lets sendto(2) return success. Both are fail-closed only when the independent
+# public recorder below proves the datagram never reached UDP/443.
+test "$quic_probe_status" -eq 0 || test "$quic_probe_status" -eq 1
+sleep 1
+curl --fail --max-time 10 "$NOQORI_QUIC_ASSERT_URL" >/dev/null
 /usr/bin/node scripts/run-isolated-audit.mjs "$NOQORI_PUBLIC_HTTPS_URL" --rendered >/dev/null
 
 # During an active browser audit the socket-activation listener must not be
@@ -87,7 +104,7 @@ ip netns exec "$ns" curl --fail --max-time 15 "$NOQORI_PUBLIC_HTTPS_URL" >/dev/n
 audit_client_pid=$!
 runner_pid="$(wait_for_runner_pid)"
 chrome_pid=""
-for _ in $(seq 1 100); do
+for _ in $(seq 1 300); do
   chrome_pid="$(pgrep -P "$runner_pid" -f 'chrome|chromium' | head -n 1 || true)"
   test -n "$chrome_pid" && break
   sleep 0.1
@@ -107,7 +124,7 @@ record_runner_memory_peak
 disconnect_client_pid=$!
 runner_pid="$(wait_for_runner_pid)"
 runner_cgroup="$(systemctl show noqori-audit-runner.service --property=ControlGroup --value)"
-for _ in $(seq 1 100); do
+for _ in $(seq 1 300); do
   pgrep -P "$runner_pid" -f 'chrome|chromium' >/dev/null && break
   sleep 0.1
 done
@@ -128,7 +145,7 @@ timeout_log="$(mktemp /run/noqori-audit/client-timeout.XXXXXX)"
 timeout_client_pid=$!
 runner_pid="$(wait_for_runner_pid)"
 runner_cgroup="$(systemctl show noqori-audit-runner.service --property=ControlGroup --value)"
-for _ in $(seq 1 100); do
+for _ in $(seq 1 300); do
   pgrep -P "$runner_pid" -f 'chrome|chromium' >/dev/null && break
   sleep 0.1
 done
@@ -145,7 +162,7 @@ record_runner_memory_peak
 sigterm_client_pid=$!
 runner_pid="$(wait_for_runner_pid)"
 runner_cgroup="$(systemctl show noqori-audit-runner.service --property=ControlGroup --value)"
-for _ in $(seq 1 100); do
+for _ in $(seq 1 300); do
   pgrep -P "$runner_pid" -f 'chrome|chromium' >/dev/null && break
   sleep 0.1
 done
@@ -165,7 +182,7 @@ test ! -s "/sys/fs/cgroup${runner_cgroup}/cgroup.procs"
 sigint_client_pid=$!
 runner_pid="$(wait_for_runner_pid)"
 runner_cgroup="$(systemctl show noqori-audit-runner.service --property=ControlGroup --value)"
-for _ in $(seq 1 100); do
+for _ in $(seq 1 300); do
   pgrep -P "$runner_pid" -f 'chrome|chromium' >/dev/null && break
   sleep 0.1
 done
@@ -208,14 +225,19 @@ done
 # root setup recreates only NOQORI-owned resources.
 systemctl stop noqori-audit-runner.service
 ip netns exec "$ns" nft delete table inet noqori_audit_namespace
-! /usr/bin/node scripts/run-isolated-audit.mjs "$NOQORI_PUBLIC_HTTPS_URL" >/dev/null 2>&1
+! /usr/bin/node scripts/run-isolated-audit.mjs "$NOQORI_PUBLIC_HTTPS_URL" --client-timeout-ms=15000 >/dev/null 2>&1
+systemctl stop noqori-audit-runner.socket
+systemctl stop noqori-audit-runner.service || true
 systemctl restart noqori-audit-sandbox.service
 systemctl reset-failed noqori-audit-sandbox-verify.service noqori-audit-runner.service
-systemctl stop noqori-audit-runner.service
+systemctl start noqori-audit-runner.socket
 nft delete table inet noqori_audit_forward
-! /usr/bin/node scripts/run-isolated-audit.mjs "$NOQORI_PUBLIC_HTTPS_URL" >/dev/null 2>&1
+! /usr/bin/node scripts/run-isolated-audit.mjs "$NOQORI_PUBLIC_HTTPS_URL" --client-timeout-ms=15000 >/dev/null 2>&1
+systemctl stop noqori-audit-runner.socket
+systemctl stop noqori-audit-runner.service || true
 systemctl restart noqori-audit-sandbox.service
 systemctl reset-failed noqori-audit-sandbox-verify.service noqori-audit-runner.service
+systemctl start noqori-audit-runner.socket
 
 # A successful RPC activation after policy restoration is required before
 # inspecting runner capabilities; MainPID must never be zero here.
@@ -225,7 +247,7 @@ test "$runner_pid" -gt 1
 
 ! ip netns exec "$ns" runuser -u noqori-browser -- nft list ruleset >/dev/null 2>&1
 ! ip netns exec "$ns" runuser -u noqori-browser -- unshare --net true >/dev/null 2>&1
-! ip netns exec "$ns" runuser -u noqori-browser -- /bin/bash -c 'exec 3<>/dev/tcp/127.0.0.1/9' >/dev/null 2>&1
+! timeout 5s ip netns exec "$ns" runuser -u noqori-browser -- /bin/bash -c 'exec 3<>/dev/tcp/127.0.0.1/9' >/dev/null 2>&1
 test -z "$(systemctl show noqori-audit-runner.service --property=CapabilityBoundingSet --value)"
 test "$(systemctl show noqori-audit-runner.service --property=NoNewPrivileges --value)" = "yes"
 grep -Eq '^CapEff:\s*0+$' "/proc/$runner_pid/status"

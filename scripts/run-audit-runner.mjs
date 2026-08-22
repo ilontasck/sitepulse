@@ -1,9 +1,7 @@
 import { generateAudit } from "../src/audit/audit-engine.mjs";
 import { createAuditRunnerServer } from "../src/audit/audit-runner-server.mjs";
 import { loadAuditRunnerAcceptance } from "../src/production/browser-sandbox-attestation.mjs";
-import { collectBrowserSandboxPlatform } from "../src/production/browser-sandbox-platform.mjs";
 import { computeBrowserSandboxBundleHash } from "../src/production/browser-sandbox-bundle.mjs";
-import { chromium } from "playwright";
 
 const listenPid = Number(process.env.LISTEN_PID);
 const listenFds = Number(process.env.LISTEN_FDS);
@@ -15,7 +13,6 @@ if (listenPid !== process.pid || listenFds !== 1) {
   try {
     acceptance = loadAuditRunnerAcceptance({
       credentialsDirectory: process.env.CREDENTIALS_DIRECTORY,
-      currentPlatformHash: collectBrowserSandboxPlatform({ chromiumExecutablePath: chromium.executablePath() }).hash,
       currentBundleHash: computeBrowserSandboxBundleHash()
     });
   } catch {

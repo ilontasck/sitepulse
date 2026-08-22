@@ -22,6 +22,7 @@ const expectedKeys = [
 export const browserSandboxAcceptanceChecks = [
   "systemd-unit-verification",
   "public-http-https",
+  "quic-udp-443",
   "blocked-addresses",
   "private-redirect",
   "private-subresources",
@@ -50,6 +51,13 @@ export const browserSandboxKernelChecks = browserSandboxAcceptanceChecks.filter(
 
 function invalid() {
   return { valid: false, code: "SANDBOX_ATTESTATION_INVALID" };
+}
+
+function isSecureCredential(stat, serviceUid) {
+  if (!stat.isFile() || ![0, serviceUid].includes(stat.uid)) return false;
+  const permissions = stat.mode & 0o777;
+  return permissions === 0o400 ||
+    (stat.uid === 0 && stat.gid === 0 && permissions === 0o440);
 }
 
 export function verifyBrowserSandboxAttestation({
@@ -140,20 +148,28 @@ export function loadAuditRunnerAcceptance({
   now = () => new Date()
 } = {}) {
   try {
-    if (!credentialsDirectory || typeof credentialsDirectory !== "string" || !/^[a-f0-9]{64}$/.test(currentPlatformHash || "") || !/^[a-f0-9]{64}$/.test(currentBundleHash || "")) return invalid();
+    if (!credentialsDirectory || typeof credentialsDirectory !== "string" ||
+      (currentPlatformHash !== undefined && !/^[a-f0-9]{64}$/.test(currentPlatformHash)) ||
+      !/^[a-f0-9]{64}$/.test(currentBundleHash || "")) return invalid();
     const attestationPath = `${credentialsDirectory}/sandbox-attestation`;
     const hashPath = `${credentialsDirectory}/sandbox-config-hash`;
     const bundleHashPath = `${credentialsDirectory}/sandbox-bundle-hash`;
+    const platformHashPath = `${credentialsDirectory}/sandbox-platform-hash`;
     const hashStat = statFile(hashPath);
-    if (!hashStat.isFile() || ![0, getUid()].includes(hashStat.uid) || (hashStat.mode & 0o177) !== 0) return invalid();
+    if (!isSecureCredential(hashStat, getUid())) return invalid();
     const expectedConfigHash = readFile(hashPath).trim();
     const bundleHashStat = statFile(bundleHashPath);
-    if (!bundleHashStat.isFile() || ![0, getUid()].includes(bundleHashStat.uid) || (bundleHashStat.mode & 0o177) !== 0) return invalid();
+    if (!isSecureCredential(bundleHashStat, getUid())) return invalid();
     const expectedBundleHash = readFile(bundleHashPath).trim();
     if (expectedBundleHash !== currentBundleHash) return invalid();
+    const platformHashStat = statFile(platformHashPath);
+    if (!isSecureCredential(platformHashStat, getUid())) return invalid();
+    const expectedPlatformHash = readFile(platformHashPath).trim();
+    if (!/^[a-f0-9]{64}$/.test(expectedPlatformHash) ||
+      (currentPlatformHash !== undefined && expectedPlatformHash !== currentPlatformHash)) return invalid();
     const currentBootId = readFile(bootIdPath).trim();
     const attestationStat = statFile(attestationPath);
-    if (!attestationStat.isFile() || ![0, getUid()].includes(attestationStat.uid) || (attestationStat.mode & 0o177) !== 0) return invalid();
+    if (!isSecureCredential(attestationStat, getUid())) return invalid();
     const attestation = verifyBrowserSandboxAttestation({
       attestationPath,
       expectedConfigHash,
@@ -162,16 +178,16 @@ export function loadAuditRunnerAcceptance({
       currentBootId,
       readFile,
       statFile: (path) => path === attestationPath
-        ? { ...attestationStat, uid: 0 }
+        ? { ...attestationStat, uid: 0, isFile: () => attestationStat.isFile() }
         : statFile(path)
     });
     const processNamespace = statFile(processNamespacePath);
-    if (!attestation.valid || attestation.platformHash !== currentPlatformHash || attestation.bundleHash !== currentBundleHash || processNamespace.ino !== attestation.namespaceInode) return invalid();
+    if (!attestation.valid || attestation.platformHash !== expectedPlatformHash || attestation.bundleHash !== currentBundleHash || processNamespace.ino !== attestation.namespaceInode) return invalid();
     let acceptanceTestAllowed = false;
     try {
       const testPath = `${credentialsDirectory}/sandbox-acceptance-test`;
       const testStat = statFile(testPath);
-      if (!testStat.isFile() || ![0, getUid()].includes(testStat.uid) || (testStat.mode & 0o177) !== 0) return invalid();
+      if (!isSecureCredential(testStat, getUid())) return invalid();
       const testValue = JSON.parse(readFile(testPath));
       const testKeys = Object.keys(testValue || {}).sort().join(",");
       const expiresAt = Date.parse(testValue.expiresAt);
@@ -181,7 +197,7 @@ export function loadAuditRunnerAcceptance({
         testValue.schemaVersion !== schemaVersion ||
         testValue.configHash !== expectedConfigHash ||
         testValue.bundleHash !== currentBundleHash ||
-        testValue.platformHash !== attestation.platformHash ||
+        testValue.platformHash !== expectedPlatformHash ||
         testValue.bootId !== currentBootId ||
         typeof testValue.enabled !== "boolean" ||
         !Number.isFinite(expiresAt) ||

@@ -25,7 +25,7 @@ function preflight(overrides = {}) {
     readConfig: () => validConfig,
     statConfig: () => ({ uid: 0, mode: 0o100440, isFile: () => true }),
     command: (name, args) => {
-      if (name === "systemd") return { status: 0, stdout: "systemd 259 (259.2)" };
+      if (name === "systemctl") return { status: 0, stdout: "systemd 259 (259.2)" };
       if (name === "systemd-analyze") return { status: 0, stdout: "" };
       if (name === "/usr/bin/node") return { status: 0, stdout: "v24.14.0" };
       if (name === "test") return { status: 0, stdout: "" };
@@ -37,14 +37,32 @@ function preflight(overrides = {}) {
 }
 
 describe("browser sandbox production preflight", () => {
+  it("reads the systemd version through systemctl on Ubuntu 26.04", () => {
+    const commands = [];
+    const result = preflight({
+      command: (name, args) => {
+        commands.push([name, ...args]);
+        if (name === "systemctl") return { status: 0, stdout: "systemd 259 (259.5-0ubuntu3.3)" };
+        if (name === "systemd-analyze") return { status: 0, stdout: "" };
+        if (name === "/usr/bin/node") return { status: 0, stdout: "v24.14.0" };
+        if (name === "test") return { status: 0, stdout: "" };
+        if (["ip", "nft", "sysctl"].includes(name)) return { status: 0, stdout: "" };
+        return { status: 127, stdout: "" };
+      }
+    });
+
+    assert.equal(result.ready, true);
+    assert.deepEqual(commands[0], ["systemctl", "--version"]);
+  });
+
   it("requires the fixed Linux/systemd 259 baseline and root-owned configuration", () => {
     assert.equal(preflight().ready, true);
     assert.equal(preflight({ platform: "darwin" }).ready, false);
     assert.equal(preflight({ architecture: "arm64" }).ready, false);
     assert.equal(preflight({ readOsRelease: () => 'ID=ubuntu\nVERSION_ID="24.04"\n' }).ready, false);
-    assert.equal(preflight({ command: (name) => ({ status: 0, stdout: name === "systemd" ? "systemd 259" : name === "/usr/bin/node" ? "v22.0.0" : "" }) }).ready, false);
+    assert.equal(preflight({ command: (name) => ({ status: 0, stdout: name === "systemctl" ? "systemd 259" : name === "/usr/bin/node" ? "v22.0.0" : "" }) }).ready, false);
     assert.equal(preflight({ getUid: () => 1000 }).ready, false);
-    assert.equal(preflight({ command: (name) => name === "systemd" ? { status: 0, stdout: "systemd 258" } : { status: 0, stdout: "" } }).ready, false);
+    assert.equal(preflight({ command: (name) => name === "systemctl" ? { status: 0, stdout: "systemd 258" } : { status: 0, stdout: "" } }).ready, false);
     assert.equal(preflight({ statConfig: () => ({ uid: 1000, mode: 0o100440, isFile: () => true }) }).ready, false);
   });
 
@@ -53,6 +71,6 @@ describe("browser sandbox production preflight", () => {
     assert.equal(preflight({ readConfig: () => validConfig.replace("1.1.1.1", "169.254.169.254") }).ready, false);
     assert.equal(preflight({ readConfig: () => validConfig.replace('"enableIpv6":false', '"enableIpv6":true') }).ready, false);
     assert.equal(preflight({ readConfig: () => validConfig.replace('"enableQuic":false', '"enableQuic":true') }).ready, false);
-    assert.equal(preflight({ command: (name, args) => ({ status: name === "test" && args.includes("/usr/sbin/nft") ? 1 : 0, stdout: name === "systemd" ? "systemd 259" : name === "/usr/bin/node" ? "v24.0.0" : "" }) }).ready, false);
+    assert.equal(preflight({ command: (name, args) => ({ status: name === "test" && args.includes("/usr/sbin/nft") ? 1 : 0, stdout: name === "systemctl" ? "systemd 259" : name === "/usr/bin/node" ? "v24.0.0" : "" }) }).ready, false);
   });
 });

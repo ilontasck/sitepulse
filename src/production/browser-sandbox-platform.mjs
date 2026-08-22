@@ -65,7 +65,7 @@ export function collectBrowserSandboxPlatform({
   return measureBrowserSandboxPlatform({
     osRelease: readFile("/etc/os-release", "utf8"),
     kernelRelease: readFile("/proc/sys/kernel/osrelease", "utf8").trim(),
-    systemdVersion: commandVersion("systemd", ["--version"], runCommand),
+    systemdVersion: commandVersion("systemctl", ["--version"], runCommand),
     nftablesVersion: commandVersion("nft", ["--version"], runCommand),
     iproute2Version: commandVersion("ip", ["-Version"], runCommand),
     nodeVersion: process.version,

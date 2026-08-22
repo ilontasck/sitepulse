@@ -34,11 +34,11 @@ describe("browser sandbox platform fingerprint", () => {
           : encoding ? "unexpected" : Buffer.from("unexpected"),
       runCommand: (command) => {
         commands.push(command);
-        return { status: 0, stdout: command === "systemd" ? "systemd 259\n" : `${command} v1\n`, stderr: "" };
+        return { status: 0, stdout: command === "systemctl" ? "systemd 259\n" : `${command} v1\n`, stderr: "" };
       }
     });
     assert.match(result.hash, /^[a-f0-9]{64}$/);
-    assert.deepEqual(commands, ["systemd", "nft", "ip"]);
+    assert.deepEqual(commands, ["systemctl", "nft", "ip"]);
     assert.throws(() => collectBrowserSandboxPlatform({
       chromiumExecutablePath: "/tmp/chrome",
       statFile: () => ({ uid: 1000, mode: 0o100755, isFile: () => true })

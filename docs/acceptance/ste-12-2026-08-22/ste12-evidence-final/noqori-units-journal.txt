@@ -1,0 +1,413 @@
+2026-08-22T15:04:03.246033+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.socket - NOQORI browser audit runner RPC socket...
+2026-08-22T15:04:03.292633+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Listening on noqori-audit-runner.socket - NOQORI browser audit runner RPC socket.
+2026-08-22T15:04:03.415290+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox.service - NOQORI browser audit network sandbox...
+2026-08-22T15:04:04.728562+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-api.service - NOQORI API...
+2026-08-22T15:04:05.111690+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1167]: (node:1167) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-08-22T15:04:05.111690+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1167]: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-08-22T15:04:05.130295+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1167]: NOQORI API listening at http://127.0.0.1:3000
+2026-08-22T15:04:05.428228+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1168]: {"type":"noqori.health","service":"api","status":"ready"}
+2026-08-22T15:04:05.441308+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-api.service - NOQORI API.
+2026-08-22T15:04:26.468327+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox.service - NOQORI browser audit network sandbox.
+2026-08-22T15:04:26.472634+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-worker.service - NOQORI audit worker...
+2026-08-22T15:04:26.736093+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: (node:1434) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-08-22T15:04:26.736093+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-08-22T15:04:26.760579+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:04:36.337422+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1461]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:04:36.483039+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:04:36.484205+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:04:36.485091+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 10.939s CPU time over 9.722s wall clock time, 363.7M memory peak.
+2026-08-22T15:04:36.492885+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:04:37.249303+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:04:45.413155+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"type":"noqori.worker","status":"ready-before-claim"}
+2026-08-22T15:04:45.487163+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1435]: {"type":"noqori.health","service":"worker","status":"ready"}
+2026-08-22T15:04:45.500314+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-worker.service - NOQORI audit worker.
+2026-08-22T15:05:47.671560+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:05:47.742363+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:05:47.742678+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:05:47.742773+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 11.071s CPU time over 1min 11.249s wall clock time, 336.6M memory peak.
+2026-08-22T15:05:47.749741+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:05:49.261811+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:05:49.260Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:05:51.267821+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:05:51.267Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:05:53.273175+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:05:53.272Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:05:55.278199+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:05:55.277Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:05:57.254708+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1953]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:05:57.281631+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:05:57.281Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:05:57.374585+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:05:57.375063+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:05:57.376021+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 10.848s CPU time over 9.624s wall clock time, 365.3M memory peak.
+2026-08-22T15:05:57.383239+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:05:58.225989+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:05:59.286170+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:05:59.285Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:06:01.294091+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:06:01.292Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:06:03.303623+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:06:03.302Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:06:05.306635+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:06:05.306Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:06:52.900607+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Sent signal SIGTERM to main process 1999 (MainThread) on client request.
+2026-08-22T15:06:53.020674+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:06:53.021697+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 33.964s CPU time over 55.637s wall clock time, 808.3M memory peak.
+2026-08-22T15:06:53.041446+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:06:54.515028+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:06:54.514Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:06:56.535265+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:06:56.534Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:06:58.541062+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:06:58.540Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:00.547172+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:00.545Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:02.548642+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:02.548Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:03.010751+00:00 ste12-acceptance-20260822-reviewfix-a91c node[2773]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:07:03.159038+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:07:03.159530+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:07:03.160015+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 11.159s CPU time over 10.117s wall clock time, 358.9M memory peak.
+2026-08-22T15:07:03.167600+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:07:04.023577+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:07:04.552592+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:04.552Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:06.557654+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:06.557Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:08.562755+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:08.562Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:10.572756+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:10.572Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:31.330659+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:07:32.953941+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:32.953Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:34.959615+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:34.959Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:36.964019+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:36.963Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:38.967290+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:38.967Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:40.971270+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:40.971Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:42.976449+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:42.976Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:44.982600+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:44.982Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:46.433085+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:07:46.434419+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:07:46.434721+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 19.211s CPU time over 43.265s wall clock time, 543.4M memory peak.
+2026-08-22T15:07:46.451004+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:07:46.987974+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:46.987Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:48.991738+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:48.991Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:50.996762+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:50.996Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:53.002952+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:53.002Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:55.010297+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:55.009Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:56.491586+00:00 ste12-acceptance-20260822-reviewfix-a91c node[3610]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:07:56.612808+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:07:56.613365+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:07:56.614405+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 11.438s CPU time over 10.161s wall clock time, 354.4M memory peak.
+2026-08-22T15:07:56.622730+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:07:57.018233+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:57.017Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:07:57.421949+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:07:59.024563+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:07:59.024Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:08:01.028397+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:08:01.027Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:08:03.032686+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:08:03.032Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:08:05.039667+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:08:05.039Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:09:39.563249+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:09:39.644497+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:09:39.644906+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:09:39.645008+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 12.736s CPU time over 1min 43.021s wall clock time, 337.9M memory peak.
+2026-08-22T15:09:39.658279+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:09:41.330684+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:09:41.327Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:09:43.335936+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:09:43.335Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:09:45.343649+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:09:45.342Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:09:47.352975+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:09:47.352Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:09:49.356813+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:09:49.356Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:09:49.946945+00:00 ste12-acceptance-20260822-reviewfix-a91c node[4024]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:09:50.087226+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:09:50.087691+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:09:50.088621+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 11.681s CPU time over 10.429s wall clock time, 357.7M memory peak.
+2026-08-22T15:09:50.096835+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:09:50.837415+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:09:51.363736+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:09:51.363Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:09:53.368505+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:09:53.368Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:09:55.374525+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:09:55.374Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:09:57.380192+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:09:57.379Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:10:45.019456+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Sent signal SIGTERM to main process 4071 (MainThread) on client request.
+2026-08-22T15:10:45.118407+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:10:45.118902+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 33.256s CPU time over 55.021s wall clock time, 579.5M memory peak.
+2026-08-22T15:10:45.137736+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:10:46.795797+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:10:46.795Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:10:48.805650+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:10:48.805Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:10:50.810651+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:10:50.810Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:10:52.824749+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:10:52.822Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:10:54.840454+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:10:54.839Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:10:55.368876+00:00 ste12-acceptance-20260822-reviewfix-a91c node[4840]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:10:55.503152+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:10:55.503605+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:10:55.504884+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 11.289s CPU time over 10.365s wall clock time, 358.1M memory peak.
+2026-08-22T15:10:55.511688+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:10:56.374671+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:10:56.842782+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:10:56.842Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:10:58.848450+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:10:58.848Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:00.855164+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:00.854Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:02.858732+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:02.858Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:04.862789+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:04.862Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:05.621340+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Sent signal SIGINT to main process 5108 (MainThread) on client request.
+2026-08-22T15:11:05.697056+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:11:05.697597+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 11.890s CPU time over 10.185s wall clock time, 370.3M memory peak.
+2026-08-22T15:11:05.898995+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:11:07.390588+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:07.390Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:09.395639+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:09.395Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:11.401150+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:11.400Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:13.405659+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:13.405Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:15.412663+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:15.412Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:15.438275+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5304]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:11:15.572603+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:11:15.573244+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:11:15.573900+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 10.859s CPU time over 9.673s wall clock time, 361.2M memory peak.
+2026-08-22T15:11:15.580474+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:11:16.360759+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:11:17.417280+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:17.417Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:19.427953+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:19.427Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:21.432561+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:21.432Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:23.437052+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:11:23.436Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:11:46.629844+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5356]: LanternError: NO_LCP
+2026-08-22T15:11:46.629844+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5356]:     at LargestContentfulPaint.getOptimisticGraph (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/lantern/metrics/LargestContentfulPaint.js:30:19)
+2026-08-22T15:11:46.629844+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5356]:     at LargestContentfulPaint.compute (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/lantern/metrics/Metric.js:46:38)
+2026-08-22T15:11:46.629844+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5356]:     at LargestContentfulPaint.compute (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/lantern/metrics/LargestContentfulPaint.js:63:36)
+2026-08-22T15:11:46.629844+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5356]:     at #createLanternContext (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:253:66)
+2026-08-22T15:11:46.629844+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5356]:     at #computeInsightsForNavigation (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:477:49)
+2026-08-22T15:11:46.629844+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5356]:     at #computeInsights (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:445:47)
+2026-08-22T15:11:46.629844+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5356]:     at TraceProcessor.parse (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:126:38)
+2026-08-22T15:11:46.629844+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5356]:     at async TraceEngineResult.runTraceEngine (file:///usr/local/lib/noqori-browser-sandbox/node_modules/lighthouse/core/computed/trace-engine-result.js:43:5)
+2026-08-22T15:11:46.629844+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5356]:     at async TraceEngineResult.compute_ (file:///usr/local/lib/noqori-browser-sandbox/node_modules/lighthouse/core/computed/trace-engine-result.js:256:7)
+2026-08-22T15:12:22.737953+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:12:22.821445+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:12:22.822041+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:12:22.822290+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 24.494s CPU time over 1min 7.241s wall clock time, 599.1M memory peak.
+2026-08-22T15:12:22.833808+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:12:24.529779+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:12:24.529Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:12:26.537942+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:12:26.537Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:12:28.541673+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:12:28.541Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:12:30.547657+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:12:30.547Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:12:32.173642+00:00 ste12-acceptance-20260822-reviewfix-a91c node[5789]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:12:32.313869+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:12:32.314596+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:12:32.315688+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 10.765s CPU time over 9.480s wall clock time, 365.6M memory peak.
+2026-08-22T15:12:32.324944+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:12:32.552114+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:12:32.551Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:12:33.100921+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:12:34.555801+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:12:34.555Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:12:36.560370+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:12:36.560Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:12:38.565893+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:12:38.565Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:12:40.571026+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:12:40.570Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:15:34.085711+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:15:34.150824+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:15:34.151418+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:15:34.151636+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 11.851s CPU time over 3min 1.826s wall clock time, 347.3M memory peak.
+2026-08-22T15:15:34.161879+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:15:35.879885+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:15:35.878Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:15:37.883694+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:15:37.883Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:15:39.889274+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:15:39.888Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:15:41.894164+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:15:41.893Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:15:43.900427+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:15:43.899Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:15:45.311032+00:00 ste12-acceptance-20260822-reviewfix-a91c node[6110]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:15:45.433343+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:15:45.433804+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:15:45.435848+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 12.646s CPU time over 11.271s wall clock time, 357.7M memory peak.
+2026-08-22T15:15:45.444346+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:15:45.906559+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:15:45.906Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:15:46.226031+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:15:47.910518+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:15:47.910Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:15:49.914794+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:15:49.914Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:15:51.919988+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:15:51.919Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:15:53.925504+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:15:53.925Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:16:41.297320+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Sent signal SIGTERM to main process 6156 (MainThread) on client request.
+2026-08-22T15:16:41.402841+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:16:41.404298+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 34.648s CPU time over 55.958s wall clock time, 592.8M memory peak.
+2026-08-22T15:16:41.413705+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:16:42.906744+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:16:42.905Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:16:44.920257+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:16:44.919Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:16:46.925566+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:16:46.925Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:16:48.929528+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:16:48.929Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:16:50.931807+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:16:50.931Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:16:51.444242+00:00 ste12-acceptance-20260822-reviewfix-a91c node[6944]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:16:51.516152+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:16:51.517581+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:16:51.518806+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 10.907s CPU time over 10.103s wall clock time, 347.8M memory peak.
+2026-08-22T15:16:51.527339+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:16:52.310966+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:16:52.937519+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:16:52.937Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:16:54.943878+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:16:54.943Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:16:56.951961+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:16:56.951Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:16:58.963677+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:16:58.963Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:17:01.081688+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Sent signal SIGINT to main process 7207 (MainThread) on client request.
+2026-08-22T15:17:01.146917+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:17:01.147434+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 11.202s CPU time over 9.619s wall clock time, 333.3M memory peak.
+2026-08-22T15:17:01.418011+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:17:02.908579+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:17:02.908Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:17:04.916207+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:17:04.914Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:17:06.921988+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:17:06.921Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:17:08.927166+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:17:08.926Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:17:10.930964+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:17:10.930Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:17:11.424905+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7389]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:17:11.550680+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:17:11.551242+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:17:11.551819+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 11.287s CPU time over 10.132s wall clock time, 356.4M memory peak.
+2026-08-22T15:17:11.559277+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:17:12.298723+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:17:12.936479+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:17:12.936Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:17:14.946172+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:17:14.945Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:17:16.949872+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:17:16.949Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:17:18.953578+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:17:18.953Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:17:42.105353+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]: LanternError: NO_LCP
+2026-08-22T15:17:42.105353+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at LargestContentfulPaint.getOptimisticGraph (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/lantern/metrics/LargestContentfulPaint.js:30:19)
+2026-08-22T15:17:42.105353+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at LargestContentfulPaint.compute (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/lantern/metrics/Metric.js:46:38)
+2026-08-22T15:17:42.105353+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at LargestContentfulPaint.compute (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/lantern/metrics/LargestContentfulPaint.js:63:36)
+2026-08-22T15:17:42.105353+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at #createLanternContext (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:253:66)
+2026-08-22T15:17:42.105353+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at #computeInsightsForNavigation (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:477:49)
+2026-08-22T15:17:42.105353+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at #computeInsights (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:445:47)
+2026-08-22T15:17:42.105353+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at TraceProcessor.parse (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:126:38)
+2026-08-22T15:17:42.105353+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at async TraceEngineResult.runTraceEngine (file:///usr/local/lib/noqori-browser-sandbox/node_modules/lighthouse/core/computed/trace-engine-result.js:43:5)
+2026-08-22T15:17:42.105353+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at async TraceEngineResult.compute_ (file:///usr/local/lib/noqori-browser-sandbox/node_modules/lighthouse/core/computed/trace-engine-result.js:256:7)
+2026-08-22T15:18:58.244743+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]: LanternError: NO_LCP
+2026-08-22T15:18:58.244743+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at LargestContentfulPaint.getOptimisticGraph (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/lantern/metrics/LargestContentfulPaint.js:30:19)
+2026-08-22T15:18:58.244743+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at LargestContentfulPaint.compute (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/lantern/metrics/Metric.js:46:38)
+2026-08-22T15:18:58.244743+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at LargestContentfulPaint.compute (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/lantern/metrics/LargestContentfulPaint.js:63:36)
+2026-08-22T15:18:58.244743+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at #createLanternContext (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:253:66)
+2026-08-22T15:18:58.244743+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at #computeInsightsForNavigation (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:477:49)
+2026-08-22T15:18:58.244743+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at #computeInsights (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:445:47)
+2026-08-22T15:18:58.244743+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at TraceProcessor.parse (file:///usr/local/lib/noqori-browser-sandbox/node_modules/@paulirish/trace_engine/models/trace/Processor.js:126:38)
+2026-08-22T15:18:58.244743+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at async TraceEngineResult.runTraceEngine (file:///usr/local/lib/noqori-browser-sandbox/node_modules/lighthouse/core/computed/trace-engine-result.js:43:5)
+2026-08-22T15:18:58.244743+00:00 ste12-acceptance-20260822-reviewfix-a91c node[7440]:     at async TraceEngineResult.compute_ (file:///usr/local/lib/noqori-browser-sandbox/node_modules/lighthouse/core/computed/trace-engine-result.js:256:7)
+2026-08-22T15:19:00.867427+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:19:02.763469+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:19:02.762Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:19:03.366982+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:19:03.367532+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:19:03.368725+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 43.535s CPU time over 1min 51.807s wall clock time, 603.2M memory peak.
+2026-08-22T15:19:03.385823+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:19:04.771151+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:19:04.770Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:19:06.777050+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:19:06.776Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:19:08.781460+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:19:08.781Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:19:10.787885+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:19:10.787Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:19:12.193782+00:00 ste12-acceptance-20260822-reviewfix-a91c node[8275]: BROWSER_SANDBOX_ATTESTATION_INVALID
+2026-08-22T15:19:12.325392+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Main process exited, code=exited, status=1/FAILURE
+2026-08-22T15:19:12.325577+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Failed with result 'exit-code'.
+2026-08-22T15:19:12.326305+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Failed to start noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:19:12.326915+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Dependency failed for noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:19:12.327102+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Job noqori-audit-runner.service/start failed with result 'dependency'.
+2026-08-22T15:19:12.327312+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 10.304s CPU time over 8.939s wall clock time, 360.7M memory peak.
+2026-08-22T15:19:12.336827+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:19:12.793817+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:19:12.793Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:19:14.800791+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:19:14.800Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:19:16.809909+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:19:16.807Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:19:18.542173+00:00 ste12-acceptance-20260822-reviewfix-a91c node[1434]: {"timestamp":"2026-08-22T15:19:18.541Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:19:18.581671+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Main process exited, code=killed, status=15/TERM
+2026-08-22T15:19:18.581872+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Failed with result 'signal'.
+2026-08-22T15:19:18.583037+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:19:18.585292+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 7.159s CPU time over 6.245s wall clock time, 356.3M memory peak.
+2026-08-22T15:19:18.589858+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.socket: Deactivated successfully.
+2026-08-22T15:19:18.590896+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Closed noqori-audit-runner.socket - NOQORI browser audit runner RPC socket.
+2026-08-22T15:19:18.626745+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-worker.service - NOQORI audit worker...
+2026-08-22T15:19:19.065729+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Deactivated successfully.
+2026-08-22T15:19:19.066503+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-worker.service - NOQORI audit worker.
+2026-08-22T15:19:19.066656+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Consumed 8.091s CPU time over 14min 52.593s wall clock time, 55.3M memory peak.
+2026-08-22T15:19:19.077049+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.socket - NOQORI browser audit runner RPC socket...
+2026-08-22T15:19:19.083980+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-audit-sandbox.service - NOQORI browser audit network sandbox...
+2026-08-22T15:19:19.087440+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Listening on noqori-audit-runner.socket - NOQORI browser audit runner RPC socket.
+2026-08-22T15:19:20.141934+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox.service: Deactivated successfully.
+2026-08-22T15:19:20.142356+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-sandbox.service - NOQORI browser audit network sandbox.
+2026-08-22T15:19:20.142448+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox.service: Consumed 1.132s CPU time over 15min 16.726s wall clock time, 91.3M memory peak.
+2026-08-22T15:19:20.145956+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox.service - NOQORI browser audit network sandbox...
+2026-08-22T15:19:30.473541+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox.service - NOQORI browser audit network sandbox.
+2026-08-22T15:19:30.481023+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-worker.service - NOQORI audit worker...
+2026-08-22T15:19:30.598469+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:19:30.877843+00:00 ste12-acceptance-20260822-reviewfix-a91c node[8500]: (node:8500) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-08-22T15:19:30.877843+00:00 ste12-acceptance-20260822-reviewfix-a91c node[8500]: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-08-22T15:19:39.314017+00:00 ste12-acceptance-20260822-reviewfix-a91c node[8527]: BROWSER_SANDBOX_ATTESTATION_INVALID
+2026-08-22T15:19:39.430425+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Main process exited, code=exited, status=1/FAILURE
+2026-08-22T15:19:39.430677+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Failed with result 'exit-code'.
+2026-08-22T15:19:39.431376+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Failed to start noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:19:39.431646+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Dependency failed for noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:19:39.431689+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Job noqori-audit-runner.service/start failed with result 'dependency'.
+2026-08-22T15:19:39.431803+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 10.077s CPU time over 8.832s wall clock time, 355.1M memory peak.
+2026-08-22T15:19:39.438998+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:19:45.672011+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Main process exited, code=killed, status=15/TERM
+2026-08-22T15:19:45.672185+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Failed with result 'signal'.
+2026-08-22T15:19:45.672640+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:19:45.673479+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 6.946s CPU time over 6.233s wall clock time, 355.6M memory peak.
+2026-08-22T15:19:45.676579+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.socket: Deactivated successfully.
+2026-08-22T15:19:45.677310+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Closed noqori-audit-runner.socket - NOQORI browser audit runner RPC socket.
+2026-08-22T15:19:45.714354+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Control process exited, code=killed, status=15/TERM
+2026-08-22T15:20:01.072514+00:00 ste12-acceptance-20260822-reviewfix-a91c node[8500]: {"timestamp":"2026-08-22T15:20:01.071Z","type":"sitepulse.audit","event":"audit_worker_stopped","outcome":"failure","reason":"worker-loop-error"}
+2026-08-22T15:20:01.090213+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Main process exited, code=exited, status=1/FAILURE
+2026-08-22T15:20:01.090336+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Failed with result 'signal'.
+2026-08-22T15:20:01.090951+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-worker.service - NOQORI audit worker.
+2026-08-22T15:20:01.091102+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Consumed 1.080s CPU time over 30.609s wall clock time, 55.2M memory peak.
+2026-08-22T15:20:01.098173+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.socket - NOQORI browser audit runner RPC socket...
+2026-08-22T15:20:01.106327+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-audit-sandbox.service - NOQORI browser audit network sandbox...
+2026-08-22T15:20:01.107367+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Listening on noqori-audit-runner.socket - NOQORI browser audit runner RPC socket.
+2026-08-22T15:20:02.356722+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox.service: Deactivated successfully.
+2026-08-22T15:20:02.357246+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-sandbox.service - NOQORI browser audit network sandbox.
+2026-08-22T15:20:02.357385+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox.service: Consumed 1.332s CPU time over 42.210s wall clock time, 91.8M memory peak.
+2026-08-22T15:20:02.361725+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox.service - NOQORI browser audit network sandbox...
+2026-08-22T15:20:12.916452+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox.service - NOQORI browser audit network sandbox.
+2026-08-22T15:20:12.926781+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-worker.service - NOQORI audit worker...
+2026-08-22T15:20:13.033709+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:20:13.491157+00:00 ste12-acceptance-20260822-reviewfix-a91c node[8744]: (node:8744) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-08-22T15:20:13.491157+00:00 ste12-acceptance-20260822-reviewfix-a91c node[8744]: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-08-22T15:20:22.864778+00:00 ste12-acceptance-20260822-reviewfix-a91c node[8772]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:20:22.997592+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:20:22.998478+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:20:22.999313+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 10.466s CPU time over 9.964s wall clock time, 366.4M memory peak.
+2026-08-22T15:20:23.008888+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:20:23.798750+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:20:32.421202+00:00 ste12-acceptance-20260822-reviewfix-a91c node[8744]: {"type":"noqori.worker","status":"ready-before-claim"}
+2026-08-22T15:20:32.553939+00:00 ste12-acceptance-20260822-reviewfix-a91c node[8745]: {"type":"noqori.health","service":"worker","status":"ready"}
+2026-08-22T15:20:32.569270+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-worker.service - NOQORI audit worker.
+2026-08-22T15:20:39.732757+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.socket: Deactivated successfully.
+2026-08-22T15:20:39.733891+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Closed noqori-audit-runner.socket - NOQORI browser audit runner RPC socket.
+2026-08-22T15:20:39.738696+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:20:39.743691+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-worker.service - NOQORI audit worker...
+2026-08-22T15:20:39.799074+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:20:39.799882+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:20:39.800666+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 11.362s CPU time over 16.790s wall clock time, 345.5M memory peak.
+2026-08-22T15:20:40.056870+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Deactivated successfully.
+2026-08-22T15:20:40.057902+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-worker.service - NOQORI audit worker.
+2026-08-22T15:20:40.066479+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-audit-sandbox.service - NOQORI browser audit network sandbox...
+2026-08-22T15:20:41.123780+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox.service: Deactivated successfully.
+2026-08-22T15:20:41.124372+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-sandbox.service - NOQORI browser audit network sandbox.
+2026-08-22T15:20:41.124850+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox.service: Consumed 1.130s CPU time over 38.762s wall clock time, 91.8M memory peak.
+2026-08-22T15:20:41.170147+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox.service - NOQORI browser audit network sandbox...
+2026-08-22T15:20:50.805118+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox.service - NOQORI browser audit network sandbox.
+2026-08-22T15:20:50.818771+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.socket - NOQORI browser audit runner RPC socket...
+2026-08-22T15:20:50.822588+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Listening on noqori-audit-runner.socket - NOQORI browser audit runner RPC socket.
+2026-08-22T15:20:50.837808+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-worker.service - NOQORI audit worker...
+2026-08-22T15:20:51.063509+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9172]: (node:9172) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-08-22T15:20:51.063509+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9172]: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-08-22T15:20:51.090212+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:21:00.356422+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9197]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:21:00.482981+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:21:00.483430+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:21:00.483999+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 10.555s CPU time over 9.392s wall clock time, 361.1M memory peak.
+2026-08-22T15:21:00.490346+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:21:01.352642+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:21:11.031168+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9172]: {"type":"noqori.worker","status":"ready-before-claim"}
+2026-08-22T15:21:11.120164+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9173]: {"type":"noqori.health","service":"worker","status":"ready"}
+2026-08-22T15:21:11.147647+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-worker.service - NOQORI audit worker.
+2026-08-22T15:21:11.524830+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:21:11.593805+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Deactivated successfully.
+2026-08-22T15:21:11.594479+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:21:11.594629+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-runner.service: Consumed 12.028s CPU time over 11.103s wall clock time, 333M memory peak.
+2026-08-22T15:21:11.608959+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox...
+2026-08-22T15:21:13.041155+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9172]: {"timestamp":"2026-08-22T15:21:13.040Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:21:15.045678+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9172]: {"timestamp":"2026-08-22T15:21:15.045Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:21:17.051699+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9172]: {"timestamp":"2026-08-22T15:21:17.051Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:21:19.058094+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9172]: {"timestamp":"2026-08-22T15:21:19.057Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:21:21.064019+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9172]: {"timestamp":"2026-08-22T15:21:21.063Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:21:21.330959+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9430]: BROWSER_SANDBOX_ATTESTATION_OK
+2026-08-22T15:21:21.459872+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Deactivated successfully.
+2026-08-22T15:21:21.460920+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Finished noqori-audit-sandbox-verify.service - Verify NOQORI browser audit sandbox.
+2026-08-22T15:21:21.461748+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-audit-sandbox-verify.service: Consumed 11.070s CPU time over 9.851s wall clock time, 357.2M memory peak.
+2026-08-22T15:21:21.469681+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-audit-runner.service - NOQORI isolated browser audit runner...
+2026-08-22T15:21:22.278768+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-audit-runner.service - NOQORI isolated browser audit runner.
+2026-08-22T15:21:22.524231+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopping noqori-worker.service - NOQORI audit worker...
+2026-08-22T15:21:23.069216+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9172]: {"timestamp":"2026-08-22T15:21:23.068Z","type":"sitepulse.audit","event":"audit_executor_unavailable","outcome":"not-ready","reason":"readiness-check"}
+2026-08-22T15:21:23.092222+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Deactivated successfully.
+2026-08-22T15:21:23.093108+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Stopped noqori-worker.service - NOQORI audit worker.
+2026-08-22T15:21:23.094085+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Consumed 1.014s CPU time over 32.254s wall clock time, 54.7M memory peak.
+2026-08-22T15:21:23.132461+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-worker.service - NOQORI audit worker...
+2026-08-22T15:21:23.473154+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9500]: (node:9500) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-08-22T15:21:23.473154+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9500]: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-08-22T15:21:32.270589+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9500]: {"type":"noqori.worker","status":"ready-before-claim"}
+2026-08-22T15:21:32.399074+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9501]: {"type":"noqori.health","service":"worker","status":"ready"}
+2026-08-22T15:21:32.422565+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-worker.service - NOQORI audit worker.
+2026-08-22T15:21:32.794240+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9500]: {"timestamp":"2026-08-22T15:21:32.793Z","type":"sitepulse.audit","event":"audit_job_claimed","outcome":"running","attempt":1}
+2026-08-22T15:21:33.016488+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Sent signal SIGKILL to main process 9500 (MainThread) on client request.
+2026-08-22T15:21:33.032091+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Main process exited, code=killed, status=9/KILL
+2026-08-22T15:21:33.032308+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Failed with result 'signal'.
+2026-08-22T15:21:38.035905+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: noqori-worker.service: Scheduled restart job, restart counter is at 1.
+2026-08-22T15:21:38.041819+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Starting noqori-worker.service - NOQORI audit worker...
+2026-08-22T15:21:38.255158+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9546]: (node:9546) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+2026-08-22T15:21:38.255158+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9546]: (Use `node --trace-warnings ...` to show where the warning was created)
+2026-08-22T15:21:38.271470+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9546]: {"type":"noqori.worker","status":"ready-before-claim"}
+2026-08-22T15:21:38.529394+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9547]: {"type":"noqori.health","service":"worker","status":"ready"}
+2026-08-22T15:21:38.539842+00:00 ste12-acceptance-20260822-reviewfix-a91c systemd[1]: Started noqori-worker.service - NOQORI audit worker.
+2026-08-22T15:22:03.153690+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9546]: {"timestamp":"2026-08-22T15:22:03.152Z","type":"sitepulse.audit","event":"audit_job_claimed","outcome":"running","attempt":2}
+2026-08-22T15:22:03.277091+00:00 ste12-acceptance-20260822-reviewfix-a91c node[9546]: {"timestamp":"2026-08-22T15:22:03.276Z","type":"sitepulse.audit","event":"audit_job_completed","outcome":"success","attempt":2}

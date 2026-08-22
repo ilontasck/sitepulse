@@ -1,0 +1,137 @@
+    PID    PPID USER     CGROUP                      COMMAND
+      2       0 root     -                           [kthreadd]
+      3       2 root     -                            \_ [pool_workqueue_release]
+      4       2 root     -                            \_ [kworker/R-rcu_gp]
+      5       2 root     -                            \_ [kworker/R-sync_wq]
+      6       2 root     -                            \_ [kworker/R-kvfree_rcu_reclaim]
+      7       2 root     -                            \_ [kworker/R-slub_flushwq]
+      8       2 root     -                            \_ [kworker/R-netns]
+     10       2 root     -                            \_ [kworker/0:0H-kblockd]
+     11       2 root     -                            \_ [kworker/0:1-cgroup_release]
+     12       2 root     -                            \_ [kworker/u8:0-iou_exit]
+     13       2 root     -                            \_ [kworker/R-mm_percpu_wq]
+     14       2 root     -                            \_ [ksoftirqd/0]
+     15       2 root     -                            \_ [rcu_preempt]
+     16       2 root     -                            \_ [rcu_exp_par_gp_kthread_worker/0]
+     17       2 root     -                            \_ [rcu_exp_gp_kthread_worker]
+     18       2 root     -                            \_ [migration/0]
+     19       2 root     -                            \_ [kprobe-optimizer]
+     20       2 root     -                            \_ [idle_inject/0]
+     21       2 root     -                            \_ [cpuhp/0]
+     22       2 root     -                            \_ [cpuhp/1]
+     23       2 root     -                            \_ [idle_inject/1]
+     24       2 root     -                            \_ [migration/1]
+     25       2 root     -                            \_ [ksoftirqd/1]
+     26       2 root     -                            \_ [kworker/1:0-events]
+     27       2 root     -                            \_ [kworker/1:0H-kblockd]
+     28       2 root     -                            \_ [kdevtmpfs]
+     29       2 root     -                            \_ [kworker/R-inet_frag_wq]
+     30       2 root     -                            \_ [rcu_tasks_kthread]
+     31       2 root     -                            \_ [rcu_tasks_rude_kthread]
+     32       2 root     -                            \_ [kauditd]
+     33       2 root     -                            \_ [khungtaskd]
+     34       2 root     -                            \_ [oom_reaper]
+     36       2 root     -                            \_ [kworker/R-writeback]
+     37       2 root     -                            \_ [kcompactd0]
+     38       2 root     -                            \_ [kworker/u8:2-iou_exit]
+     39       2 root     -                            \_ [ksmd]
+     40       2 root     -                            \_ [khugepaged]
+     41       2 root     -                            \_ [kworker/R-kblockd]
+     42       2 root     -                            \_ [kworker/R-blkcg_punt_bio]
+     43       2 root     -                            \_ [kworker/R-kintegrityd]
+     44       2 root     -                            \_ [irq/9-acpi]
+     46       2 root     -                            \_ [kworker/R-tpm_dev_wq]
+     47       2 root     -                            \_ [kworker/R-ata_sff]
+     48       2 root     -                            \_ [kworker/R-md_bitmap]
+     49       2 root     -                            \_ [kworker/R-md_llbitmap_io]
+     50       2 root     -                            \_ [kworker/R-md_llbitmap_unplug]
+     51       2 root     -                            \_ [kworker/R-edac-poller]
+     52       2 root     -                            \_ [kworker/R-devfreq_wq]
+     53       2 root     -                            \_ [watchdogd]
+     54       2 root     -                            \_ [kworker/R-quota_events_unbound]
+     56       2 root     -                            \_ [kswapd0]
+     57       2 root     -                            \_ [ecryptfs-kthread]
+     58       2 root     -                            \_ [kworker/R-kthrotld]
+     59       2 root     -                            \_ [irq/24-aerdrv]
+     60       2 root     -                            \_ [irq/25-aerdrv]
+     61       2 root     -                            \_ [irq/26-aerdrv]
+     62       2 root     -                            \_ [irq/27-aerdrv]
+     63       2 root     -                            \_ [irq/28-aerdrv]
+     64       2 root     -                            \_ [irq/29-aerdrv]
+     65       2 root     -                            \_ [irq/30-aerdrv]
+     66       2 root     -                            \_ [irq/31-aerdrv]
+     67       2 root     -                            \_ [irq/32-aerdrv]
+     68       2 root     -                            \_ [kworker/R-acpi_thermal_pm]
+     69       2 root     -                            \_ [scsi_eh_0]
+     70       2 root     -                            \_ [kworker/R-scsi_tmf_0]
+     71       2 root     -                            \_ [kworker/R-mld]
+     72       2 root     -                            \_ [kworker/R-ipv6_addrconf]
+     73       2 root     -                            \_ [kworker/R-kstrp]
+     76       2 root     -                            \_ [kworker/u9:0]
+     88       2 root     -                            \_ [kworker/R-charger_manager]
+     89       2 root     -                            \_ [hwrng]
+    282       2 root     -                            \_ [scsi_eh_1]
+    283       2 root     -                            \_ [kworker/R-scsi_tmf_1]
+    284       2 root     -                            \_ [scsi_eh_2]
+    285       2 root     -                            \_ [kworker/R-scsi_tmf_2]
+    286       2 root     -                            \_ [scsi_eh_3]
+    287       2 root     -                            \_ [kworker/R-scsi_tmf_3]
+    288       2 root     -                            \_ [scsi_eh_4]
+    289       2 root     -                            \_ [kworker/R-scsi_tmf_4]
+    290       2 root     -                            \_ [scsi_eh_5]
+    291       2 root     -                            \_ [kworker/R-scsi_tmf_5]
+    292       2 root     -                            \_ [scsi_eh_6]
+    294       2 root     -                            \_ [kworker/R-scsi_tmf_6]
+    295       2 root     -                            \_ [kworker/u8:4-events_power_efficient]
+    300       2 root     -                            \_ [kworker/1:1H]
+    308       2 root     -                            \_ [kworker/0:1H-kblockd]
+    342       2 root     -                            \_ [jbd2/sda1-8]
+    343       2 root     -                            \_ [kworker/R-ext4-rsv-conversion]
+    439       2 root     -                            \_ [psimon]
+    468       2 root     -                            \_ [kworker/R-kmpathd]
+    470       2 root     -                            \_ [kworker/R-kmpath_handlerd]
+    511       2 root     -                            \_ [psimon]
+    580       2 root     -                            \_ [card0-crtc0]
+    582       2 root     -                            \_ [kworker/R-nfit]
+    599       2 root     -                            \_ [kworker/0:3-cgroup_free]
+    892       2 root     -                            \_ [kworker/R-cfg80211]
+   5860       2 root     -                            \_ [kworker/1:2-cgroup_free]
+   6609       2 root     -                            \_ [kworker/u8:1-iou_exit]
+   8038       2 root     -                            \_ [kworker/u8:3-ext4-rsv-conversion]
+   8316       2 root     -                            \_ [kworker/u8:5-iou_exit]
+   8924       2 root     -                            \_ [kworker/1:1-events]
+   9384       2 root     -                            \_ [kworker/1:3-events]
+   9576       2 root     -                            \_ [kworker/0:0-mm_percpu_wq]
+   9592       2 root     -                            \_ [kworker/0:2-events]
+   9936       2 root     -                            \_ [psimon]
+      1       0 root     0::/init.scope              /usr/lib/systemd/systemd --switched-root --system --deserialize=52
+    446       1 root     0::/system.slice/systemd-jo /usr/lib/systemd/systemd-journald
+    485       1 root     0::/system.slice/multipathd /usr/sbin/multipathd -d -s
+    502       1 systemd+ 0::/system.slice/systemd-re /usr/lib/systemd/systemd-resolved
+    508       1 root     0::/system.slice/systemd-ud /usr/lib/systemd/systemd-udevd
+    921       1 systemd+ 0::/system.slice/systemd-ne /usr/lib/systemd/systemd-networkd
+    974       1 root     0::/system.slice/chrony.ser /bin/sh /usr/lib/systemd/scripts/chronyd-starter.sh -n -F 1
+   1074     974 _chrony  0::/system.slice/chrony.ser  \_ /usr/sbin/chronyd -n -F 1
+   1077    1074 _chrony  0::/system.slice/chrony.ser      \_ /usr/sbin/chronyd -n -F 1
+    976       1 root     0::/system.slice/cron.servi /usr/sbin/cron -f -P
+    977       1 message+ 0::/system.slice/dbus.servi @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+    986       1 root     0::/system.slice/networkd-d /usr/bin/python3 /usr/bin/networkd-dispatcher --run-startup-triggers
+    990       1 root     0::/system.slice/qemu-guest /usr/sbin/qemu-ga
+    997       1 root     0::/system.slice/systemd-lo /usr/lib/systemd/systemd-logind
+   1002       1 daemon   0::/system.slice/atd.servic /usr/sbin/atd -f
+   1027       1 root     0::/system.slice/ssh.servic sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+  10004    1027 root     0::/user.slice/user-0.slice  \_ sshd-session: root [priv]
+  10049   10004 root     0::/user.slice/user-0.slice      \_ sshd-session: root@notty
+  10050   10049 root     0::/user.slice/user-0.slice          \_ bash -c set -e; test ! -e /var/lib/noqori/ste12-evidence-failed-collection; mv /var/lib/noqori/ste12-evidence-final /var/lib/noqori/ste12-evidence-failed-collection; chmod 0700 /root/collect_acceptance_evidence.sh; /root/collect_acceptance_evidence.sh >/var/log/ste12-evidence-collection.log; sha256sum -c /var/lib/noqori/ste12-evidence-final.tar.gz.sha256; cd /var/lib/noqori/ste12-evidence-final; sha256sum -c manifest.sha256 >/dev/null; printf "acceptance-evidence-ready-and-verified\n"
+  10053   10050 root     0::/user.slice/user-0.slice              \_ /bin/bash /root/collect_acceptance_evidence.sh
+  10144   10053 root     0::/user.slice/user-0.slice                  \_ ps -eo pid,ppid,user,cgroup,args --forest
+   1054       1 root     0::/system.slice/system-ser /usr/sbin/agetty --noreset --noclear --issue-file=/etc/issue:/etc/issue.d:/run/issue.d:/usr/lib/issue.d --keep-baud 115200,57600,38400,9600 - vt220
+   1064       1 root     0::/system.slice/system-get /usr/sbin/agetty --noreset --noclear --issue-file=/etc/issue:/etc/issue.d:/run/issue.d:/usr/lib/issue.d - linux
+   1073       1 root     0::/system.slice/unattended /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
+   1100       1 syslog   0::/system.slice/rsyslog.se /usr/sbin/rsyslogd -n -iNONE
+   1167       1 noqori   0::/system.slice/noqori-api /usr/bin/node scripts/run-production-service.mjs api
+   5990       1 root     0::/system.slice/ste12-priv /usr/bin/python3 /opt/ste12-private-recorder.py
+   9476       1 noqori-+ 0::/system.slice/noqori-aud /usr/bin/node scripts/run-audit-runner.mjs
+   9546       1 noqori   0::/system.slice/noqori-wor /usr/bin/node scripts/run-production-service.mjs worker
+   9929       1 root     0::/user.slice/user-0.slice /usr/lib/systemd/systemd --user
+   9931    9929 root     0::/user.slice/user-0.slice  \_ (sd-pam)

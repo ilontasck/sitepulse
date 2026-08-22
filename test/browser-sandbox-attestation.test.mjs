@@ -86,6 +86,7 @@ describe("browser sandbox attestation", () => {
       ["/credentials/sandbox-attestation", acceptedPayload],
       ["/credentials/sandbox-config-hash", `${expectedHash}\n`],
       ["/credentials/sandbox-bundle-hash", `${expectedBundleHash}\n`],
+      ["/credentials/sandbox-platform-hash", `${expectedPlatformHash}\n`],
       ["/credentials/sandbox-acceptance-test", JSON.stringify({
         schemaVersion: 2,
         configHash: expectedHash,
@@ -97,7 +98,7 @@ describe("browser sandbox attestation", () => {
       })],
       ["/proc/sys/kernel/random/boot_id", "11111111-2222-4333-8444-555555555555\n"]
     ]);
-    const load = ({ namespaceInode = 4026533001, credentialUid = 0 } = {}) => loadAuditRunnerAcceptance({
+    const load = ({ namespaceInode = 4026533001, credentialUid = 0, credentialGid = 0, credentialMode = 0o100400 } = {}) => loadAuditRunnerAcceptance({
       credentialsDirectory: "/credentials",
       currentPlatformHash: expectedPlatformHash,
       currentBundleHash: expectedBundleHash,
@@ -105,11 +106,18 @@ describe("browser sandbox attestation", () => {
       readFile: (path) => files.get(path),
       statFile: (path) => {
         if (path === "/proc/self/ns/net") return { uid: 0, ino: namespaceInode };
-        return { uid: credentialUid, mode: 0o100400, isFile: () => true };
+        return Object.assign(Object.create({ isFile: () => true }), {
+          uid: credentialUid,
+          gid: credentialGid,
+          mode: credentialMode
+        });
       }
     });
 
     assert.deepEqual(load(), { valid: true, renderedAuditAllowed: true });
+    assert.deepEqual(load({ credentialMode: 0o100440 }), { valid: true, renderedAuditAllowed: true });
+    assert.equal(load({ credentialMode: 0o100440, credentialGid: 1000 }).valid, false);
+    assert.equal(load({ credentialMode: 0o100460 }).valid, false);
     assert.equal(load({ namespaceInode: 4026533999 }).valid, false);
     assert.equal(load({ credentialUid: 1000 }).valid, false);
     assert.equal(loadAuditRunnerAcceptance({
