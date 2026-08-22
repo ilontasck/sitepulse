@@ -1,0 +1,34 @@
+/usr/lib/systemd/system/xfs_scrub_all.service:26: Support for option CPUAccounting= has been removed and it is ignored
+/usr/lib/systemd/system/system-xfs_scrub.slice:15: Support for option CPUAccounting= has been removed and it is ignored
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100     81 100     81   0      0   6390      0                              0100     81 100     81   0      0   6199      0                              0100     81 100     81   0      0   6017      0                              0
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100     81 100     81   0      0   1076      0                              0100     81 100     81   0      0   1060      0                              0100     81 100     81   0      0   1059      0                              0
+_: line 1: printf: write error: Operation not permitted
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100     11 100     11   0      0    159      0                              0100     11 100     11   0      0    157      0                              0100     11 100     11   0      0    157      0                              0
+ISOLATED_AUDIT_FAILED
+ISOLATED_AUDIT_FAILED
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100     11 100     11   0      0   1574      0                              0100     11 100     11   0      0   1490      0                              0100     11 100     11   0      0   1472      0                              0
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100     11 100     11   0      0   5413      0                              0100     11 100     11   0      0   4759      0                              0100     11 100     11   0      0   4589      0                              0
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100     11 100     11   0      0   4135      0                              0100     11 100     11   0      0   3425      0                              0100     11 100     11   0      0   3335      0                              0
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100     11 100     11   0      0   2778      0                              0100     11 100     11   0      0   2484      0                              0100     11 100     11   0      0   2436      0                              0
+Stopping 'noqori-audit-runner.service', but its triggering units are still active:
+noqori-audit-runner.socket
+BROWSER SANDBOX KERNEL PHASE: PASS (VM acceptance is not recorded by this command)
+(node:9477) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+WORKER CRASH/LEASE/FENCING VM ACCEPTANCE: PASS
+BROWSER_SANDBOX_VM_ACCEPTANCE_RECORDED
+BROWSER SANDBOX FULL VM ACCEPTANCE: PASS
