@@ -205,7 +205,10 @@ export async function fetchSafeHtml(inputUrl, options = {}) {
     await assertSafeUrl(currentUrl, options);
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(new Error("Website scan timed out.")), timeoutMs);
+    const signal = options.signal
+      ? AbortSignal.any([controller.signal, options.signal])
+      : controller.signal;
     const startedAt = Date.now();
     let response;
 
@@ -216,10 +219,10 @@ export async function fetchSafeHtml(inputUrl, options = {}) {
           "User-Agent": "SitePulseAuditBot/0.2 (+https://sitepulse.local)"
         },
         redirect: "manual",
-        signal: controller.signal
+        signal
       });
     } catch (error) {
-      if (error.name === "AbortError") {
+      if (controller.signal.aborted && !options.signal?.aborted) {
         throw new HttpError(504, "Website scan timed out.", "SCAN_TIMEOUT");
       }
 

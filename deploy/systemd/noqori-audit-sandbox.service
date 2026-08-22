@@ -1,0 +1,34 @@
+[Unit]
+Description=NOQORI browser audit network sandbox
+Wants=network-online.target
+After=network-online.target
+Before=noqori-audit-runner.service
+PartOf=noqori.target
+
+[Service]
+Type=oneshot
+User=root
+Group=noqori
+WorkingDirectory=/usr/local/lib/noqori-browser-sandbox
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/noqori/shared/ms-playwright
+ExecStartPre=/usr/bin/test -x /usr/bin/node
+ExecStartPre=/bin/sh -ec 'for path in /usr/local /usr/local/lib /usr/local/lib/noqori-browser-sandbox; do test ! -L "$path"; done'
+ExecStartPre=/bin/sh -ec 'test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev -type l -print -quit)" && test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev \( ! -user root -o -perm /022 \) -print -quit)"'
+ExecStart=/usr/bin/node scripts/setup-browser-sandbox.mjs
+ExecStop=/usr/bin/node scripts/setup-browser-sandbox.mjs --teardown
+RemainAfterExit=yes
+RuntimeDirectory=noqori-audit
+RuntimeDirectoryMode=0750
+UMask=0077
+NoNewPrivileges=false
+# Host-visible named network namespaces require the host mount namespace.
+# The immutable root-owned bundle and narrow capability set are the boundary here.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+AmbientCapabilities=CAP_NET_ADMIN CAP_SYS_ADMIN
+LockPersonality=true
+RestrictSUIDSGID=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=noqori.target

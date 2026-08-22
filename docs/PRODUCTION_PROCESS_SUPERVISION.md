@@ -19,7 +19,7 @@ This is intentionally one production model. Docker Compose is not configured in 
 
 `noqori.target` is a lifecycle grouping, not a health signal. API and worker are deliberately `Wants` rather than runtime `Requires`: independently restarting or stopping one service must not propagate through the target and stop the other. Operational health is the conjunction of both service states and both readiness endpoints shown below.
 
-The production entrypoint binds the API to `127.0.0.1`, fixes SQLite to `/var/lib/noqori/sitepulse.sqlite`, delegates migrations exclusively to the migration unit, disables rendered audits, and fixes rendered concurrency to `1`. These protected values are deliberately absent from `noqori.env` and cannot be overridden by `EnvironmentFile`. An attempt to enable rendered audits fails startup with the safe `RENDERED_AUDIT_REQUIRES_STE12` error. The directory is created through `StateDirectory=noqori`; do not put it on `/tmp`, a release directory, a container writable layer, or another ephemeral filesystem. Back up the database together with its WAL state using a SQLite-safe procedure.
+The production entrypoint binds the API to `127.0.0.1`, fixes SQLite to `/var/lib/noqori/sitepulse.sqlite`, delegates migrations exclusively to the migration unit, requires a root-owned browser-sandbox attestation for the worker, and fixes rendered concurrency to `1`. These protected values are deliberately absent from `noqori.env` and cannot be overridden by `EnvironmentFile`. Rendered mode additionally requires the attestation to record completed Linux VM acceptance; an environment variable alone is insufficient. The checked-in production configuration leaves rendered mode disabled. The directory is created through `StateDirectory=noqori`; do not put it on `/tmp`, a release directory, a container writable layer, or another ephemeral filesystem. Back up the database together with its WAL state using a SQLite-safe procedure.
 
 ## Host preparation
 
@@ -27,6 +27,7 @@ The units require Node.js at `/usr/bin/node`, the service account `noqori`, and 
 
 ```bash
 sudo useradd --system --home /var/lib/noqori --shell /usr/sbin/nologin noqori
+sudo groupadd --system noqori-audit-rpc
 sudo install -d -o noqori -g noqori -m 0750 /var/lib/noqori
 sudo install -d -o root -g noqori -m 0750 /etc/noqori
 sudo install -d -o noqori -g noqori -m 0755 /opt/noqori/shared/ms-playwright
@@ -37,26 +38,29 @@ sudo chmod 0640 /etc/noqori/noqori.env
 /usr/bin/node --version
 ```
 
-Set `PUBLIC_ORIGIN` to the real HTTPS origin in `/etc/noqori/noqori.env`. The tracked example contains no credentials. If an operator enables `ADMIN_API_KEY`, inject it from a separately managed root-only file through a local `systemctl edit noqori-api.service` drop-in with `EnvironmentFile=/etc/noqori/noqori-secrets.env`; never add the file or value to this repository or the non-secret example.
+Set `PUBLIC_ORIGIN` to the real HTTPS origin in `/etc/noqori/noqori.env`. The tracked example contains no credentials. If an operator enables `ADMIN_API_KEY`, inject it through the unit's fixed optional `EnvironmentFile=-/etc/noqori/noqori-secrets.env`: create that separate file root-owned with mode `0600`, and never add the file or value to this repository or the non-secret example. Local systemd drop-ins are forbidden because browser-sandbox acceptance verifies exact installed unit bytes and rejects unapproved drop-ins.
 
 Install production dependencies and the pinned Chromium build as the service user. Keep the browser outside a release directory so release rotation does not remove it.
 
 ```bash
 sudo -u noqori pnpm install --prod --frozen-lockfile
 sudo -u noqori env PLAYWRIGHT_BROWSERS_PATH=/opt/noqori/shared/ms-playwright pnpm exec playwright install chromium
+sudo chown -R root:root /opt/noqori/releases/RELEASE_ID
+sudo chmod -R go-w /opt/noqori/releases/RELEASE_ID
 ```
 
-Install the units and enable reboot startup:
+Install the units and socket, then follow [PRODUCTION_BROWSER_SECURITY.md](./PRODUCTION_BROWSER_SECURITY.md) before enabling reboot startup:
 
 ```bash
 sudo cp deploy/systemd/noqori.target /etc/systemd/system/
 sudo cp deploy/systemd/noqori-*.service /etc/systemd/system/
+sudo cp deploy/systemd/noqori-*.socket /etc/systemd/system/
 sudo systemctl daemon-reload
 pnpm verify:systemd
 sudo systemctl enable --now noqori.target
 ```
 
-`pnpm verify:systemd` invokes `systemd-analyze verify` for the target and all three services. It may report `PASS` only on Linux with `systemd-analyze` installed; macOS reports `UNAVAILABLE` and is not deployment evidence.
+`pnpm verify:systemd` invokes `systemd-analyze verify` for the complete API, worker, sandbox, runner, and socket graph. It may report `PASS` only on Linux with `systemd-analyze` installed; macOS reports `UNAVAILABLE` and is not deployment evidence.
 
 ## Operations
 
@@ -103,7 +107,7 @@ Normal SIGTERM is different from a crash: `worker.stop()` prevents another claim
 
 ## STE-12 and STE-14 boundaries
 
-This change does not claim that application-level SSRF checks isolate Chromium. The current `MemoryMax=2G` budget is approved only for the HTML-only worker. Before enabling rendered audits for external users, STE-12 must run the browser side of the worker in a dedicated network namespace or container with an egress proxy, DNS controls, private/reserved range denial, and explicit CPU/RAM/process limits. Re-measure worker and browser memory on the target VM before changing the enforced rendered-off policy. The systemd worker unit is the handoff point for that sandbox; do not weaken its one-worker/concurrency-one policy while adding it.
+STE-12 now provides the repository-side isolated runner and network namespace described in [PRODUCTION_BROWSER_SECURITY.md](./PRODUCTION_BROWSER_SECURITY.md). It is not deployment evidence: keep rendered mode disabled until the full disposable-VM suite passes, then re-measure runner cgroup memory/CPU/process peaks before a separately reviewed enablement. Do not weaken the one-worker/one-runner concurrency policy.
 
 For STE-14 deployment work, add the TLS reverse proxy, host firewall, encrypted off-host SQLite backups with restore tests, release rollback procedure, disk/RAM/CPU alerting, and journal shipping. Continuous readiness monitoring is also deferred; current systemd supervision detects process failures and gates startup readiness, while the endpoints expose real runtime state for the future monitor.
 

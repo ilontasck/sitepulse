@@ -1,0 +1,54 @@
+[Unit]
+Description=NOQORI isolated browser audit runner
+Requires=noqori-audit-sandbox.service noqori-audit-sandbox-verify.service
+After=noqori-audit-sandbox.service noqori-audit-sandbox-verify.service
+PartOf=noqori.target
+
+[Service]
+Type=simple
+Sockets=noqori-audit-runner.socket
+User=noqori-browser
+Group=noqori-browser
+WorkingDirectory=/usr/local/lib/noqori-browser-sandbox
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/noqori/shared/ms-playwright
+LoadCredential=sandbox-attestation:/run/noqori-audit/attestation.json
+LoadCredential=sandbox-config-hash:/run/noqori-audit/expected-config.sha256
+LoadCredential=sandbox-bundle-hash:/run/noqori-audit/bundle.sha256
+LoadCredential=sandbox-acceptance-test:/run/noqori-audit/acceptance-test.json
+ExecStartPre=/usr/bin/test -x /usr/bin/node
+ExecStartPre=/bin/sh -ec 'for path in /usr/local /usr/local/lib /usr/local/lib/noqori-browser-sandbox; do test ! -L "$path"; done'
+ExecStartPre=/bin/sh -ec 'test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev -type l -print -quit)" && test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev \( ! -user root -o -perm /022 \) -print -quit)"'
+ExecStart=/usr/bin/node scripts/run-audit-runner.mjs
+NetworkNamespacePath=/run/netns/noqori-audit
+Restart=on-failure
+RestartSec=5s
+StartLimitIntervalSec=0
+TimeoutStopSec=65s
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+InaccessiblePaths=/var/lib/noqori /etc/noqori /var/backups /root /home /run
+ReadOnlyPaths=/etc/netns/noqori-audit/resolv.conf
+BindReadOnlyPaths=/etc/netns/noqori-audit/resolv.conf:/etc/resolv.conf
+CapabilityBoundingSet=
+AmbientCapabilities=
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET
+TasksMax=512
+MemoryMax=2G
+CPUQuota=200%
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=noqori.target

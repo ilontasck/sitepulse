@@ -58,6 +58,8 @@ export async function scanWebsite(target, options = {}) {
   const adapters = options.adapters || [runSeoAdapter, runAccessibilityAdapter, runPerformanceAdapter, runSecurityAdapter];
   const renderedAdapter = options.renderedAdapter || runLighthousePlaywrightAdapter;
 
+  if (options.signal?.aborted) throw options.signal.reason || new Error("Audit cancelled.");
+
   try {
     const context = await htmlScanner(target, options);
 
@@ -87,7 +89,8 @@ export async function scanWebsite(target, options = {}) {
         const executeRenderedAudit = () =>
           renderedAdapter(context.target, {
             timeoutMs: options.renderedAuditTimeoutMs,
-            resolver: options.resolver
+            resolver: options.resolver,
+            signal: options.signal
           });
         const adapterResult = options.renderedAuditLimiter
           ? await options.renderedAuditLimiter.run(executeRenderedAudit)
@@ -101,6 +104,7 @@ export async function scanWebsite(target, options = {}) {
           outcome: scanResult.renderedStatus
         });
       } catch (error) {
+        if (options.signal?.aborted) throw options.signal.reason || error;
         const failure = renderedFailure(error);
         scanResult.renderedStatus = failure.status;
         scanResult.warnings.push(failure.warning);
@@ -116,6 +120,7 @@ export async function scanWebsite(target, options = {}) {
 
     return scanResult;
   } catch (error) {
+    if (options.signal?.aborted) throw options.signal.reason || error;
     if (isHttpError(error) && hardFailureCodes.has(error.code)) {
       throw error;
     }

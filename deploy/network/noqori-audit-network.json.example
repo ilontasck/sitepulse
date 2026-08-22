@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "namespace": "noqori-audit",
+  "hostVeth": "nq-audit-host",
+  "namespaceVeth": "nq-audit-net",
+  "hostAddress": "198.19.0.1/30",
+  "namespaceAddress": "198.19.0.2/30",
+  "hostInterface": "REPLACE_WITH_PUBLIC_INTERFACE",
+  "hostPublicIpv4": "REPLACE_WITH_PUBLIC_IPV4",
+  "dnsResolvers": ["REPLACE_WITH_IPV4_RESOLVER_1", "REPLACE_WITH_IPV4_RESOLVER_2"],
+  "enableIpv6": false,
+  "enableQuic": false
+}

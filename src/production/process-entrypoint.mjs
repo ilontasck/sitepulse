@@ -1,4 +1,5 @@
 import { applyProductionEnvironment } from "./process-environment.mjs";
+import { loadBrowserSandboxAttestation } from "./browser-sandbox-attestation.mjs";
 
 const serviceModules = {
   api: new URL("../../server.mjs", import.meta.url),
@@ -8,9 +9,11 @@ const serviceModules = {
 
 export async function runProductionService(service, {
   environment = process.env,
+  loadSandboxAttestation = loadBrowserSandboxAttestation,
   loadService = (moduleUrl) => import(moduleUrl)
 } = {}) {
-  applyProductionEnvironment(service, environment);
+  const sandboxAttestation = service === "worker" ? loadSandboxAttestation() : undefined;
+  applyProductionEnvironment(service, environment, { sandboxAttestation });
   const moduleUrl = serviceModules[service];
   return loadService(moduleUrl);
 }

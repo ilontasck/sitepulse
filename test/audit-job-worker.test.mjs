@@ -116,6 +116,22 @@ describe("audit job worker", () => {
     assert.equal(generated, 0);
   });
 
+  it("does not claim queued work while the isolated audit executor is unavailable", async () => {
+    const store = fakeJobStore();
+    let generated = 0;
+    const worker = workerWith(store, {
+      executorReadiness: async () => ({ ready: false }),
+      auditGenerator: async () => { generated += 1; }
+    });
+
+    const result = await worker.runOnce();
+
+    assert.equal(result.status, "executor-unavailable");
+    assert.equal(store.calls.recover, 1);
+    assert.equal(store.calls.claim, 0);
+    assert.equal(generated, 0);
+  });
+
   it("persists terminal and retryable failures using only safe classifier output", async () => {
     const terminalStore = fakeJobStore();
     const terminalWorker = workerWith(terminalStore, {

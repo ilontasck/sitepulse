@@ -1,8 +1,9 @@
 [Unit]
 Description=NOQORI audit worker
-After=network-online.target noqori-migrate.service
-Wants=network-online.target
+After=network-online.target noqori-migrate.service noqori-audit-sandbox.service noqori-audit-runner.socket
+Wants=network-online.target noqori-audit-runner.socket
 Requires=noqori-migrate.service
+Requires=noqori-audit-sandbox.service
 PartOf=noqori.target
 StartLimitIntervalSec=0
 
@@ -10,6 +11,7 @@ StartLimitIntervalSec=0
 Type=simple
 User=noqori
 Group=noqori
+SupplementaryGroups=noqori-audit-rpc
 WorkingDirectory=/opt/noqori/current
 EnvironmentFile=/etc/noqori/noqori.env
 ExecStartPre=/usr/bin/test -x /usr/bin/node

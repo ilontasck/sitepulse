@@ -138,10 +138,11 @@ export function loadConfig(overrides = {}) {
       overrides.RENDERED_AUDIT_ENABLED ?? process.env.RENDERED_AUDIT_ENABLED,
       false
     ),
-    renderedAuditTimeoutMs: parsePositiveInteger(
+    renderedAuditTimeoutMs: parseBoundedPositiveInteger(
       "RENDERED_AUDIT_TIMEOUT_MS",
       overrides.RENDERED_AUDIT_TIMEOUT_MS ?? process.env.RENDERED_AUDIT_TIMEOUT_MS,
-      45_000
+      45_000,
+      120_000
     ),
     renderedAuditMaxConcurrency: parsePositiveInteger(
       "RENDERED_AUDIT_MAX_CONCURRENCY",
@@ -163,6 +164,10 @@ export function loadConfig(overrides = {}) {
       overrides.WORKER_HEALTH_PORT ?? process.env.WORKER_HEALTH_PORT,
       3001
     ),
+    auditRunnerSocketPath:
+      overrides.AUDIT_RUNNER_SOCKET_PATH ||
+      process.env.AUDIT_RUNNER_SOCKET_PATH ||
+      "/run/noqori-audit.sock",
     auditJobLeaseMs,
     auditJobHeartbeatMs,
     authScryptMaxConcurrency: parseBoundedPositiveInteger(

@@ -13,6 +13,10 @@
     "health:api": "node --env-file-if-exists=.env scripts/check-service-health.mjs api",
     "health:worker": "node --env-file-if-exists=.env scripts/check-service-health.mjs worker",
     "verify:systemd": "node scripts/verify-systemd-units.mjs",
+    "verify:browser-sandbox": "node scripts/verify-browser-sandbox.mjs",
+    "test:sandbox:linux": "node scripts/run-browser-sandbox-integration.mjs",
+    "accept:sandbox:prepare-reboot": "node scripts/run-browser-sandbox-vm-acceptance.mjs prepare-reboot",
+    "accept:sandbox:linux": "node scripts/run-browser-sandbox-vm-acceptance.mjs complete",
     "test": "node --test",
     "test:unit": "node --test",
     "test:e2e": "playwright test",
@@ -20,7 +24,7 @@
     "reset-db": "node scripts/reset-db.mjs"
   },
   "engines": {
-    "node": ">=22.19"
+    "node": ">=24 <25"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1"
@@ -28,6 +32,7 @@
   "dependencies": {
     "chrome-launcher": "^1.2.1",
     "lighthouse": "^13.4.1",
-    "playwright": "1.61.1"
+    "playwright": "1.61.1",
+    "puppeteer-core": "25.5.0"
   }
 }

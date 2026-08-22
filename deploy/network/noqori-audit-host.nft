@@ -1,0 +1,42 @@
+table netdev noqori_audit_host {
+  set blocked_ipv4 { type ipv4_addr; flags interval; elements = { @BLOCKED_IPV4@ } }
+  set dns_ipv4 { type ipv4_addr; elements = { @DNS_IPV4@ } }
+  chain audit_ingress {
+    type filter hook ingress device "nq-audit-host" priority -500; policy drop;
+    iifname "nq-audit-host" udp dport 443 drop
+    iifname "nq-audit-host" fib daddr type local drop
+    iifname "nq-audit-host" ip daddr @GATEWAY_IPV4@ drop
+    iifname "nq-audit-host" ip daddr @HOST_PUBLIC_IPV4@ drop
+    iifname "nq-audit-host" ip daddr @dns_ipv4 udp dport 53 accept
+    iifname "nq-audit-host" ip daddr @dns_ipv4 tcp dport 53 accept
+    iifname "nq-audit-host" ip daddr @blocked_ipv4 drop
+    iifname "nq-audit-host" ip daddr != @dns_ipv4 tcp dport { 80, 443 } accept
+  }
+}
+table inet noqori_audit_forward {
+  set blocked_ipv4 { type ipv4_addr; flags interval; elements = { @BLOCKED_IPV4@ } }
+  set dns_ipv4 { type ipv4_addr; elements = { @DNS_IPV4@ } }
+  chain forward {
+    type filter hook forward priority -500; policy accept;
+    oifname "nq-audit-host" ct state established,related accept
+    oifname "nq-audit-host" drop
+    iifname "nq-audit-host" jump audit_egress
+  }
+  chain audit_egress {
+    udp dport 443 drop
+    fib daddr type local drop
+    ip daddr @GATEWAY_IPV4@ drop
+    ip daddr @HOST_PUBLIC_IPV4@ drop
+    ip daddr @dns_ipv4 udp dport 53 accept
+    ip daddr @dns_ipv4 tcp dport 53 accept
+    ip daddr @blocked_ipv4 drop
+    ip daddr != @dns_ipv4 tcp dport { 80, 443 } accept
+    drop
+  }
+}
+table ip noqori_audit_nat {
+  chain postrouting {
+    type nat hook postrouting priority srcnat; policy accept;
+    iifname "nq-audit-host" oifname "@HOST_INTERFACE@" masquerade
+  }
+}

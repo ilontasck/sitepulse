@@ -1,0 +1,21 @@
+table inet noqori_audit_namespace {
+  set blocked_ipv4 { type ipv4_addr; flags interval; elements = { @BLOCKED_IPV4@ } }
+  set dns_ipv4 { type ipv4_addr; elements = { @DNS_IPV4@ } }
+  chain output {
+    type filter hook output priority 0; policy drop;
+    ct state established,related accept
+    udp dport 443 drop
+    ip6 daddr ::/0 drop
+    ip daddr @GATEWAY_IPV4@ drop
+    ip daddr @HOST_PUBLIC_IPV4@ drop
+    fib daddr type local drop
+    ip daddr @dns_ipv4 udp dport 53 accept
+    ip daddr @dns_ipv4 tcp dport 53 accept
+    ip daddr @blocked_ipv4 drop
+    ip daddr != @dns_ipv4 tcp dport { 80, 443 } accept
+  }
+  chain input {
+    type filter hook input priority 0; policy drop;
+    ct state established,related accept
+  }
+}

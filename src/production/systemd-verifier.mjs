@@ -5,7 +5,11 @@ const unitNames = [
   "noqori.target",
   "noqori-migrate.service",
   "noqori-api.service",
-  "noqori-worker.service"
+  "noqori-worker.service",
+  "noqori-audit-sandbox.service",
+  "noqori-audit-sandbox-verify.service",
+  "noqori-audit-runner.socket",
+  "noqori-audit-runner.service"
 ];
 
 const unitPaths = unitNames.map((name) =>

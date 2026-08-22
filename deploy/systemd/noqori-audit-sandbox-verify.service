@@ -1,0 +1,27 @@
+[Unit]
+Description=Verify NOQORI browser audit sandbox
+Requires=noqori-audit-sandbox.service noqori-audit-runner.socket
+After=noqori-audit-sandbox.service noqori-audit-runner.socket
+Before=noqori-audit-runner.service
+PartOf=noqori.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/usr/local/lib/noqori-browser-sandbox
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/noqori/shared/ms-playwright
+ExecStartPre=/usr/bin/test -x /usr/bin/node
+ExecStartPre=/bin/sh -ec 'for path in /usr/local /usr/local/lib /usr/local/lib/noqori-browser-sandbox; do test ! -L "$path"; done'
+ExecStartPre=/bin/sh -ec 'test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev -type l -print -quit)" && test -z "$(/usr/bin/find /usr/local/lib/noqori-browser-sandbox -xdev \( ! -user root -o -perm /022 \) -print -quit)"'
+ExecStart=/usr/bin/node scripts/verify-browser-sandbox.mjs
+UMask=0077
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_SYS_ADMIN CAP_DAC_READ_SEARCH
+NoNewPrivileges=true
+LockPersonality=true
+RestrictSUIDSGID=true
+StandardOutput=journal
+StandardError=journal

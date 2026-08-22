@@ -87,7 +87,7 @@ Active adapters:
 - `security-headers`: HTTPS plus Content-Security-Policy, frame protection, X-Content-Type-Options, Referrer-Policy, and Permissions-Policy checks.
 - `lighthouse-playwright` (optional): rendered Chromium audit with LCP, CLS, FCP, Speed Index, TBT, and Lighthouse category scores.
 
-The rendered adapter uses Playwright network routing to revalidate public destinations for page requests, redirects, subresources, and WebSockets before Lighthouse connects. It is disabled by default because a browser audit is materially slower and more resource-intensive than the HTML scanner.
+The rendered adapter uses Puppeteer request interception to revalidate public HTTP(S) destinations for documents and subresources before Lighthouse connects. Production WebSocket destination enforcement belongs to the kernel network sandbox because Puppeteer does not expose a trustworthy pre-connect WebSocket routing hook here. The adapter is disabled by default because a browser audit is materially slower and more resource-intensive than the HTML scanner.
 
 The report presents rendered results under **Real Page Performance**. It summarizes five user-facing measurements with `Good`, `Needs improvement`, and `Poor` bands, then shows up to three fixes backed by Lighthouse diagnostics. Detailed category checks retain the full scores and metric evidence without overloading the main summary.
 
@@ -414,7 +414,7 @@ It returns summaries only, not full category/recommendation payloads.
 - Rejects invalid, unsupported, localhost, and private/internal URLs.
 - Resolves hostnames before scanning and blocks private/internal IP ranges.
 - Manually validates redirect targets instead of blindly following redirects.
-- Revalidates rendered-browser requests and WebSockets with the same public-destination policy.
+- Revalidates rendered-browser HTTP(S) requests with the application public-destination policy; production WebSocket destinations are enforced by the kernel sandbox.
 - Starts rendered audits with a fresh profile, reduced Chrome background networking, and blocked service-worker registration.
 - Limits redirects, request time, and downloaded HTML size.
 - Requires JSON request bodies.
@@ -425,7 +425,7 @@ It returns summaries only, not full category/recommendation payloads.
 - Keeps audit history private unless `ADMIN_API_KEY` is configured.
 - Returns safe JSON errors without stack traces.
 
-Rendered-browser application checks are defense in depth, not a network sandbox. Before an Internet-facing production launch, follow [PRODUCTION_BROWSER_SECURITY.md](PRODUCTION_BROWSER_SECURITY.md) and enforce public-only egress outside Chromium.
+Rendered-browser application checks are defense in depth, not a network sandbox. Before an Internet-facing production launch, follow [PRODUCTION_BROWSER_SECURITY.md](docs/PRODUCTION_BROWSER_SECURITY.md) and enforce public-only egress outside Chromium.
 
 ## Audit Telemetry
 

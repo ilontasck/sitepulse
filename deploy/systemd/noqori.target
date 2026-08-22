@@ -1,8 +1,8 @@
 [Unit]
 Description=NOQORI API and audit worker
 Requires=noqori-migrate.service
-Wants=noqori-api.service noqori-worker.service
-After=noqori-migrate.service noqori-api.service noqori-worker.service
+Wants=noqori-api.service noqori-audit-sandbox.service noqori-audit-runner.socket noqori-worker.service
+After=noqori-migrate.service noqori-api.service noqori-audit-sandbox.service noqori-audit-runner.socket noqori-worker.service
 
 [Install]
 WantedBy=multi-user.target

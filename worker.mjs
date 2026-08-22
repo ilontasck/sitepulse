@@ -7,6 +7,7 @@ import { createWorkerHealthServer } from "./src/health/worker-health-server.mjs"
 import { createAuditJobStore } from "./src/storage/audit-job-store.mjs";
 import { runMigrations } from "./src/storage/migrations.mjs";
 import { createAuditTelemetry } from "./src/telemetry/audit-telemetry.mjs";
+import { resolveWorkerAuditExecution } from "./src/production/worker-audit-execution.mjs";
 
 const config = loadConfig();
 if (!config.migrationsManagedExternally) {
@@ -15,8 +16,12 @@ if (!config.migrationsManagedExternally) {
 
 const telemetry = createAuditTelemetry({ enabled: config.telemetryEnabled });
 const jobStore = createAuditJobStore(config.databaseFilePath);
+const auditExecution = await resolveWorkerAuditExecution(config);
 const worker = createAuditJobWorker({
   jobStore,
+  auditGenerator: auditExecution.auditGenerator,
+  executorReadiness: auditExecution.executorReadiness,
+  ...(auditExecution.securityValidator ? { securityValidator: auditExecution.securityValidator } : {}),
   renderedAuditLimiter: createRenderedAuditLimiter(1),
   telemetry,
   workerId: randomUUID(),
@@ -28,10 +33,17 @@ const worker = createAuditJobWorker({
     renderedAuditTimeoutMs: config.renderedAuditTimeoutMs
   }
 });
+const sqliteReadiness = createSqliteReadinessCheck(config.databaseFilePath);
 const healthServer = createWorkerHealthServer({
   host: config.workerHealthHost,
   port: config.workerHealthPort,
-  readinessCheck: createSqliteReadinessCheck(config.databaseFilePath),
+  readinessCheck: async () => {
+    const [database, executor] = await Promise.all([
+      sqliteReadiness(),
+      auditExecution.executorReadiness().catch(() => ({ ready: false }))
+    ]);
+    return { ready: database?.ready === true && executor?.ready === true };
+  },
   workerSnapshot: worker.snapshot
 });
 

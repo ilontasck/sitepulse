@@ -1,0 +1,15 @@
+[Unit]
+Description=NOQORI browser audit runner RPC socket
+PartOf=noqori.target
+
+[Socket]
+ListenStream=/run/noqori-audit.sock
+SocketUser=root
+SocketGroup=noqori-audit-rpc
+SocketMode=0660
+RemoveOnStop=yes
+Accept=no
+Service=noqori-audit-runner.service
+
+[Install]
+WantedBy=noqori.target

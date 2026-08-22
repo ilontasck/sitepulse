@@ -1,4 +1,3 @@
-import { generateAudit } from "./audit-engine.mjs";
 import { classifyAuditFailure } from "./audit-failure-classifier.mjs";
 import { assertSafeUrl } from "./url-safety.mjs";
 import { normalizeWebsiteUrl } from "./url-validation.mjs";
@@ -16,7 +15,8 @@ function defaultSleep(milliseconds) {
 export function createAuditJobWorker(options) {
   const {
     jobStore,
-    auditGenerator = generateAudit,
+    auditGenerator,
+    executorReadiness = async () => ({ ready: true }),
     renderedAuditLimiter,
     telemetry,
     workerId,
@@ -31,8 +31,8 @@ export function createAuditJobWorker(options) {
     sleep = defaultSleep
   } = options || {};
 
-  if (!jobStore || typeof jobStore.claimNext !== "function" || !workerId) {
-    throw new TypeError("Audit job worker requires a job store and workerId.");
+  if (!jobStore || typeof jobStore.claimNext !== "function" || !workerId || typeof auditGenerator !== "function") {
+    throw new TypeError("Audit job worker requires a job store, workerId, and audit generator.");
   }
 
   if (!Number.isSafeInteger(leaseMs) || leaseMs < 1 || !Number.isSafeInteger(heartbeatMs) || heartbeatMs < 1 || heartbeatMs >= leaseMs) {
@@ -95,6 +95,16 @@ export function createAuditJobWorker(options) {
     if (stopRequested) return { status: "stopped" };
 
     const recovery = jobStore.recoverExpired();
+    let executorReady = false;
+    try {
+      executorReady = (await executorReadiness())?.ready === true;
+    } catch {
+      executorReady = false;
+    }
+    if (!executorReady) {
+      telemetry?.record("audit_executor_unavailable", { outcome: "not-ready", reason: "readiness-check" });
+      return { status: "executor-unavailable", recovery };
+    }
     const job = jobStore.claimNext({ workerId, leaseMs });
 
     if (!job) {
@@ -176,7 +186,7 @@ export function createAuditJobWorker(options) {
     while (!stopRequested) {
       const result = await runOnce();
 
-      if (result.status === "idle" && !stopRequested) {
+      if (new Set(["idle", "executor-unavailable"]).has(result.status) && !stopRequested) {
         await sleep(pollIntervalMs);
       }
     }

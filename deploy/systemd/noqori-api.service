@@ -12,6 +12,7 @@ User=noqori
 Group=noqori
 WorkingDirectory=/opt/noqori/current
 EnvironmentFile=/etc/noqori/noqori.env
+EnvironmentFile=-/etc/noqori/noqori-secrets.env
 ExecStartPre=/usr/bin/test -x /usr/bin/node
 ExecStart=/usr/bin/node scripts/run-production-service.mjs api
 ExecStartPost=/usr/bin/node scripts/check-service-health.mjs api --wait

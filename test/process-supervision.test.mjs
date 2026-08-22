@@ -93,7 +93,9 @@ describe("production process supervision", () => {
       RENDERED_AUDIT_MAX_CONCURRENCY: "99"
     };
 
-    const effective = applyProductionEnvironment("worker", environment);
+    const effective = applyProductionEnvironment("worker", environment, {
+      sandboxAttestation: { valid: true, vmAcceptancePassed: false }
+    });
 
     assert.deepEqual(effective, {
       databaseFilePath: "/var/lib/noqori/sitepulse.sqlite",
@@ -106,11 +108,27 @@ describe("production process supervision", () => {
     assert.equal(environment.MIGRATIONS_MANAGED_EXTERNALLY, "true");
     assert.equal(environment.RENDERED_AUDIT_ENABLED, "false");
     assert.equal(environment.RENDERED_AUDIT_MAX_CONCURRENCY, "1");
+    assert.equal(environment.AUDIT_RUNNER_SOCKET_PATH, "/run/noqori-audit.sock");
 
     assert.throws(
       () => applyProductionEnvironment("worker", { RENDERED_AUDIT_ENABLED: "true" }),
-      (error) => error?.code === "RENDERED_AUDIT_REQUIRES_STE12" && !error.message.includes("/tmp/")
+      (error) => error?.code === "AUDIT_SANDBOX_REQUIRED" && !error.message.includes("/tmp/")
     );
+    assert.throws(
+      () => applyProductionEnvironment("worker", { RENDERED_AUDIT_ENABLED: "true" }, {
+        sandboxAttestation: { valid: true, vmAcceptancePassed: false }
+      }),
+      (error) => error?.code === "RENDERED_AUDIT_REQUIRES_VM_ACCEPTANCE"
+    );
+    const accepted = { RENDERED_AUDIT_ENABLED: "true" };
+    applyProductionEnvironment("worker", accepted, {
+      sandboxAttestation: { valid: true, vmAcceptancePassed: true }
+    });
+    assert.equal(accepted.RENDERED_AUDIT_ENABLED, "true");
+
+    const apiEnvironment = { RENDERED_AUDIT_ENABLED: "true" };
+    applyProductionEnvironment("api", apiEnvironment);
+    assert.equal(apiEnvironment.RENDERED_AUDIT_ENABLED, "false");
   });
 
   it("loads the service only after protected settings become effective", async () => {
@@ -155,7 +173,7 @@ describe("production process supervision", () => {
     });
 
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /RENDERED_AUDIT_REQUIRES_STE12/);
+    assert.match(result.stderr, /AUDIT_SANDBOX_REQUIRED/);
     assert.doesNotMatch(result.stderr, new RegExp(secretMarker));
   });
 
@@ -173,8 +191,8 @@ describe("production process supervision", () => {
     assert.match(api, /^Restart=on-failure$/m);
     assert.match(worker, /^Restart=on-failure$/m);
     assert.match(target, /^Requires=noqori-migrate\.service$/m);
-    assert.match(target, /^Wants=noqori-api\.service noqori-worker\.service$/m);
-    assert.match(target, /^After=noqori-migrate\.service noqori-api\.service noqori-worker\.service$/m);
+    assert.match(target, /^Wants=.*noqori-api\.service.*noqori-audit-sandbox\.service.*noqori-audit-runner\.socket.*noqori-worker\.service$/m);
+    assert.match(target, /^After=.*noqori-migrate\.service.*noqori-api\.service.*noqori-audit-sandbox\.service.*noqori-audit-runner\.socket.*noqori-worker\.service$/m);
     assert.doesNotMatch(api, /noqori-worker\.service/);
     assert.doesNotMatch(worker, /noqori-api\.service/);
   });
@@ -210,7 +228,16 @@ describe("production process supervision", () => {
     assert.equal(invocation.args[0], "verify");
     assert.deepEqual(
       invocation.args.slice(1).map((filePath) => filePath.split("/").at(-1)),
-      ["noqori.target", "noqori-migrate.service", "noqori-api.service", "noqori-worker.service"]
+      [
+        "noqori.target",
+        "noqori-migrate.service",
+        "noqori-api.service",
+        "noqori-worker.service",
+        "noqori-audit-sandbox.service",
+        "noqori-audit-sandbox-verify.service",
+        "noqori-audit-runner.socket",
+        "noqori-audit-runner.service"
+      ]
     );
   });
 
@@ -228,7 +255,7 @@ describe("production process supervision", () => {
 
     for (const service of [api, worker]) {
       assert.match(service, /^Requires=noqori-migrate\.service$/m);
-      assert.match(service, /^After=.*noqori-migrate\.service$/m);
+      assert.match(service, /^After=.*noqori-migrate\.service/m);
       assert.match(service, /^ReadWritePaths=\/var\/lib\/noqori$/m);
     }
     for (const service of [api, worker, migration]) {
