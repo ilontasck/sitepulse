@@ -49,6 +49,7 @@ async function startApi({ configOverrides = {}, dependencies = {} } = {}) {
     AUTH_REGISTER_RATE_LIMIT_MAX: 100,
     AUTH_LOGIN_RATE_LIMIT_MAX: 100,
     AUTH_GENERAL_RATE_LIMIT_MAX: 500,
+    AUTH_REGISTRATION_MODE: "public",
     AUDIT_USER_RATE_LIMIT_MAX: 100,
     DATABASE_FILE_PATH: join(directory, "sitepulse.sqlite"),
     ...configOverrides

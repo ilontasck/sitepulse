@@ -7,6 +7,8 @@
   const caption = story?.querySelector("[data-story-caption]");
   const auditInput = document.getElementById("urlInput");
   const auditForm = document.getElementById("auditForm");
+  const authPanel = document.getElementById("authPanel");
+  const loginEmail = document.getElementById("loginEmail");
   const auditLinks = [...document.querySelectorAll("[data-story-audit-focus]")];
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const flowLayout = window.matchMedia("(max-width: 900px)");
@@ -64,8 +66,10 @@
 
     event.preventDefault();
     window.history.pushState(null, "", "#auditForm");
-    auditInput.focus({ preventScroll: true });
-    auditForm.scrollIntoView({
+    const target = auditForm.hidden ? loginEmail : auditInput;
+    const targetRegion = auditForm.hidden ? authPanel : auditForm;
+    target.focus({ preventScroll: true });
+    targetRegion.scrollIntoView({
       behavior: reducedMotion.matches ? "auto" : "smooth",
       block: "center"
     });

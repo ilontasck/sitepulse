@@ -1,6 +1,6 @@
 # SitePulse Authentication and Audit Ownership Architecture
 
-Status: approved design specification for Day 5 implementation planning.
+Status: implemented architecture; authenticated frontend and strict CSP completed 2026-08-22.
 
 Sources of truth:
 
@@ -9,7 +9,7 @@ Sources of truth:
 
 ## Scope
 
-Closed-beta v1 adds:
+Implemented v1 includes:
 
 - email and password accounts;
 - register, login, logout, and current-user endpoints;
@@ -19,30 +19,32 @@ Closed-beta v1 adds:
 - owner-only job and report reads;
 - storage and indexes for a later current-user audit dashboard.
 
-This design does not add runtime code in Day 5 Block 1. It deliberately excludes OAuth, magic links, email verification, password reset, MFA, roles, organizations, subscriptions, payments, user profiles, and dashboard UI.
+The current implementation deliberately excludes OAuth, magic links, email verification, password reset, MFA, roles, organizations, subscriptions, payments, user profiles, and dashboard UI.
 
 ## Current authentication state
 
-SitePulse currently has no users, credentials, sessions, cookies, CSRF policy, or request authentication context. The only privileged mechanism is `ADMIN_API_KEY` on the operator audit-history endpoint. It is not a user identity system.
+SitePulse has persistent users and sessions, strict same-origin JSON mutation checks, owner-scoped audit access, and an authenticated frontend. `ADMIN_API_KEY` remains a separate operator mechanism and is not a user identity system.
 
 Current behavior:
 
-- `POST /api/audits` is public and creates an unowned queued job.
-- `GET /api/audit-jobs/:id` is public to anyone who knows the UUID.
-- `GET /api/audits/:id` is public to anyone who knows the UUID.
+- `POST /api/audits` requires an authenticated user and persists that owner.
+- `GET /api/audit-jobs/:id` and `GET /api/audits/:id` are owner-scoped.
 - `GET /api/audits` requires the operator admin key.
 - A single in-process IP limiter applies to all API routes at 60 requests per minute.
 - JSON mutation bodies already require `application/json`.
 - The server emits no CORS allow-origin headers and the frontend uses same-origin relative requests.
-- The frontend is a single `index.html` with inline JavaScript and assumes audit creation is immediately available.
-- The CSP contains `script-src 'self' 'unsafe-inline'`; this is weaker than desired once authenticated actions exist.
+- The frontend restores `/me`, supports login/register/logout states, and exposes the audit form only after authentication.
+- Executable JavaScript and CSS are tracked static assets. CSP uses `script-src 'self'` and `style-src 'self'` without `unsafe-inline` or `unsafe-eval`.
 
 The current migrations are:
 
 1. `001_initial_audits`: `audits` and its created/domain indexes.
 2. `002_audit_jobs`: the persistent queue, leases, retries, foreign key to `audits`, and queue indexes.
+3. `003_users`: users and normalized email identity.
+4. `004_sessions`: hashed persistent sessions and cleanup indexes.
+5. `005_audit_ownership`: nullable legacy-safe ownership on jobs and audits.
 
-The current completion transaction correctly fences the worker and atomically inserts an audit plus links its job. It currently selects only the job ID, so Day 5 must deepen that seam to select persisted ownership and copy it into the new audit row.
+The completion transaction fences the worker, reads persisted job ownership, atomically inserts the owned audit, and links the completed job.
 
 ## Target authentication model
 
@@ -295,11 +297,15 @@ A separate CSRF token is not required for the closed-beta v1 only while all of t
 
 Add a synchronizer or double-submit CSRF token before allowing `SameSite=None`, credentialed cross-origin clients, multiple application origins, embedded cross-site use, or mutation routes that cannot enforce Origin plus JSON.
 
-HttpOnly prevents script from reading the session cookie but does not stop CSRF or same-origin actions by injected JavaScript. Before enabling account UI for beta users, move inline JavaScript into a served `assets/` file and remove `'unsafe-inline'` from `script-src`. Keep output escaping and avoid inserting untrusted HTML.
+HttpOnly prevents script from reading the session cookie but does not stop CSRF or same-origin actions by injected JavaScript. The account UI therefore runs from same-origin assets under a CSP with no inline/eval execution. Output escaping remains mandatory for report data.
 
 ## Auth API contract
 
 All responses use the existing safe JSON error envelope. Authentication responses use `Cache-Control: no-store`.
+
+### `GET /api/auth/config`
+
+Returns only `{ "registrationMode": "closed" | "public" }`. `AUTH_REGISTRATION_MODE` is schema-validated; production defaults to `closed`, while development and test must configure a mode explicitly. The production environment template also sets `closed` explicitly.
 
 ### `POST /api/auth/register`
 
@@ -310,6 +316,8 @@ Request:
 ```
 
 Success: HTTP 201, set a fresh session cookie, return `{ "user": <public-user> }`.
+
+The route is enabled only when `AUTH_REGISTRATION_MODE=public`. Closed mode returns `403 REGISTRATION_CLOSED` before reading credentials. This is a mode gate, not an invitation system.
 
 Errors:
 
@@ -458,16 +466,16 @@ Do not allow an old worker to process newly owned jobs: it would not copy `user_
 
 A later cleanup migration may archive legacy NULL rows and rebuild ownership columns as `NOT NULL`; that is intentionally not part of v1.
 
-## Guest mode decision
+## Registration and guest mode decision
 
-**Closed-beta v1 requires login for every new audit. Guest audit creation is disabled.**
+**Every audit requires login. Guest audit creation is disabled. Registration can be `closed` or `public`, with a fail-closed production default.**
 
 This keeps ownership, per-user limits, future subscriptions, and dashboard history unambiguous. It also avoids creating a second guest-token ownership model that would later need account claiming or transfer rules.
 
 Impact on the current product:
 
 - the current audit form cannot submit until `/api/auth/me` succeeds;
-- the frontend needs register/login/logout states and a safe signed-out prompt;
+- the frontend implements register/login/logout states and a safe signed-out prompt;
 - the frontend continues using the existing async polling/report renderer after authentication;
 - POST, polling, and report fetches remain relative same-origin requests, so the browser automatically sends the HttpOnly cookie;
 - existing API and E2E fixtures must create users/sessions and assert cross-user denial;
@@ -508,7 +516,7 @@ If registration/session insertion or ownership completion fails, no cookie or co
 | Stolen database | Scrypt password hashes with random salts; only SHA-256 session-token hashes stored | Offline password guessing remains possible; backups need encryption/access control |
 | Stolen cookie | HTTPS, Secure, HttpOnly, host-only cookie, 14-day absolute expiry, logout revocation | No device/session management or MFA in v1 |
 | CSRF | SameSite=Lax, strict Origin match, JSON-only mutations, no credentialed CORS | Add CSRF token if deployment assumptions change |
-| XSS | Output escaping, HttpOnly cookie, CSP; remove inline script allowance before auth beta | XSS can still perform actions even when cookie cannot be read |
+| XSS | Output escaping, HttpOnly cookie, same-origin static assets, CSP without inline/eval execution | XSS can still perform actions even when cookie cannot be read |
 | User enumeration | Generic login response and dummy hash; registration rate limit | Registration conflict still reveals unavailable email without verification/invites |
 | Cross-user IDOR | Owner-scoped SQL queries; unauthorized resources look missing | Operator-key security remains a separate operational concern |
 | Disabled users | Session lookup joins enabled user; login stays generic; sessions rejected/revoked | Admin disable interface deferred |
@@ -528,14 +536,14 @@ If registration/session insertion or ownership completion fails, no cookie or co
 - `src/auth/auth-service.mjs`: deep register/login/authenticate/logout interface and safe auth-domain failures.
 - `src/storage/auth-store.mjs`: one SQLite adapter for users and sessions, including atomic registration, session rotation, lookup joined to enabled user, revocation, conditional rehash update, and bounded cleanup.
 - `src/http/auth-middleware.mjs`: resolve optional auth context and provide `requireAuthenticatedUser()` without exposing session internals.
-- `src/http/auth-routes.mjs`: four auth endpoints and public-user mapping.
+- `src/http/auth-routes.mjs`: registration config plus four session/account endpoints and public-user mapping.
 - `src/http/origin-policy.mjs`: strict configured-origin enforcement for JSON mutations.
 - `src/storage/migrations/003_users.mjs`: users schema and unique email index.
 - `src/storage/migrations/004_sessions.mjs`: sessions schema and lookup/cleanup indexes.
 - `src/storage/migrations/005_audit_ownership.mjs`: nullable ownership columns and dashboard indexes.
 - `test/password.test.mjs`, `test/auth-store.test.mjs`, `test/auth-api.test.mjs`, and `test/audit-ownership.test.mjs`: focused temporary-DB coverage.
 
-### Existing files to change later
+### Implemented integration files
 
 - `src/storage/migrations.mjs`: register migrations 003-005 in strict order.
 - `src/config/env.mjs`: validate `PUBLIC_ORIGIN`, session TTL, auth rate limits, and `AUTH_SCRYPT_MAX_CONCURRENCY` (closed-beta default `1`); production requires HTTPS.
@@ -546,15 +554,15 @@ If registration/session insertion or ownership completion fails, no cookie or co
 - `src/storage/audit-job-store.mjs`: persist `user_id`, normalize it in the internal job model, owner-scope HTTP reads, and copy persisted ownership during fenced completion without accepting a completion user ID.
 - `src/storage/audit-record.mjs`: insert the relational owner supplied by the job-store transaction without adding it to report JSON.
 - `src/storage/audit-store.mjs`: add owner-scoped detail and keyset list queries while retaining explicitly operator/internal methods where required.
-- `src/http/security.mjs`: remove inline-script permission after frontend extraction and add any final auth response hardening.
-- `assets/app.js` and `index.html`: extract current inline JavaScript, add register/login/logout/me UI state, gate the audit form, and retain the proven polling/report renderer.
+- `src/http/security.mjs`: strict same-origin CSP with no inline/eval execution.
+- `assets/noqori/app.js`, `assets/noqori/app.css`, and `index.html`: register/login/logout/me UI state, authenticated audit gating, and the proven polling/report renderer.
 - `worker.mjs` and `src/audit/audit-job-worker.mjs`: no auth logic; only consume the ownership-aware job-store interface. Tests confirm the worker cannot choose an owner.
 - `README.md`, `MACHINE_SETUP.md`, and `PROJECT_HEALTH_REPORT.md`: document auth/session configuration, deployment ordering, and updated health status after implementation.
 - Existing API, worker, store, migration, privacy, resilience, and E2E tests: add authenticated fixtures and preserve async/runtime regression coverage.
 
 `package.json` needs no new authentication framework or password dependency; Node crypto is sufficient.
 
-## Day 5 implementation order
+## Completed implementation sequence
 
 1. Add migration tests, then migrations 003 users and 004 sessions plus migration-runner registration.
 2. Implement/test email normalization and the versioned async password module, including 256 MiB maxmem and bounded hash concurrency.

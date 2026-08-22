@@ -59,8 +59,16 @@ export async function handleAuthApi({
 
   rateLimiters.general(request, response);
 
+  if (url.pathname === "/api/auth/config") {
+    if (request.method !== "GET") throw methodNotAllowed();
+    return sendJson(response, 200, { registrationMode: config.authRegistrationMode });
+  }
+
   if (url.pathname === "/api/auth/register") {
     if (request.method !== "POST") throw methodNotAllowed();
+    if (config.authRegistrationMode !== "public") {
+      throw new HttpError(403, "Registration is currently closed.", "REGISTRATION_CLOSED");
+    }
     rateLimiters.register(request, response);
     requireTrustedOrigin(request, config.publicOrigin);
     const body = requireObjectBody(

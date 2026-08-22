@@ -506,6 +506,15 @@ body.noqori-public {
   perspective: 70rem;
 }
 
+.noqoriHeroVisual[data-pointer-position="top-left"] { --nq-pointer-x: -8px; --nq-pointer-y: -6px; --nq-pointer-rx: 2deg; --nq-pointer-ry: -2.5deg; --nq-grid-x: 2px; --nq-grid-y: 2px; }
+.noqoriHeroVisual[data-pointer-position="top-center"] { --nq-pointer-y: -6px; --nq-pointer-rx: 2deg; --nq-grid-y: 2px; }
+.noqoriHeroVisual[data-pointer-position="top-right"] { --nq-pointer-x: 8px; --nq-pointer-y: -6px; --nq-pointer-rx: 2deg; --nq-pointer-ry: 2.5deg; --nq-grid-x: -2px; --nq-grid-y: 2px; }
+.noqoriHeroVisual[data-pointer-position="middle-left"] { --nq-pointer-x: -8px; --nq-pointer-ry: -2.5deg; --nq-grid-x: 2px; }
+.noqoriHeroVisual[data-pointer-position="middle-right"] { --nq-pointer-x: 8px; --nq-pointer-ry: 2.5deg; --nq-grid-x: -2px; }
+.noqoriHeroVisual[data-pointer-position="bottom-left"] { --nq-pointer-x: -8px; --nq-pointer-y: 6px; --nq-pointer-rx: -2deg; --nq-pointer-ry: -2.5deg; --nq-grid-x: 2px; --nq-grid-y: -2px; }
+.noqoriHeroVisual[data-pointer-position="bottom-center"] { --nq-pointer-y: 6px; --nq-pointer-rx: -2deg; --nq-grid-y: -2px; }
+.noqoriHeroVisual[data-pointer-position="bottom-right"] { --nq-pointer-x: 8px; --nq-pointer-y: 6px; --nq-pointer-rx: -2deg; --nq-pointer-ry: 2.5deg; --nq-grid-x: -2px; --nq-grid-y: -2px; }
+
 .noqoriHeroVisual::after {
   content: "";
   position: absolute;

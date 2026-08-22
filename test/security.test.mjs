@@ -14,6 +14,7 @@ describe("security hardening", () => {
     const dir = mkdtempSync(join(tmpdir(), "sitepulse-security-"));
     const config = loadConfig({
       NODE_ENV: "test",
+      AUTH_REGISTRATION_MODE: "closed",
       PORT: 0,
       DATABASE_FILE_PATH: join(dir, "sitepulse.sqlite"),
       RATE_LIMIT_MAX: 2,
@@ -39,6 +40,15 @@ describe("security hardening", () => {
 
     assert.equal(response.status, 404);
     assert.doesNotMatch(body, /createServer/);
+  });
+
+  it("serves a fail-closed CSP without inline or eval execution", async () => {
+    const response = await fetch(`${baseUrl}/`);
+
+    assert.equal(
+      response.headers.get("content-security-policy"),
+      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    );
   });
 
   it("rate limits API calls", async () => {

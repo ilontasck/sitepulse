@@ -48,7 +48,7 @@ Verified runtime: Node.js `v24.14.0`, pnpm `11.9.0`, Playwright `1.61.1`, Lighth
 - Remaining deployment risk: DNS is validated before `fetch`, but the connection is not pinned to the validated address. A production Internet-facing scanner should use a pinned-address transport or isolated egress proxy to eliminate DNS-rebinding TOCTOU risk.
 - Rendered audits repeat destination validation for browser requests, redirects, subresources, final URL, and WebSockets. The feature remains off by default; production should still isolate Chromium behind restricted egress because browser/service-worker behavior and DNS TOCTOU cannot be completely contained at the application layer.
 - Chromium uses a fresh profile, reduced background networking, blocked service-worker registration, and an in-process concurrency limit. Required deployment controls are documented in `PRODUCTION_BROWSER_SECURITY.md`.
-- Current CSP needs `'unsafe-inline'` because the single-file frontend contains inline CSS/JS. Extract these assets and adopt nonces/hashes before a public production launch.
+- The frontend and legal pages use tracked same-origin CSS/JS assets. CSP permits only `script-src 'self'` and `style-src 'self'`, with no inline or eval execution.
 
 ## ✅ Performance — WARNING
 
@@ -77,7 +77,7 @@ Verified runtime: Node.js `v24.14.0`, pnpm `11.9.0`, Playwright `1.61.1`, Lighth
 
 ## ✅ Technical Debt — WARNING
 
-- Production hardening items: eliminate DNS-rebinding TOCTOU, remove inline-script/style CSP exceptions, replace process-local rate limiting for horizontal scaling, and revisit per-operation SQLite connections.
+- Production hardening items: eliminate the remaining HTML-fetch DNS-rebinding TOCTOU with address pinning or isolated egress, replace process-local rate limiting before horizontal scaling, and revisit per-operation SQLite connections.
 - Lighthouse lab data is variable and does not provide field INP; SitePulse reports TBT explicitly as an INP diagnostic proxy. Median runs and CrUX/RUM remain future work.
 - Real smoke audits succeeded for static `example.com` and JS-heavy `react.dev`; observed values are environment-specific and are not committed as performance guarantees.
 - These items do not block continued local development or the current portfolio MVP.

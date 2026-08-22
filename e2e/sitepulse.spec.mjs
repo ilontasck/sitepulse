@@ -55,6 +55,22 @@ async function fulfillJson(route, status, payload, headers = {}) {
   });
 }
 
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/auth/config", route => fulfillJson(route, 200, { registrationMode: "public" }));
+  await page.route("**/api/auth/me", route => fulfillJson(route, 200, {
+    user: { id: "e2e-user", email: "e2e@example.com", createdAt: "2026-08-22T09:00:00.000Z" }
+  }));
+});
+
+async function useRealAuth(page) {
+  await page.unroute("**/api/auth/config");
+  await page.unroute("**/api/auth/me");
+}
+
+function uniqueEmail(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}@example.com`;
+}
+
 async function mockQueuedJobCreation(page, jobId = "33333333-3333-4333-8333-333333333333") {
   await page.route("**/api/audits", async (route) => {
     await fulfillJson(route, 202, {
@@ -181,6 +197,160 @@ async function measureMeaningfulReportMetadata(page) {
       fontSize: parseFloat(getComputedStyle(element).fontSize)
     }))
   ), selectors);
+}
+
+test("public registration creates a session and unlocks the authenticated audit", async ({ page }) => {
+  await useRealAuth(page);
+  await mockCompletedAuditFlow(page);
+  const email = uniqueEmail("register");
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Sign in to audit" })).toBeVisible();
+  await page.getByLabel("Registration email").fill(email);
+  await page.getByLabel("Create password").fill("correct horse battery staple");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByText(email, { exact: true })).toBeVisible();
+  await page.getByLabel("Website URL").fill("example.com");
+  await page.getByRole("button", { name: /Run audit/ }).click();
+  await expect(page.locator("#report")).toBeVisible();
+});
+
+test("login restores audit access and logout removes it", async ({ page, request }) => {
+  await useRealAuth(page);
+  await mockCompletedAuditFlow(page);
+  const email = uniqueEmail("login");
+  const password = "correct horse battery staple";
+  const registration = await request.post("/api/auth/register", {
+    headers: { Origin: "http://127.0.0.1:3010" },
+    data: { email, password }
+  });
+  expect(registration.status()).toBe(201);
+
+  await page.goto("/");
+  await page.getByLabel("Login email").fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Run audit/ })).toBeVisible();
+  await page.getByLabel("Website URL").fill("example.com");
+  await page.getByRole("button", { name: /Run audit/ }).click();
+  await expect(page.locator("#report")).toBeVisible();
+  await page.getByRole("button", { name: "Analyze another website" }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("heading", { name: "Sign in to audit" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Run audit/ })).toBeHidden();
+});
+
+test("logout failure is visible and preserves authenticated audit access", async ({ page }) => {
+  await page.route("**/api/auth/logout", route => fulfillJson(route, 503, {
+    error: { code: "AUTH_TEMPORARILY_UNAVAILABLE", message: "internal detail must not be shown" }
+  }));
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.locator("#authError")).toHaveText("We could not sign you out. Please try again.");
+  await expect(page.getByRole("button", { name: /Run audit/ })).toBeVisible();
+  await expect(page.getByText("internal detail must not be shown")).toHaveCount(0);
+});
+
+test("duplicate registration stays neutral about account existence", async ({ page, request }) => {
+  await useRealAuth(page);
+  const email = uniqueEmail("duplicate");
+  const password = "correct horse battery staple";
+  const registration = await request.post("/api/auth/register", {
+    headers: { Origin: "http://127.0.0.1:3010" },
+    data: { email, password }
+  });
+  expect(registration.status()).toBe(201);
+
+  await page.goto("/");
+  await page.getByLabel("Registration email").fill(email);
+  await page.getByLabel("Create password").fill(password);
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.locator("#authError")).toHaveText("Registration could not be completed. Please try again.");
+  await expect(page.locator("#authError")).not.toContainText(/exists|account|sign in/i);
+});
+
+test("closed registration is explicit and exposes no registration controls", async ({ page }) => {
+  await page.unroute("**/api/auth/config");
+  await page.unroute("**/api/auth/me");
+  await page.route("**/api/auth/config", route => fulfillJson(route, 200, { registrationMode: "closed" }));
+  await page.route("**/api/auth/me", route => fulfillJson(route, 401, {
+    error: { code: "AUTHENTICATION_REQUIRED", message: "Sign in to continue." }
+  }));
+
+  await page.goto("/");
+  await expect(page.getByText("Closed beta", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Registration email")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Run audit/ })).toBeHidden();
+});
+
+test("invalid credentials stay generic and return focus to login", async ({ page }) => {
+  await useRealAuth(page);
+  await page.goto("/");
+  await page.getByLabel("Login email").fill(uniqueEmail("missing"));
+  await page.getByLabel("Password", { exact: true }).fill("incorrect password value");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.locator("#authError")).toContainText("Email or password is incorrect.");
+  await expect(page.locator("#authError")).not.toContainText(/database|stack|scrypt/i);
+  await expect(page.getByLabel("Login email")).toBeFocused();
+});
+
+test("keyboard navigation has visible auth focus and the page emits no CSP violations", async ({ page }) => {
+  await page.unroute("**/api/auth/me");
+  await page.route("**/api/auth/me", route => fulfillJson(route, 401, {
+    error: { code: "AUTHENTICATION_REQUIRED", message: "Sign in to continue." }
+  }));
+  await page.addInitScript(() => {
+    window.__cspViolations = [];
+    document.addEventListener("securitypolicyviolation", event => {
+      window.__cspViolations.push(`${event.violatedDirective}:${event.blockedURI}`);
+    });
+  });
+
+  await page.goto("/");
+  await page.getByLabel("Login email").focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByLabel("Password", { exact: true })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeFocused();
+  expect(await page.evaluate(() => window.__cspViolations)).toEqual([]);
+  expect(await page.locator("script:not([src]), style, [style], [onclick], [onload]").count()).toBe(0);
+});
+
+test("signed-out story and footer audit links move focus to login", async ({ page }) => {
+  await page.unroute("**/api/auth/me");
+  await page.route("**/api/auth/me", route => fulfillJson(route, 401, {
+    error: { code: "AUTHENTICATION_REQUIRED", message: "Sign in to continue." }
+  }));
+  await page.goto("/");
+
+  await page.getByRole("link", { name: "Start your audit" }).click();
+  await expect(page.getByLabel("Login email")).toBeFocused();
+  await page.locator("footer").getByRole("link", { name: "Start audit" }).click();
+  await expect(page.getByLabel("Login email")).toBeFocused();
+});
+
+for (const viewport of [
+  { label: "mobile", width: 390, height: 844 },
+  { label: "tablet", width: 768, height: 1024 },
+  { label: "desktop", width: 1440, height: 900 }
+]) {
+  test(`public auth controls avoid horizontal overflow on ${viewport.label}`, async ({ page }) => {
+    await page.unroute("**/api/auth/me");
+    await page.route("**/api/auth/me", route => fulfillJson(route, 401, {
+      error: { code: "AUTHENTICATION_REQUIRED", message: "Sign in to continue." }
+    }));
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/");
+
+    await expect(page.getByLabel("Login email")).toBeVisible();
+    await expect(page.getByLabel("Registration email")).toBeVisible();
+    const measurement = await measureHorizontalOverflow(page);
+    expect(
+      measurement.rootScrollWidth,
+      `Auth overflow: ${JSON.stringify(measurement.offenders)}`
+    ).toBeLessThanOrEqual(viewport.width + 1);
+  });
 }
 
 test("NOQORI header and hero expose the real audit entry without invented navigation", async ({ page }) => {
@@ -792,13 +962,15 @@ test("an audit fetch failure does not expose a browser error", async ({ page }) 
   await expect(page.getByRole("button", { name: "Edit URL and retry" })).toBeVisible();
 });
 
-test("signed-out frontend exposes the temporary backend login requirement safely", async ({ page }) => {
+test("an expired audit session returns to login without exposing the backend", async ({ page }) => {
   await page.goto("/");
   await page.getByPlaceholder("Enter your website, e.g. luna-cafe.com").fill("example.com");
   await page.getByRole("button", { name: /Run audit/ }).click();
 
-  await expect(page.getByRole("alert")).toContainText("Sign in to continue.");
-  await expect(page.getByRole("button", { name: "Edit URL and retry" })).toBeVisible();
+  await expect(page.locator("#authError")).toContainText("Your session expired. Sign in again.");
+  await expect(page.getByRole("heading", { name: "Sign in to audit" })).toBeVisible();
+  await expect(page.getByLabel("Login email")).toBeFocused();
+  await expect(page.getByRole("button", { name: "Edit URL and retry" })).toBeHidden();
   await expect(page.locator("#report")).toBeHidden();
 });
 

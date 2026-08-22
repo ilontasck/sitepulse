@@ -16,6 +16,7 @@ export default defineConfig({
       HOST: "127.0.0.1",
       PORT: "3010",
       NODE_ENV: "test",
+      AUTH_REGISTRATION_MODE: "public",
       DATABASE_FILE_PATH: "./data/e2e-sitepulse.sqlite",
       RATE_LIMIT_MAX: "200"
     },

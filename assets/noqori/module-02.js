@@ -4,77 +4,38 @@
   const auditFocusControl = document.querySelector("[data-audit-focus]");
   const auditForm = document.getElementById("auditForm");
   const auditInput = document.getElementById("urlInput");
+  const authPanel = document.getElementById("authPanel");
+  const loginEmail = document.getElementById("loginEmail");
   const heroVisual = document.querySelector("[data-hero-motion]");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
-  const state = {
-    frame: 0,
-    bounds: null,
-    current: { x: 0, y: 0, rotateX: 0, rotateY: 0 },
-    target: { x: 0, y: 0, rotateX: 0, rotateY: 0 }
-  };
+  let motionBounds = null;
 
   function focusAuditEntry(event) {
     if (!auditForm || !auditInput) return;
 
     event.preventDefault();
     window.history.pushState(null, "", "#auditForm");
-    auditInput.focus({ preventScroll: true });
-    auditForm.scrollIntoView({
+    const target = auditForm.hidden ? loginEmail : auditInput;
+    const targetRegion = auditForm.hidden ? authPanel : auditForm;
+    target.focus({ preventScroll: true });
+    targetRegion.scrollIntoView({
       behavior: reducedMotion.matches ? "auto" : "smooth",
       block: "center"
     });
   }
 
-  function setMotionProperties(values) {
-    heroVisual.style.setProperty("--nq-pointer-x", `${values.x.toFixed(2)}px`);
-    heroVisual.style.setProperty("--nq-pointer-y", `${values.y.toFixed(2)}px`);
-    heroVisual.style.setProperty("--nq-pointer-rx", `${values.rotateX.toFixed(2)}deg`);
-    heroVisual.style.setProperty("--nq-pointer-ry", `${values.rotateY.toFixed(2)}deg`);
-    heroVisual.style.setProperty("--nq-grid-x", `${(values.x * -0.28).toFixed(2)}px`);
-    heroVisual.style.setProperty("--nq-grid-y", `${(values.y * -0.28).toFixed(2)}px`);
-  }
-
-  function animateTowardTarget() {
-    state.frame = 0;
-    let needsAnotherFrame = false;
-
-    for (const key of Object.keys(state.current)) {
-      const distance = state.target[key] - state.current[key];
-      state.current[key] += distance * 0.14;
-
-      if (Math.abs(distance) > 0.02) {
-        needsAnotherFrame = true;
-      } else {
-        state.current[key] = state.target[key];
-      }
-    }
-
-    setMotionProperties(state.current);
-
-    if (needsAnotherFrame) {
-      state.frame = window.requestAnimationFrame(animateTowardTarget);
-    }
-  }
-
-  function scheduleMotion() {
-    if (!state.frame) {
-      state.frame = window.requestAnimationFrame(animateTowardTarget);
-    }
-  }
-
   function resetMotion() {
-    state.target = { x: 0, y: 0, rotateX: 0, rotateY: 0 };
     heroVisual.dataset.pointerActive = "false";
-    scheduleMotion();
+    heroVisual.dataset.pointerPosition = "center";
   }
 
   function updateMotionBounds() {
-    state.bounds = heroVisual.getBoundingClientRect();
+    motionBounds = heroVisual.getBoundingClientRect();
   }
 
   function clearMotionBounds() {
-    state.bounds = null;
+    motionBounds = null;
   }
 
   function handlePointerLeave() {
@@ -85,18 +46,16 @@
   function handlePointerMove(event) {
     if (heroVisual.dataset.pointerEnabled !== "true") return;
 
-    if (!state.bounds) updateMotionBounds();
-    const bounds = state.bounds;
+    if (!motionBounds) updateMotionBounds();
+    const bounds = motionBounds;
     const horizontal = Math.max(-1, Math.min(1, ((event.clientX - bounds.left) / bounds.width - 0.5) * 2));
     const vertical = Math.max(-1, Math.min(1, ((event.clientY - bounds.top) / bounds.height - 0.5) * 2));
-    state.target = {
-      x: horizontal * 12,
-      y: vertical * 9,
-      rotateX: vertical * -3,
-      rotateY: horizontal * 3.5
-    };
+    const horizontalPosition = horizontal < -0.2 ? "left" : horizontal > 0.2 ? "right" : "center";
+    const verticalPosition = vertical < -0.2 ? "top" : vertical > 0.2 ? "bottom" : "middle";
+    heroVisual.dataset.pointerPosition = horizontalPosition === "center" && verticalPosition === "middle"
+      ? "center"
+      : `${verticalPosition}-${horizontalPosition}`;
     heroVisual.dataset.pointerActive = "true";
-    scheduleMotion();
   }
 
   function updateMotionMode() {
@@ -107,7 +66,6 @@
   }
 
   function cleanupMotion() {
-    if (state.frame) window.cancelAnimationFrame(state.frame);
     heroVisual?.removeEventListener("pointermove", handlePointerMove);
     heroVisual?.removeEventListener("pointerenter", updateMotionBounds);
     heroVisual?.removeEventListener("pointerleave", handlePointerLeave);
@@ -119,7 +77,7 @@
   auditFocusControl?.addEventListener("click", focusAuditEntry);
 
   if (heroVisual) {
-    setMotionProperties(state.current);
+    resetMotion();
     heroVisual.dataset.motionReady = "true";
     heroVisual.addEventListener("pointerenter", updateMotionBounds, { passive: true });
     heroVisual.addEventListener("pointermove", handlePointerMove, { passive: true });

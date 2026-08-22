@@ -141,6 +141,7 @@ describe("session cleanup scheduler", () => {
     const timer = { unref() {} };
     const config = loadConfig({
       NODE_ENV: "test",
+      AUTH_REGISTRATION_MODE: "closed",
       PORT: 0,
       DATABASE_FILE_PATH: join(mkdtempSync(join(tmpdir(), "sitepulse-cleanup-app-")), "sitepulse.sqlite")
     });

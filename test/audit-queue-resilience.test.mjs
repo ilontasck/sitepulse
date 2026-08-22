@@ -857,6 +857,7 @@ describe("audit queue resilience", () => {
       RATE_LIMIT_MAX: 500,
       AUTH_REGISTER_RATE_LIMIT_MAX: 100,
       AUTH_GENERAL_RATE_LIMIT_MAX: 500,
+      AUTH_REGISTRATION_MODE: "public",
       AUDIT_USER_RATE_LIMIT_MAX: 20,
       DATABASE_FILE_PATH: databaseFilePath
     });

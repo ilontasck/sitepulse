@@ -333,9 +333,10 @@ describe("production process supervision", () => {
   });
 
   it("lets production services delegate migrations only when explicitly configured", () => {
-    const defaultConfig = loadConfig({ NODE_ENV: "test", PORT: 0 });
+    const defaultConfig = loadConfig({ NODE_ENV: "test", AUTH_REGISTRATION_MODE: "closed", PORT: 0 });
     const managedConfig = loadConfig({
       NODE_ENV: "test",
+      AUTH_REGISTRATION_MODE: "closed",
       PORT: 0,
       MIGRATIONS_MANAGED_EXTERNALLY: "true"
     });
@@ -348,6 +349,7 @@ describe("production process supervision", () => {
     let migrations = 0;
     const config = loadConfig({
       NODE_ENV: "test",
+      AUTH_REGISTRATION_MODE: "closed",
       PORT: 0,
       MIGRATIONS_MANAGED_EXTERNALLY: "true"
     });
@@ -371,7 +373,7 @@ describe("production process supervision", () => {
     try {
       const result = spawnSync(process.execPath, ["scripts/migrate.mjs"], {
         cwd: new URL("..", import.meta.url),
-        env: { ...process.env, DATABASE_FILE_PATH: databaseFilePath, NODE_ENV: "test", PORT: "0" },
+        env: { ...process.env, AUTH_REGISTRATION_MODE: "closed", DATABASE_FILE_PATH: databaseFilePath, NODE_ENV: "test", PORT: "0" },
         encoding: "utf8"
       });
 
@@ -389,6 +391,7 @@ describe("production process supervision", () => {
     let ready = true;
     const config = loadConfig({
       NODE_ENV: "test",
+      AUTH_REGISTRATION_MODE: "closed",
       PORT: 0,
       MIGRATIONS_MANAGED_EXTERNALLY: "true"
     });
@@ -426,6 +429,7 @@ describe("production process supervision", () => {
   it("keeps operational probes outside the public API rate limit", async () => {
     const config = loadConfig({
       NODE_ENV: "test",
+      AUTH_REGISTRATION_MODE: "closed",
       PORT: 0,
       MIGRATIONS_MANAGED_EXTERNALLY: "true",
       RATE_LIMIT_MAX: 2,
@@ -489,9 +493,10 @@ describe("production process supervision", () => {
   });
 
   it("keeps the worker health listener on a configurable loopback endpoint", () => {
-    const defaults = loadConfig({ NODE_ENV: "test", PORT: 0 });
+    const defaults = loadConfig({ NODE_ENV: "test", AUTH_REGISTRATION_MODE: "closed", PORT: 0 });
     const configured = loadConfig({
       NODE_ENV: "test",
+      AUTH_REGISTRATION_MODE: "closed",
       PORT: 0,
       WORKER_HEALTH_HOST: "::1",
       WORKER_HEALTH_PORT: "3101"
@@ -502,7 +507,7 @@ describe("production process supervision", () => {
     assert.equal(configured.workerHealthHost, "::1");
     assert.equal(configured.workerHealthPort, 3101);
     assert.throws(
-      () => loadConfig({ NODE_ENV: "test", PORT: 0, WORKER_HEALTH_HOST: "0.0.0.0" }),
+      () => loadConfig({ NODE_ENV: "test", AUTH_REGISTRATION_MODE: "closed", PORT: 0, WORKER_HEALTH_HOST: "0.0.0.0" }),
       /WORKER_HEALTH_HOST/
     );
   });
@@ -517,6 +522,7 @@ describe("production process supervision", () => {
       env: {
         ...process.env,
         NODE_ENV: "test",
+        AUTH_REGISTRATION_MODE: "closed",
         PORT: "0",
         DATABASE_FILE_PATH: databaseFilePath,
         MIGRATIONS_MANAGED_EXTERNALLY: "true",
@@ -553,6 +559,7 @@ describe("production process supervision", () => {
       env: {
         ...process.env,
         NODE_ENV: "test",
+        AUTH_REGISTRATION_MODE: "closed",
         HOST: "127.0.0.1",
         PORT: String(port),
         PUBLIC_ORIGIN: `http://127.0.0.1:${port}`,
@@ -591,6 +598,7 @@ describe("production process supervision", () => {
       env: {
         ...process.env,
         NODE_ENV: "test",
+        AUTH_REGISTRATION_MODE: "closed",
         HOST: "127.0.0.1",
         PORT: String(apiPort),
         PUBLIC_ORIGIN: `http://127.0.0.1:${apiPort}`,

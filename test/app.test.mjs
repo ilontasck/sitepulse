@@ -12,7 +12,7 @@ let baseUrl;
 describe("backend core", () => {
   before(async () => {
     const dir = mkdtempSync(join(tmpdir(), "sitepulse-app-"));
-    const config = loadConfig({ PORT: 0, NODE_ENV: "test", DATABASE_FILE_PATH: join(dir, "sitepulse.sqlite") });
+    const config = loadConfig({ PORT: 0, NODE_ENV: "test", AUTH_REGISTRATION_MODE: "closed", DATABASE_FILE_PATH: join(dir, "sitepulse.sqlite") });
     server = createApp(config);
 
     await new Promise((resolve) => {

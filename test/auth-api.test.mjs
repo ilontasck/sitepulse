@@ -34,6 +34,7 @@ async function startApi({ configOverrides = {}, dependencies = {} } = {}) {
     AUTH_REGISTER_RATE_LIMIT_MAX: 100,
     AUTH_LOGIN_RATE_LIMIT_MAX: 100,
     AUTH_GENERAL_RATE_LIMIT_MAX: 500,
+    AUTH_REGISTRATION_MODE: "public",
     DATABASE_FILE_PATH: join(directory, "sitepulse.sqlite"),
     ...configOverrides
   });
@@ -90,6 +91,33 @@ afterEach(async () => {
 });
 
 describe("authentication HTTP API", () => {
+  it("exposes registration availability without secrets and fails closed", async () => {
+    const closedApi = await startApi({ configOverrides: { AUTH_REGISTRATION_MODE: "closed" } });
+    const configResponse = await authRequest(closedApi, "/api/auth/config", { method: "GET" });
+    const configBody = await configResponse.json();
+    const registrationResponse = await register(closedApi);
+    const registrationBody = await registrationResponse.json();
+
+    assert.equal(configResponse.status, 200);
+    assert.equal(configResponse.headers.get("cache-control"), "no-store");
+    assert.deepEqual(configBody, { registrationMode: "closed" });
+    assert.equal(registrationResponse.status, 403);
+    assert.deepEqual(registrationBody, {
+      error: {
+        code: "REGISTRATION_CLOSED",
+        message: "Registration is currently closed."
+      }
+    });
+    assert.equal(withDatabase(closedApi.config.databaseFilePath, (database) =>
+      database.prepare("SELECT COUNT(*) AS count FROM users").get().count
+    ), 0);
+
+    const publicApi = await startApi();
+    const publicConfigResponse = await authRequest(publicApi, "/api/auth/config", { method: "GET" });
+    assert.deepEqual(await publicConfigResponse.json(), { registrationMode: "public" });
+    assert.equal((await register(publicApi, "public@example.com")).status, 201);
+  });
+
   it("registers safely, sets the development cookie, and persists no raw token", async () => {
     const telemetry = [];
     const api = await startApi({ dependencies: { telemetry: { record: (...entry) => telemetry.push(entry) } } });

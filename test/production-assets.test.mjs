@@ -184,6 +184,7 @@ describe("NOQORI production assets", () => {
     const config = loadConfig({
       PORT: 0,
       NODE_ENV: "test",
+      AUTH_REGISTRATION_MODE: "closed",
       DATABASE_FILE_PATH: join(dir, "sitepulse.sqlite")
     });
     server = createApp(config);

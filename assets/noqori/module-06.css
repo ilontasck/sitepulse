@@ -731,3 +731,10 @@ body.noqori-legal-view > .blob {
 .nqLegalPlaceholder {
   color: var(--nq-ember-text);
 }
+
+.nqCookieMeta {
+  color: var(--nq-muted);
+  font-family: inherit;
+  font-size: var(--nq-type-ui-xs);
+  font-weight: 400;
+}

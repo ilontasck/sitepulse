@@ -25,6 +25,10 @@ body.noqori-report-view > .blob {
   font-family: var(--nq-display);
 }
 
+body.noqori-report-view .noqoriReport {
+  display: block;
+}
+
 .noqoriReport * {
   box-sizing: border-box;
 }

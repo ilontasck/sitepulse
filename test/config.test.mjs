@@ -2,7 +2,29 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { loadConfig } from "../src/config/env.mjs";
 
+process.env.AUTH_REGISTRATION_MODE = "closed";
+
 describe("configuration", () => {
+  it("defaults production registration to closed and requires explicit non-production modes", () => {
+    assert.equal(loadConfig({ AUTH_REGISTRATION_MODE: "closed" }).authRegistrationMode, "closed");
+    assert.equal(loadConfig({ AUTH_REGISTRATION_MODE: "public" }).authRegistrationMode, "public");
+    assert.throws(() => loadConfig({ AUTH_REGISTRATION_MODE: "invite" }), /AUTH_REGISTRATION_MODE/);
+    assert.throws(() => loadConfig({ AUTH_REGISTRATION_MODE: "PUBLIC" }), /AUTH_REGISTRATION_MODE/);
+
+    const configuredMode = process.env.AUTH_REGISTRATION_MODE;
+    delete process.env.AUTH_REGISTRATION_MODE;
+    try {
+      assert.throws(() => loadConfig({ NODE_ENV: "development" }), /required in development and test/);
+      assert.throws(() => loadConfig({ NODE_ENV: "test" }), /required in development and test/);
+      assert.equal(loadConfig({
+        NODE_ENV: "production",
+        PUBLIC_ORIGIN: "https://sitepulse.example"
+      }).authRegistrationMode, "closed");
+    } finally {
+      process.env.AUTH_REGISTRATION_MODE = configuredMode;
+    }
+  });
+
   it("rejects invalid resource and rate-limit values", () => {
     assert.throws(() => loadConfig({ REQUEST_BODY_LIMIT_BYTES: "unlimited" }), /positive integer/);
     assert.throws(() => loadConfig({ RATE_LIMIT_WINDOW_MS: 0 }), /positive integer/);

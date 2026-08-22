@@ -37,6 +37,7 @@ describe("legal pages", () => {
     const config = loadConfig({
       PORT: 0,
       NODE_ENV: "test",
+      AUTH_REGISTRATION_MODE: "closed",
       DATABASE_FILE_PATH: join(dir, "sitepulse.sqlite")
     });
     server = createApp(config);
@@ -287,4 +288,17 @@ describe("legal placeholder detection", () => {
     const matches = [...sample.matchAll(PLACEHOLDER_PATTERN)];
     assert.equal(matches.length, 0);
   });
+});
+
+describe("static CSP compatibility", () => {
+  for (const fileName of ["index.html", "privacy.html", "impressum.html", "terms.html"]) {
+    it(`${fileName} contains no inline executable code or styles`, async () => {
+      const content = await readFile(join(root, fileName), "utf8");
+
+      assert.doesNotMatch(content, /<style\b/i);
+      assert.doesNotMatch(content, /<script(?![^>]*\bsrc=)[^>]*>/i);
+      assert.doesNotMatch(content, /\son[a-z]+\s*=/i);
+      assert.doesNotMatch(content, /\sstyle\s*=/i);
+    });
+  }
 });

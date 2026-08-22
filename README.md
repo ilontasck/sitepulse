@@ -176,7 +176,7 @@ Development alias for the web process:
 pnpm dev
 ```
 
-The backend now requires authentication for new audits and owner-scopes job/report reads. The current landing page does not yet include register/login controls, so signed-out form submission intentionally shows `Sign in to continue.` until the next frontend design phase.
+The backend requires authentication for new audits and owner-scopes job/report reads. The landing page restores sessions through `/api/auth/me`, supports login/logout, exposes registration only in explicit `public` mode, and keeps the audit form unavailable until authentication succeeds.
 
 Migration `005_audit_ownership` requires the web process and audit worker to be deployed together. Do not run an older worker against owned jobs; both processes must share the migrated database and the same release.
 
@@ -340,6 +340,7 @@ AUDIT_JOB_HEARTBEAT_MS=10000
 TELEMETRY_ENABLED=true
 PUBLIC_ORIGIN=http://127.0.0.1:3000
 AUTH_SCRYPT_MAX_CONCURRENCY=1
+AUTH_REGISTRATION_MODE=public
 AUTH_GENERAL_RATE_LIMIT_WINDOW_MS=60000
 AUTH_GENERAL_RATE_LIMIT_MAX=120
 AUDIT_USER_RATE_LIMIT_WINDOW_MS=3600000
@@ -358,6 +359,7 @@ Notes:
 - `WORKER_HEALTH_HOST` is restricted to loopback and `WORKER_HEALTH_PORT` exposes worker `/healthz` and `/readyz` checks without publishing them externally.
 - `AUDIT_JOB_LEASE_MS` and `AUDIT_JOB_HEARTBEAT_MS` protect running jobs from duplicate completion; the heartbeat must be shorter than the lease.
 - `PUBLIC_ORIGIN` is the exact trusted Origin for cookie-authenticated mutations; production requires HTTPS.
+- `AUTH_REGISTRATION_MODE` accepts only `closed` or `public`. The runtime default and production example are `closed`; development and test environments must choose their intended mode explicitly.
 - `AUDIT_USER_RATE_LIMIT_*` limits new audits per authenticated user. The closed-beta default is 10 per hour, in addition to the coarse IP limiter.
 - `TELEMETRY_ENABLED` controls privacy-safe JSON audit events on stdout. Test environments keep the collector active but suppress output unless explicitly injected.
 - `.env` is ignored and should not be committed.
@@ -479,7 +481,7 @@ SQLite caveat:
 Before production:
 
 - Replace local SQLite with Postgres.
-- Complete the authenticated frontend and account-management experience.
+- Decide whether the first deployment remains closed beta or deliberately enables public registration; account recovery and verification remain deferred.
 - Move the SQLite-backed audit queue to production-managed storage/worker infrastructure when scaling beyond the closed-beta topology.
 - Add hosted file/report export.
 - Run rendered audits in an isolated worker/egress sandbox and add axe-core user-flow checks.

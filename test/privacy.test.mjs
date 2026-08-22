@@ -25,6 +25,7 @@ describe("privacy controls", () => {
     const dir = mkdtempSync(join(tmpdir(), "sitepulse-privacy-"));
     const config = loadConfig({
       NODE_ENV: "test",
+      AUTH_REGISTRATION_MODE: "closed",
       PORT: 0,
       PUBLIC_ORIGIN: publicOrigin,
       DATABASE_FILE_PATH: join(dir, "sitepulse.sqlite")

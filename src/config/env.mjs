@@ -48,6 +48,21 @@ function parseBoolean(name, value, fallback = false) {
   return normalized === "true";
 }
 
+function parseRegistrationMode(value, environment) {
+  if (value == null) {
+    if (environment === "production") return "closed";
+    throw new Error("AUTH_REGISTRATION_MODE is required in development and test.");
+  }
+
+  const mode = String(value);
+
+  if (mode !== "closed" && mode !== "public") {
+    throw new Error("AUTH_REGISTRATION_MODE must be closed or public.");
+  }
+
+  return mode;
+}
+
 function parsePublicOrigin(value, { environment, host, port }) {
   if (!value) {
     if (environment === "production") {
@@ -175,6 +190,10 @@ export function loadConfig(overrides = {}) {
       overrides.AUTH_SCRYPT_MAX_CONCURRENCY ?? process.env.AUTH_SCRYPT_MAX_CONCURRENCY,
       1,
       4
+    ),
+    authRegistrationMode: parseRegistrationMode(
+      overrides.AUTH_REGISTRATION_MODE ?? process.env.AUTH_REGISTRATION_MODE,
+      env
     ),
     authRegisterRateLimitWindowMs: parsePositiveInteger(
       "AUTH_REGISTER_RATE_LIMIT_WINDOW_MS",
