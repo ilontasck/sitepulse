@@ -108,13 +108,19 @@ No volumes, load balancers, backups, domains, Primary IPs, Floating IPs, private
 
 Each server's listed gross monthly price was €6.5331, below the €15/server requirement. Conservative rounded-up runtime estimates were €0.1466 for the superseded run and €0.0314 for the authoritative run, cumulative **€0.1780**, below the €15 authorization.
 
-All six servers, six firewalls and both cloud SSH keys were removed. Both cleanup records report zero remaining labeled resources across servers, firewalls, SSH keys, volumes, load balancers, Primary/Floating IPs, networks, placement groups and certificates. Both local private keys were securely removed with `rm -P` and verified absent.
+All six servers and six firewalls were removed. The cleanup records captured at the end of the automated runs reported zero remaining labeled resources, but the post-acceptance operator check below supersedes that claim for SSH keys: one public cloud SSH key remained and required manual removal. Both local private keys were securely removed with `rm -P` and verified absent.
+
+## Post-acceptance cleanup addendum
+
+After this report was first published, the user found the temporary public SSH key `ste12-key-20260822094241-8dd05f` still present in Hetzner Console. The key had survived the automated cleanup despite the historical cleanup JSON reporting zero SSH keys. The user manually deleted the public key and manually revoked the `ste12-acceptance-temp` API token. No paid resources remained.
+
+The historical JSON evidence is intentionally unchanged and no later API check is claimed: the token had already been revoked when this addendum was recorded. This cleanup-accounting correction does not affect the completed functional, isolation or security gates, so the production acceptance result remains **PASS**.
 
 ## Evidence layout
 
 - `ste12-evidence-final/`: authoritative root-owned VM JSON, exact units, nftables, AppArmor, process/cgroup, journal, version and queue evidence
 - `external-fixtures/`: port-53-only DNS pcap/decoded trace, fixture implementations, units and public certificate metadata
-- `cloud-resources-before-cleanup.json` / `cloud-resources-after-cleanup.json`: authoritative redacted resource/cost snapshot and zero-resource verification
+- `cloud-resources-before-cleanup.json` / `cloud-resources-after-cleanup.json`: historical redacted resource/cost snapshots; the post-acceptance addendum documents the later-discovered public SSH key that makes the recorded zero-key result incomplete
 - `cloud-resources-initial-run-*.json`: superseded-run resource and cleanup evidence
 - `local-test-all.log`: final complete local unit and Playwright output
 
