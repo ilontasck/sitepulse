@@ -341,6 +341,9 @@ TELEMETRY_ENABLED=true
 PUBLIC_ORIGIN=http://127.0.0.1:3000
 AUTH_SCRYPT_MAX_CONCURRENCY=1
 AUTH_REGISTRATION_MODE=public
+AUTH_LOGIN_RATE_LIMIT_WINDOW_MS=900000
+AUTH_LOGIN_RATE_LIMIT_MAX=30
+AUTH_LOGIN_EMAIL_RATE_LIMIT_MAX=10
 AUTH_GENERAL_RATE_LIMIT_WINDOW_MS=60000
 AUTH_GENERAL_RATE_LIMIT_MAX=120
 AUDIT_USER_RATE_LIMIT_WINDOW_MS=3600000
@@ -360,6 +363,7 @@ Notes:
 - `AUDIT_JOB_LEASE_MS` and `AUDIT_JOB_HEARTBEAT_MS` protect running jobs from duplicate completion; the heartbeat must be shorter than the lease.
 - `PUBLIC_ORIGIN` is the exact trusted Origin for cookie-authenticated mutations; production requires HTTPS.
 - `AUTH_REGISTRATION_MODE` accepts only `closed` or `public`. The runtime default and production example are `closed`; development and test environments must choose their intended mode explicitly.
+- Login attempts are limited by both remote IP (`AUTH_LOGIN_RATE_LIMIT_MAX`) and a keyed normalized-email bucket (`AUTH_LOGIN_EMAIL_RATE_LIMIT_MAX`) within `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`.
 - `AUDIT_USER_RATE_LIMIT_*` limits new audits per authenticated user. The closed-beta default is 10 per hour, in addition to the coarse IP limiter.
 - `TELEMETRY_ENABLED` controls privacy-safe JSON audit events on stdout. Test environments keep the collector active but suppress output unless explicitly injected.
 - `.env` is ignored and should not be committed.

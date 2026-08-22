@@ -1,3 +1,4 @@
+import { createHmac, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { createAuthService } from "../auth/auth-service.mjs";
@@ -38,6 +39,7 @@ export function createApp(config, dependencies = {}) {
       windowMs: config.rateLimitWindowMs,
       max: config.rateLimitMax
     });
+  const authEmailRateLimitKey = randomBytes(32);
   const authRateLimiters = dependencies.authRateLimiters || {
     general: createRateLimiter({
       windowMs: config.authGeneralRateLimitWindowMs,
@@ -50,6 +52,14 @@ export function createApp(config, dependencies = {}) {
     login: createRateLimiter({
       windowMs: config.authLoginRateLimitWindowMs,
       max: config.authLoginRateLimitMax
+    }),
+    loginByEmail: createRateLimiter({
+      windowMs: config.authLoginRateLimitWindowMs,
+      max: config.authLoginEmailRateLimitMax,
+      keySelector: (_request, context) => {
+        const normalizedEmail = typeof context?.normalizedEmail === "string" ? context.normalizedEmail : "invalid";
+        return `email:${createHmac("sha256", authEmailRateLimitKey).update(normalizedEmail).digest("hex")}`;
+      }
     })
   };
   const auditRateLimiters = dependencies.auditRateLimiters || {

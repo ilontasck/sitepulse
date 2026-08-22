@@ -215,6 +215,11 @@ export function loadConfig(overrides = {}) {
       overrides.AUTH_LOGIN_RATE_LIMIT_MAX ?? process.env.AUTH_LOGIN_RATE_LIMIT_MAX,
       30
     ),
+    authLoginEmailRateLimitMax: parsePositiveInteger(
+      "AUTH_LOGIN_EMAIL_RATE_LIMIT_MAX",
+      overrides.AUTH_LOGIN_EMAIL_RATE_LIMIT_MAX ?? process.env.AUTH_LOGIN_EMAIL_RATE_LIMIT_MAX,
+      10
+    ),
     authGeneralRateLimitWindowMs: parsePositiveInteger(
       "AUTH_GENERAL_RATE_LIMIT_WINDOW_MS",
       overrides.AUTH_GENERAL_RATE_LIMIT_WINDOW_MS ?? process.env.AUTH_GENERAL_RATE_LIMIT_WINDOW_MS,

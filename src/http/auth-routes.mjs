@@ -1,5 +1,6 @@
 import { AuthCapacityError, AuthInputError } from "../auth/auth-errors.mjs";
 import { AuthServiceError } from "../auth/auth-service.mjs";
+import { normalizeEmail } from "../auth/email.mjs";
 import { readJsonBody } from "./body.mjs";
 import { HttpError } from "./http-error.mjs";
 import { requireTrustedOrigin } from "./origin-policy.mjs";
@@ -86,6 +87,13 @@ export async function handleAuthApi({
     const body = requireObjectBody(
       await readJsonBody(request, config.requestBodyLimitBytes, { strictContentType: true })
     );
+    let normalizedEmail = null;
+    try {
+      normalizedEmail = normalizeEmail(body.email).normalized;
+    } catch {
+      // Invalid identifiers share one keyed bucket and continue through the generic auth path.
+    }
+    rateLimiters.loginByEmail(request, response, { normalizedEmail });
     const previousSessionToken = cookiePolicy.parse(request.headers.cookie);
     const result = await performAuthOperation(
       () => authService.login({ ...body, previousSessionToken }),

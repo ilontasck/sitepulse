@@ -248,6 +248,30 @@ describe("authentication HTTP API", () => {
     }
   });
 
+  it("enforces the separate normalized-email login bucket", async () => {
+    const api = await startApi({
+      configOverrides: {
+        AUTH_LOGIN_RATE_LIMIT_MAX: 100,
+        AUTH_LOGIN_EMAIL_RATE_LIMIT_MAX: 2
+      }
+    });
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const response = await authRequest(api, "/api/auth/login", {
+        body: { email: "Owner@Example.COM", password: "wrong password value" }
+      });
+      assert.equal(response.status, 401);
+    }
+
+    const limited = await authRequest(api, "/api/auth/login", {
+      body: { email: " owner@example.com ", password: "wrong password value" }
+    });
+    assert.equal(limited.status, 429);
+    assert.deepEqual(await limited.json(), {
+      error: { code: "RATE_LIMITED", message: "Too many requests. Please try again soon." }
+    });
+  });
+
   it("logs in with rotation while preserving unrelated sessions", async () => {
     const api = await startApi();
     const firstRegistration = await register(api);
