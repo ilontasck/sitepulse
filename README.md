@@ -54,7 +54,7 @@ Shows full-stack product execution: polished UI, backend API, secure scanner pip
 - Testing: Node test runner and Playwright
 - Security: SSRF-aware scanner fetch, API validation, rate limiting, security headers
 
-Node's `node:sqlite` module is currently marked experimental by Node. Lighthouse 13 sets the effective project minimum to Node.js `22.19+`.
+Node's `node:sqlite` module is currently marked experimental by Node. The supported project runtime is Node.js `24.x` (`>=24 <25` in `package.json`); `.node-version` pins `24.14.0`.
 
 ## Portfolio Value
 
@@ -128,9 +128,9 @@ coverage/
 
 ## Requirements
 
-- Node.js `22.19+`
+- Node.js `24.x` (`>=24 <25`)
 - Recommended Node version from `.node-version`: `24.14.0`
-- pnpm
+- pnpm `11.9.0` (pinned by `packageManager`)
 - Chromium for Playwright e2e tests
 
 For a full new-Mac restore, read:
@@ -164,10 +164,10 @@ pnpm worker
 
 The worker exposes loopback-only liveness/readiness endpoints on port `3001` by default. Production process supervision for a single VM is documented in [docs/PRODUCTION_PROCESS_SUPERVISION.md](docs/PRODUCTION_PROCESS_SUPERVISION.md).
 
-Open:
+Open the configured `PUBLIC_ORIGIN` (the local default is):
 
 ```text
-http://localhost:3000
+http://127.0.0.1:3000
 ```
 
 Development alias for the web process:
@@ -246,17 +246,18 @@ If the local SQLite database contains work you need to preserve, export or copy 
 
 1. In terminal 1, start the web process with `pnpm start`.
 2. In terminal 2, start the audit worker with `pnpm worker`.
-3. Open `http://localhost:3000`.
-4. Enter `https://example.com/`.
-5. Run the audit and observe the queued/running state before the report opens.
-6. Review the report:
+3. Open the configured `PUBLIC_ORIGIN` (the local default is `http://127.0.0.1:3000`).
+4. Sign in with a local test account. On a fresh local demo database, explicitly set `AUTH_REGISTRATION_MODE=public` before starting the web process and register through the UI. Use the configured `PUBLIC_ORIGIN` when opening the page; registration and audit creation require that exact origin.
+5. Enter `https://example.com/`.
+6. Run the audit and observe the queued/running state before the report opens.
+7. Review the report:
    - Overall score
    - Category cards
    - Live checks
    - Priority recommendations
    - Scanner metadata and adapters
-7. Try `not a website` and confirm a friendly validation error.
-8. Try `http://127.0.0.1:3000` and confirm private/internal URLs are blocked before enqueue.
+8. Try `not a website` and confirm a friendly validation error.
+9. Try `http://127.0.0.1:3000` and confirm private/internal URLs are blocked before enqueue.
 
 ## Suggested Screenshots
 
@@ -399,11 +400,11 @@ The response contains a queued job and its polling URL:
 
 ### `GET /api/audit-jobs/:id`
 
-Returns the safe public job status. A completed job includes `auditId` and `auditUrl`; a failed job includes only a safe error code and message.
+Requires a valid session and returns the safe job status only to its owner. A completed job includes `auditId` and `auditUrl`; a failed job includes only a safe error code and message.
 
 ### `GET /api/audits/:id`
 
-Returns one audit report by unguessable UUID.
+Requires a valid session and returns one audit report only to its owner. An unguessable UUID alone does not grant access.
 
 ### `GET /api/audits?limit=20`
 
@@ -413,7 +414,7 @@ Admin-only summary endpoint. Requires:
 X-Admin-Key: your-admin-key
 ```
 
-It returns summaries only, not full category/recommendation payloads.
+It returns summaries only, not full category/recommendation payloads. Responses use `Cache-Control: private, no-store`.
 
 ## Security And Privacy
 
@@ -518,8 +519,7 @@ Then verify:
 - Median-of-three Lighthouse runs and historical trends
 - Field Core Web Vitals through CrUX/RUM
 - axe-core accessibility adapter
-- Authenticated report history
+- Authenticated report history UI (owner-scoped storage is implemented)
 - Branded PDF export
-- Background scan queue
 - Postgres storage for hosted production
 - Public demo deployment
