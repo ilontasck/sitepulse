@@ -403,7 +403,9 @@ describe("asynchronous audit API", () => {
     assert.equal(detailResponse.status, 404);
     assert.equal(detailBody.error.code, "AUDIT_NOT_FOUND");
     assert.equal(forbiddenResponse.status, 403);
+    assert.equal(forbiddenResponse.headers.get("cache-control"), "private, no-store");
     assert.equal(historyResponse.status, 200);
+    assert.equal(historyResponse.headers.get("cache-control"), "private, no-store");
     assert.ok(historyBody.audits.some((audit) => audit.id === api.seededAudit.id));
     assert.equal(historyBody.audits[0].categories, undefined);
   });

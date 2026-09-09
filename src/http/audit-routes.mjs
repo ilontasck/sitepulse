@@ -158,6 +158,7 @@ export async function handleAuditApi({
   }
 
   if (url.pathname === "/api/audits" && request.method === "GET") {
+    response.setHeader("Cache-Control", "private, no-store");
     requireAdminAccess(request, config);
     const audits = await store.list({ limit: parseLimit(url.searchParams) });
 

@@ -95,6 +95,7 @@ describe("privacy controls", () => {
 
     assert.equal(response.status, 404);
     assert.equal(body.error.code, "AUDIT_HISTORY_DISABLED");
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
   });
 
   it("allows only the authenticated owner to fetch a completed report", async () => {
