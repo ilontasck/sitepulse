@@ -126,3 +126,40 @@ describe("URL safety", () => {
     );
   });
 });
+
+// The transport exposes headers before the body completes, as native fetch does.
+describe("HTML download lifecycle", () => {
+  it("times out a body that stalls after headers", async () => {
+    let fallback;
+    try {
+      await assert.rejects(fetchSafeHtml("https://example.com", {
+        resolver: resolver({}),
+        timeoutMs: 20,
+        fetcher: async (_url, { signal }) => htmlResponse(new ReadableStream({
+          start(stream) {
+            signal.addEventListener("abort", () => stream.error(signal.reason), { once: true });
+            // Release a broken implementation so the regression fails without hanging.
+            fallback = setTimeout(() => stream.close(), 200);
+          }
+        }))
+      }), error => error.code === "SCAN_TIMEOUT" && error.statusCode === 504);
+    } finally {
+      clearTimeout(fallback);
+    }
+  });
+
+  it("preserves caller cancellation during body consumption", async () => {
+    const caller = new AbortController();
+    const reason = new Error("job cancelled");
+    await assert.rejects(fetchSafeHtml("https://example.com", {
+      resolver: resolver({}),
+      signal: caller.signal,
+      fetcher: async (_url, { signal }) => htmlResponse(new ReadableStream({
+        pull(stream) {
+          signal.addEventListener("abort", () => stream.error(signal.reason), { once: true });
+          caller.abort(reason);
+        }
+      }))
+    }), error => error === reason);
+  });
+});

@@ -221,6 +221,46 @@ export async function fetchSafeHtml(inputUrl, options = {}) {
         redirect: "manual",
         signal
       });
+
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get("location");
+
+        if (!location) {
+          throw new HttpError(400, "The website returned a redirect without a location.", "UNSAFE_REDIRECT");
+        }
+
+        const nextUrl = buildRedirectUrl(location, currentUrl);
+        redirects.push(nextUrl.toString());
+
+        if (redirectCount === maxRedirects) {
+          throw new HttpError(400, "The website redirects too many times to scan safely.", "TOO_MANY_REDIRECTS");
+        }
+
+        currentUrl = nextUrl;
+        continue;
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      const contentLength = Number(response.headers.get("content-length") || 0);
+
+      if (!contentType.toLowerCase().includes("text/html")) {
+        throw new HttpError(400, `Expected HTML but received ${contentType || "unknown content type"}.`, "NON_HTML_RESPONSE");
+      }
+
+      if (contentLength > maxHtmlBytes) {
+        throw new HttpError(413, "HTML document is too large to scan safely.", "HTML_TOO_LARGE");
+      }
+
+      const html = await readLimitedText(response, maxHtmlBytes);
+
+      return {
+        finalUrl: currentUrl.toString().replace(/\/$/, ""),
+        redirects,
+        response,
+        html: html.text,
+        htmlBytes: html.bytes,
+        responseTimeMs: Date.now() - startedAt
+      };
     } catch (error) {
       if (controller.signal.aborted && !options.signal?.aborted) {
         throw new HttpError(504, "Website scan timed out.", "SCAN_TIMEOUT");
@@ -231,45 +271,6 @@ export async function fetchSafeHtml(inputUrl, options = {}) {
       clearTimeout(timer);
     }
 
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      const location = response.headers.get("location");
-
-      if (!location) {
-        throw new HttpError(400, "The website returned a redirect without a location.", "UNSAFE_REDIRECT");
-      }
-
-      const nextUrl = buildRedirectUrl(location, currentUrl);
-      redirects.push(nextUrl.toString());
-
-      if (redirectCount === maxRedirects) {
-        throw new HttpError(400, "The website redirects too many times to scan safely.", "TOO_MANY_REDIRECTS");
-      }
-
-      currentUrl = nextUrl;
-      continue;
-    }
-
-    const contentType = response.headers.get("content-type") || "";
-    const contentLength = Number(response.headers.get("content-length") || 0);
-
-    if (!contentType.toLowerCase().includes("text/html")) {
-      throw new HttpError(400, `Expected HTML but received ${contentType || "unknown content type"}.`, "NON_HTML_RESPONSE");
-    }
-
-    if (contentLength > maxHtmlBytes) {
-      throw new HttpError(413, "HTML document is too large to scan safely.", "HTML_TOO_LARGE");
-    }
-
-    const html = await readLimitedText(response, maxHtmlBytes);
-
-    return {
-      finalUrl: currentUrl.toString().replace(/\/$/, ""),
-      redirects,
-      response,
-      html: html.text,
-      htmlBytes: html.bytes,
-      responseTimeMs: Date.now() - startedAt
-    };
   }
 
   throw new HttpError(400, "The website redirects too many times to scan safely.", "TOO_MANY_REDIRECTS");
