@@ -211,6 +211,7 @@ export async function fetchSafeHtml(inputUrl, options = {}) {
       : controller.signal;
     const startedAt = Date.now();
     let response;
+    let bodyConsumed = false;
 
     try {
       response = await fetcher(currentUrl, {
@@ -252,6 +253,7 @@ export async function fetchSafeHtml(inputUrl, options = {}) {
       }
 
       const html = await readLimitedText(response, maxHtmlBytes);
+      bodyConsumed = true;
 
       return {
         finalUrl: currentUrl.toString().replace(/\/$/, ""),
@@ -269,6 +271,8 @@ export async function fetchSafeHtml(inputUrl, options = {}) {
       throw error;
     } finally {
       clearTimeout(timer);
+      // Release unfinished native fetch bodies on redirects and rejected responses.
+      if (!bodyConsumed) controller.abort();
     }
 
   }

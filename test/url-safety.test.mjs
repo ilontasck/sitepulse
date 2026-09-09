@@ -163,3 +163,46 @@ describe("HTML download lifecycle", () => {
     }), error => error === reason);
   });
 });
+
+describe("unfinished HTML response cleanup", () => {
+  for (const [name, makeResponse, code] of [
+    ["redirect without location", () => new Response("pending", { status: 302 }), "UNSAFE_REDIRECT"],
+    ["redirect limit", () => new Response("pending", { status: 302, headers: { location: "/again" } }), "TOO_MANY_REDIRECTS"],
+    ["non-HTML response", () => new Response("pending", { headers: { "content-type": "application/json" } }), "NON_HTML_RESPONSE"],
+    ["oversized declared body", () => htmlResponse("pending", { headers: { "content-length": "100" } }), "HTML_TOO_LARGE"],
+    ["oversized streamed body", () => htmlResponse("x".repeat(100)), "HTML_TOO_LARGE"]
+  ]) {
+    it(`aborts transport after ${name}`, async () => {
+      let transportSignal;
+      await assert.rejects(fetchSafeHtml("https://example.com", {
+        resolver: resolver({}),
+        maxRedirects: 0,
+        maxHtmlBytes: 10,
+        fetcher: async (_url, { signal }) => {
+          transportSignal = signal;
+          return makeResponse();
+        }
+      }), error => error.code === code);
+      assert.equal(transportSignal.aborted, true);
+    });
+  }
+
+  it("aborts a redirect body before fetching the next hop, preserving a completed response", async () => {
+    let firstSignal;
+    let finalSignal;
+    const result = await fetchSafeHtml("https://example.com", {
+      resolver: resolver({}),
+      fetcher: async (url, { signal }) => {
+        if (url.pathname === "/") {
+          firstSignal = signal;
+          return new Response("pending", { status: 302, headers: { location: "/final" } });
+        }
+        assert.equal(firstSignal.aborted, true);
+        finalSignal = signal;
+        return htmlResponse("<html>done</html>");
+      }
+    });
+    assert.equal(result.html, "<html>done</html>");
+    assert.equal(finalSignal.aborted, false);
+  });
+});

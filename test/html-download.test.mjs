@@ -38,3 +38,41 @@ it("enforces the HTML body deadline with native fetch", async (t) => {
   assert.equal(responseReceived, true, "the timeout must occur after headers arrive");
   assert.equal(caller.signal.aborted, false, "the scanner deadline must fire before the watchdog");
 });
+
+for (const [name, headers, code] of [
+  ["non-HTML", { "Content-Type": "application/json" }, "NON_HTML_RESPONSE"],
+  ["oversized declared", { "Content-Type": "text/html", "Content-Length": "1000000" }, "HTML_TOO_LARGE"],
+  ["oversized streamed", { "Content-Type": "text/html" }, "HTML_TOO_LARGE"]
+]) {
+  it(`closes a native fetch connection after rejecting a ${name} body`, async (t) => {
+    let connectionClosed;
+    const closed = new Promise(resolve => { connectionClosed = resolve; });
+    const server = createServer((_request, response) => {
+      response.on("close", connectionClosed);
+      response.writeHead(200, headers);
+      response.write("x".repeat(100));
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    t.after(async () => {
+      server.closeAllConnections();
+      await new Promise(resolve => server.close(resolve));
+    });
+    await assert.rejects(fetchSafeHtml("https://example.com", {
+      resolver: async () => [{ address: "93.184.216.34", family: 4 }],
+      maxHtmlBytes: 10,
+      fetcher: (_url, options) => fetch(`http://127.0.0.1:${server.address().port}`, options)
+    }), error => error.code === code);
+    let watchdog;
+    try {
+      await Promise.race([
+        closed,
+        new Promise((_, reject) => {
+          watchdog = setTimeout(() => reject(new Error("rejected response connection stayed open")), 1_000);
+        })
+      ]);
+    } finally {
+      clearTimeout(watchdog);
+    }
+  });
+}
