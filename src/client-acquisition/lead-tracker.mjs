@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { appendFile, mkdir, open } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 export const leadColumns = [
@@ -7,7 +7,9 @@ export const leadColumns = [
 ];
 
 function csvCell(value) {
-  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const text = String(value ?? "");
+  const safeText = /^[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replaceAll('"', '""')}"`;
 }
 
 export function createLeadRecord({ miniAudit, company = "", industry = "", contactName = "", contactMethod = "", contactValue = "", status = "AUDITED" }) {
@@ -25,10 +27,15 @@ export function serializeLead(record) {
 
 export async function appendLeadRecord(filePath, record) {
   const absolute = resolve(filePath);
-  let existing = "";
-  try { existing = await readFile(absolute, "utf8"); } catch (error) { if (error.code !== "ENOENT") throw error; }
   const header = `${leadColumns.join(",")}\n`;
   await mkdir(dirname(absolute), { recursive: true });
-  await appendFile(absolute, `${existing ? "" : header}${serializeLead(record)}`, { encoding: "utf8", flag: "a" });
+  try {
+    const handle = await open(absolute, "wx");
+    await handle.writeFile(header, "utf8");
+    await handle.close();
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+  }
+  await appendFile(absolute, serializeLead(record), { encoding: "utf8", flag: "a" });
   return absolute;
 }

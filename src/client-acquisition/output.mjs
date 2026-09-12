@@ -1,9 +1,17 @@
 function escapeMarkdown(value) {
-  return String(value ?? "").replace(/[\\`*_{}[\]()#+.!|>~-]/g, "\\$&");
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replace(/[\\`*_{}[\]()#+.!|>~-]/g, "\\$&");
 }
 
 function safeDomain(value) {
   return String(value || "website").replace(/[^a-z0-9.-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "website";
+}
+
+function plainText(value) {
+  return String(value ?? "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
 }
 
 export function renderMiniAuditMarkdown(miniAudit) {
@@ -46,9 +54,9 @@ export function renderMiniAuditMarkdown(miniAudit) {
 
 export function renderOutreachSnippet(miniAudit) {
   const bullets = miniAudit.findings.length
-    ? miniAudit.findings.map((finding) => `• ${finding.title} (${finding.severity}): ${finding.evidence}`).join("\n")
+    ? miniAudit.findings.map((finding) => `• ${plainText(finding.title)} (${plainText(finding.severity)}): ${plainText(finding.evidence)}`).join("\n")
     : "• В автоматической предварительной проверке не найдено подтверждённых пунктов с достаточным evidence.";
-  return `Hallo,\n\nich habe die Website ${miniAudit.website} kurz automatisiert geprüft und dabei folgende Punkte gefunden:\n\n${bullets}\n\nDas ist eine kurze technische Vorprüfung, kein vollständiger Audit. Wenn Sie möchten, kann ich daraus einen vollständigen Website Audit & QA für €99 erstellen.\n\nViele Grüße\n`;
+  return `Hallo,\n\nich habe die Website ${plainText(miniAudit.website)} kurz automatisiert geprüft und dabei folgende Punkte gefunden:\n\n${bullets}\n\nDas ist eine kurze technische Vorprüfung, kein vollständiger Audit. Wenn Sie möchten, kann ich daraus einen vollständigen Website Audit & QA für €99 erstellen.\n\nViele Grüße\n`;
 }
 
 export function outputBasename(miniAudit) {

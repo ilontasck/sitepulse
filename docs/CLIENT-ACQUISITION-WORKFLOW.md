@@ -10,11 +10,13 @@ From the repository root:
 pnpm mini-audit https://example.com
 ```
 
+The default is three findings; use `--findings 4` or `--findings 5` when a longer preliminary review is useful.
+
 Add `--rendered` when Core Web Vitals or Lighthouse findings are worth the extra browser cost. This uses the existing single-concurrency rendered-audit limiter. The default is the faster HTML-only path.
 
 The command writes:
 
-- `reports/leads/example-com-mini-audit.md` — the three highest-priority findings with evidence and recommended direction.
+- `reports/leads/example-com-mini-audit.md` — the selected three-to-five highest-priority findings with evidence and recommended direction.
 - `outreach/example-com-mini-audit.txt` — a draft only; it is never sent automatically.
 
 Use `--no-outreach` when only the Markdown report is needed. Use `--lead --company "Example Co" --industry "SaaS"` to append a row to `data/leads.csv`.
@@ -40,6 +42,8 @@ Before adapting an outreach draft for a potential client, a person must verify:
 - The finding is still relevant after a quick human review on desktop and mobile.
 
 The output is an automated preliminary check, not a full audit. A full Website Audit & QA is the €99 service offer described in the current brief; confirm commercial details before sending.
+
+The CLI reuses the existing application-layer URL and redirect protections. The optional rendered mode is intended for the trusted internal machine and does not replace the production Linux egress sandbox; keep production browser work behind the existing isolated runner.
 
 ## What remains manual
 

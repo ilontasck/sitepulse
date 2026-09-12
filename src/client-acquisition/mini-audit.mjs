@@ -1,5 +1,5 @@
 const severityOrder = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
-const categoryOrder = ["forms", "trust", "mobile", "accessibility", "performance", "seo", "content", "design"];
+const categoryOrder = ["forms", "mobile", "accessibility", "performance", "seo", "trust", "content", "design"];
 const allowedSeverities = new Set(severityOrder);
 
 function normalizeSeverity(value) {
@@ -12,11 +12,12 @@ function categoryRank(category) {
   const label = String(category.label || "");
   const index = categoryOrder.indexOf(id);
   if (index >= 0) return index;
-  if (/button|form|conversion|trust/i.test(label)) return 0;
+  if (/button|form|conversion/i.test(label)) return 0;
   if (/mobile|responsive/i.test(label)) return 2;
   if (/access/i.test(label)) return 3;
   if (/performance/i.test(label)) return 4;
   if (/seo/i.test(label)) return 5;
+  if (/trust|security/i.test(label)) return 5;
   return 6;
 }
 
@@ -29,11 +30,26 @@ function metricFromEvidence(evidence) {
   return evidence.match(/\b\d+(?:[.,]\d+)?\s*(?:ms|s|kb|kib|bytes?|%|px)?\b/i)?.[0]?.trim() || null;
 }
 
-function affectedUrl(report) {
-  return report.signals?.lighthouse?.finalUrl || report.normalizedUrl || null;
+function affectedUrl(report, check) {
+  if (check.page || check.url || check.affectedUrl) return check.page || check.url || check.affectedUrl;
+  return report.signals?.lab?.finalUrl || report.signals?.lighthouse?.finalUrl || report.normalizedUrl || null;
 }
 
-function recommendationFor(category, failedIndex) {
+function recommendationFor(category, check, failedIndex) {
+  const label = `${check.id || ""} ${check.label || ""}`;
+  const matchers = [
+    [/input-label|form|label/i, /label|field/], [/image-alt|alt/i, /alt text|image/],
+    [/button-name|button/i, /button|action/], [/title-length/i, /tune|title/],
+    [/title/i, /title|offer/], [/h1/i, /H1|heading/], [/viewport/i, /viewport/],
+    [/response-time|server-response/i, /response|server/], [/html-size/i, /HTML|markup/],
+    [/script-count|javascript/i, /script/], [/caching/i, /Cache|cache/],
+    [/lcp|cls|tbt|lighthouse/i, /LCP|layout|thread|Lighthouse|image/]
+  ];
+  const matched = matchers.find(([pattern]) => pattern.test(label));
+  if (matched) {
+    const candidate = category.recommendations?.find((item) => matched[1].test(item));
+    if (candidate) return candidate;
+  }
   return category.recommendations?.[failedIndex]
     || category.recommendations?.[0]
     || "Review this area during the full audit.";
@@ -58,10 +74,10 @@ export function selectMiniAuditFindings(report, { limit = 3 } = {}) {
         severity: normalizeSeverity(check.priority),
         title: String(check.label || "Confirmed issue"),
         explanation: `The automated audit found this issue on the page. Evidence: ${evidence}.`,
-        affectedUrl: affectedUrl(report),
+        affectedUrl: affectedUrl(report, check),
         evidence,
         metric: metricFromEvidence(evidence),
-        recommendation: recommendationFor(category, failedIndex),
+        recommendation: recommendationFor(category, check, failedIndex),
         source: "automated HTML audit"
       });
       failedIndex += 1;
@@ -70,8 +86,9 @@ export function selectMiniAuditFindings(report, { limit = 3 } = {}) {
 
   return findings
     .sort((a, b) => {
+      const category = categoryRank({ id: a.categoryId, label: a.category }) - categoryRank({ id: b.categoryId, label: b.category });
       const severity = severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity);
-      return severity || categoryRank({ id: a.categoryId, label: a.category }) - categoryRank({ id: b.categoryId, label: b.category }) || a.title.localeCompare(b.title);
+      return category || severity || a.title.localeCompare(b.title);
     })
     .slice(0, limit);
 }
@@ -83,13 +100,16 @@ export function countAdditionalFindings(report, selectedFindings) {
 
 export function createMiniAudit(report, options = {}) {
   const findings = selectMiniAuditFindings(report, options);
+  const normalizedUrl = report?.normalizedUrl || options.inputUrl || null;
+  let website = report?.domain || "provided website";
+  try { if (!report?.domain && normalizedUrl) website = new URL(normalizedUrl).hostname; } catch {}
   return {
-    website: report?.domain || new URL(report.normalizedUrl).hostname,
-    normalizedUrl: report?.normalizedUrl || null,
+    website,
+    normalizedUrl,
     findings,
     additionalFindings: countAdditionalFindings(report, findings),
     scannerStatus: report?.scanner?.status || "unknown",
-    warnings: Array.isArray(report?.warnings) ? report.warnings : [],
+    warnings: Array.isArray(report?.warnings) ? report.warnings : report ? [] : ["The automated audit could not be completed safely. No confirmed finding was generated."],
     recommendation: "Full Website Audit"
   };
 }
