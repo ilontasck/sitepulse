@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { appendLeadRecord, createLeadRecord, leadColumns } from "../src/client-acquisition/lead-tracker.mjs";
-import { createMiniAudit, renderMiniAuditMarkdown, renderOutreachSnippet } from "../src/client-acquisition/index.mjs";
+import { createMiniAudit, outputBasename, renderMiniAuditMarkdown, renderOutreachSnippet } from "../src/client-acquisition/index.mjs";
 import { parseMiniAuditArgs, runMiniAudit } from "../scripts/mini-audit.mjs";
 import { generateAudit } from "../src/audit/audit-engine.mjs";
 
@@ -48,6 +48,7 @@ describe("client acquisition toolkit", () => {
     assert.equal(mini.findings[0].severity, "HIGH");
     assert.equal(mini.findings[0].metric, "2");
     assert.equal(mini.findings[2].affectedUrl, "https://example.com/pricing");
+    assert.equal(mini.findings[2].recommendation, "Add title.");
     assert.equal(mini.additionalFindings, 1);
   });
 
@@ -67,6 +68,10 @@ describe("client acquisition toolkit", () => {
     const mini = createMiniAudit({ normalizedUrl: "https://empty.example", domain: "empty.example", categories: [{ id: "seo", label: "SEO", checks: [{ passed: false, label: "Missing", priority: "high", details: "" }] }] });
     assert.deepEqual(mini.findings, []);
     assert.match(renderMiniAuditMarkdown(mini), /No finding with sufficient evidence/);
+  });
+
+  it("normalizes special domains into safe output filenames", () => {
+    assert.equal(outputBasename({ website: "EXAMPLE.COM/path?<script>" }), "example.com-path-script-mini-audit");
   });
 
   it("writes a safe partial report when the audit engine fails unexpectedly", async () => {
