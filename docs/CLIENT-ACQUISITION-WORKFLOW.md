@@ -10,6 +10,8 @@ From the repository root:
 pnpm mini-audit https://example.com
 ```
 
+Add `--rendered` when Core Web Vitals or Lighthouse findings are worth the extra browser cost. This uses the existing single-concurrency rendered-audit limiter. The default is the faster HTML-only path.
+
 The command writes:
 
 - `reports/leads/example-com-mini-audit.md` — the three highest-priority findings with evidence and recommended direction.

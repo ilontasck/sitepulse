@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 import { generateAudit } from "../src/audit/audit-engine.mjs";
+import { createRenderedAuditLimiter } from "../src/audit/rendered-audit-limiter.mjs";
 import {
   appendLeadRecord,
   createLeadRecord,
@@ -16,7 +17,7 @@ const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
 export function parseMiniAuditArgs(argv) {
   const positional = [];
-  const options = { outreach: true, lead: false };
+  const options = { outreach: true, lead: false, rendered: false };
   const valueOptions = new Map([
     ["--company", "company"], ["--industry", "industry"], ["--contact-name", "contactName"],
     ["--contact-method", "contactMethod"], ["--contact-value", "contactValue"], ["--status", "status"]
@@ -25,6 +26,7 @@ export function parseMiniAuditArgs(argv) {
     const arg = argv[index];
     if (arg === "--no-outreach") options.outreach = false;
     else if (arg === "--lead") options.lead = true;
+    else if (arg === "--rendered") options.rendered = true;
     else if (arg === "--help" || arg === "-h") options.help = true;
     else if (valueOptions.has(arg)) {
       const value = argv[++index];
@@ -39,7 +41,10 @@ export function parseMiniAuditArgs(argv) {
 
 export async function runMiniAudit(args, dependencies = {}) {
   const auditGenerator = dependencies.auditGenerator || generateAudit;
-  const report = await auditGenerator(args.url, { renderedAuditEnabled: false });
+  const report = await auditGenerator(args.url, {
+    renderedAuditEnabled: args.rendered === true,
+    renderedAuditLimiter: args.rendered ? (dependencies.renderedAuditLimiter || createRenderedAuditLimiter(1)) : undefined
+  });
   const miniAudit = createMiniAudit(report, { limit: 3 });
   const basename = outputBasename(miniAudit);
   const reportsDirectory = join(projectRoot, "reports", "leads");
@@ -61,7 +66,7 @@ export async function runMiniAudit(args, dependencies = {}) {
 }
 
 function printHelp() {
-  console.log("Usage: pnpm mini-audit <public-url> [--no-outreach] [--lead] [--company name] [--industry type] [--contact-name name] [--contact-method method] [--contact-value value] [--status STATUS]");
+  console.log("Usage: pnpm mini-audit <public-url> [--rendered] [--no-outreach] [--lead] [--company name] [--industry type] [--contact-name name] [--contact-method method] [--contact-value value] [--status STATUS]");
   console.log("Runs the existing safe audit pipeline and writes an internal Markdown mini-audit. No message is sent.");
 }
 

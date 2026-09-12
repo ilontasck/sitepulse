@@ -27,8 +27,8 @@ function report(overrides = {}) {
 
 describe("client acquisition toolkit", () => {
   it("validates one URL and known options before doing work", () => {
-    assert.deepEqual(parseMiniAuditArgs(["https://example.com", "--lead", "--company", "Acme"]), {
-      url: "https://example.com", lead: true, outreach: true, company: "Acme"
+    assert.deepEqual(parseMiniAuditArgs(["https://example.com", "--rendered", "--lead", "--company", "Acme"]), {
+      url: "https://example.com", lead: true, outreach: true, rendered: true, company: "Acme"
     });
     assert.throws(() => parseMiniAuditArgs([]), /Usage/);
     assert.throws(() => parseMiniAuditArgs(["https://example.com", "--unknown"]), /Unknown option/);
