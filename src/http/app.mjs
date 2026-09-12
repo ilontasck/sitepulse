@@ -10,7 +10,10 @@ import { createAuditStore } from "../storage/audit-store.mjs";
 import { createAuthStore } from "../storage/auth-store.mjs";
 import { runMigrations } from "../storage/migrations.mjs";
 import { createAuditTelemetry } from "../telemetry/audit-telemetry.mjs";
-import { handleAuditApi } from "./audit-routes.mjs";
+import { safeErrorCode } from "../audit/audit-failure-classifier.mjs";
+import { createRequestId, logRoute, withLogContext } from "../telemetry/log-context.mjs";
+import { createApiMetrics, queueMetrics } from "../telemetry/queue-metrics.mjs";
+import { handleAuditApi, requireAdminAccess } from "./audit-routes.mjs";
 import { handleAuthApi } from "./auth-routes.mjs";
 import { HttpError } from "./http-error.mjs";
 import { isHttpError } from "./http-error.mjs";
@@ -74,110 +77,140 @@ export function createApp(config, dependencies = {}) {
       keySelector: (_request, user) => `user:${user.id}`
     })
   };
+  const apiMetrics = createApiMetrics();
   let stopping = false;
 
-  const server = createServer(async (request, response) => {
-    applySecurityHeaders(response);
-    const url = new URL(request.url || "/", `http://${config.host}:${config.port}`);
-
-    try {
-      if (url.pathname.startsWith("/api/")) {
-        if (url.pathname.startsWith("/api/auth")) {
-          response.setHeader("Cache-Control", "no-store");
-        }
-
-        if (request.method === "GET" && url.pathname === "/api/health") {
-          response.setHeader("Cache-Control", "no-store");
-          return sendJson(response, 200, {
-            ok: true,
-            service: "sitepulse",
-            environment: config.env
-          });
-        }
-
-        if (request.method === "GET" && url.pathname === "/api/ready") {
-          response.setHeader("Cache-Control", "no-store");
-          const readiness = await readinessCheck();
-          const ready = !stopping && readiness?.ready === true;
-          return sendJson(response, ready ? 200 : 503, {
-            ok: ready,
-            service: "noqori-api",
-            status: stopping ? "stopping" : ready ? "ready" : "not-ready"
-          });
-        }
-
-        enforceRateLimit(request, response);
-
-        const authHandled = await handleAuthApi({
-          request,
-          response,
-          config,
-          url,
-          authService,
-          cookiePolicy,
-          rateLimiters: authRateLimiters
-        });
-
-        if (authHandled !== false) {
-          return authHandled;
-        }
-
-        const handled = await handleAuditApi({
-          request,
-          response,
-          config,
-          store,
-          jobStore,
-          url,
-          telemetry,
-          authService,
-          cookiePolicy,
-          rateLimiters: auditRateLimiters,
-          initialUrlSafetyValidator: dependencies.initialUrlSafetyValidator
-        });
-
-        if (handled === false) {
-          throw new HttpError(404, "API endpoint was not found.", "API_NOT_FOUND");
-        }
-
-        return handled;
-      }
-
-      const file = await serveStaticFile(request.url, publicRoot);
-      response.writeHead(200, { "Content-Type": file.contentType });
-      return response.end(file.body);
-    } catch (error) {
-      if (isHttpError(error)) {
-        return sendJson(response, error.statusCode, {
-          error: {
-            code: error.code,
-            message: error.message
-          }
-        });
-      }
-
-      if (url.pathname.startsWith("/api/")) {
-        return sendJson(response, 500, {
-          error: {
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Something went wrong."
-          }
-        });
-      }
-
+  const server = createServer((request, response) => {
+    request.requestId = createRequestId();
+    response.setHeader("X-Request-ID", request.requestId);
+    return withLogContext({ requestId: request.requestId }, async () => {
+      applySecurityHeaders(response);
+      const started = performance.now();
+      let url;
+      let errorCode;
+      let logged = false;
+      const finish = () => {
+        if (logged) return;
+        logged = true;
+        const fields = { requestId: request.requestId, route: logRoute(url?.pathname || "/api/unknown"),
+          method: request.method, statusCode: response.writableFinished ? response.statusCode : 499,
+          durationMs: Math.round(performance.now() - started), errorCode };
+        if (url?.pathname.startsWith("/api/")) apiMetrics.record(fields);
+        telemetry.record("http.request_completed", fields);
+      };
+      response.once("finish", finish);
+      response.once("close", finish);
       try {
-        const fallback = await serveStaticFile("/", join(publicRoot));
-        response.writeHead(200, { "Content-Type": fallback.contentType });
-        return response.end(fallback.body);
-      } catch {
-        return sendJson(response, 500, {
-          error: {
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Something went wrong."
+        url = new URL(request.url || "/", "http://localhost");
+        if (url.pathname.startsWith("/api/")) {
+          if (url.pathname.startsWith("/api/auth")) {
+            response.setHeader("Cache-Control", "no-store");
           }
-        });
+
+          if (request.method === "GET" && url.pathname === "/api/health") {
+            response.setHeader("Cache-Control", "no-store");
+            return sendJson(response, 200, {
+              ok: true,
+              service: "sitepulse",
+              environment: config.env
+            });
+          }
+
+          if (request.method === "GET" && url.pathname === "/api/ready") {
+            response.setHeader("Cache-Control", "no-store");
+            const readiness = await readinessCheck();
+            const ready = !stopping && readiness?.ready === true;
+            return sendJson(response, ready ? 200 : 503, {
+              ok: ready,
+              service: "noqori-api",
+              status: stopping ? "stopping" : ready ? "ready" : "not-ready"
+            });
+          }
+
+          enforceRateLimit(request, response);
+
+          if (request.method === "GET" && url.pathname === "/api/operations") {
+            response.setHeader("Cache-Control", "private, no-store");
+            requireAdminAccess(request, config);
+            const metrics = queueMetrics(config.databaseFilePath);
+            return sendJson(response, 200, { database: { reachable: true }, ...metrics, api: apiMetrics.snapshot() });
+          }
+
+          const authHandled = await handleAuthApi({
+            request,
+            response,
+            config,
+            url,
+            authService,
+            cookiePolicy,
+            rateLimiters: authRateLimiters
+          });
+
+          if (authHandled !== false) {
+            return authHandled;
+          }
+
+          const handled = await handleAuditApi({
+            request,
+            response,
+            config,
+            store,
+            jobStore,
+            url,
+            telemetry,
+            authService,
+            cookiePolicy,
+            rateLimiters: auditRateLimiters,
+            initialUrlSafetyValidator: dependencies.initialUrlSafetyValidator
+          });
+
+          if (handled === false) {
+            throw new HttpError(404, "API endpoint was not found.", "API_NOT_FOUND");
+          }
+
+          return handled;
+        }
+
+        const file = await serveStaticFile(request.url, publicRoot);
+        response.writeHead(200, { "Content-Type": file.contentType });
+        return response.end(file.body);
+      } catch (error) {
+        errorCode = safeErrorCode(error);
+        telemetry.record("http.request_failed", { requestId: request.requestId, route: logRoute(url?.pathname || "/api/unknown"),
+          method: request.method, statusCode: isHttpError(error) ? error.statusCode : 500,
+          errorCode, level: isHttpError(error) && error.statusCode < 500 ? "warn" : "error" });
+        if (isHttpError(error)) {
+          return sendJson(response, error.statusCode, {
+            error: {
+              code: error.code,
+              message: error.message
+            }
+          });
+        }
+
+        if (!url || url.pathname.startsWith("/api/")) {
+          return sendJson(response, 500, {
+            error: {
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Something went wrong."
+            }
+          });
+        }
+
+        try {
+          const fallback = await serveStaticFile("/", join(publicRoot));
+          response.writeHead(200, { "Content-Type": fallback.contentType });
+          return response.end(fallback.body);
+        } catch {
+          return sendJson(response, 500, {
+            error: {
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Something went wrong."
+            }
+          });
+        }
       }
-    }
+    });
   });
   const sessionCleanup = (dependencies.startSessionCleanupScheduler || startSessionCleanupScheduler)({
     ...dependencies.sessionCleanupOptions,

@@ -22,7 +22,7 @@ function parseLimit(searchParams) {
   return limit;
 }
 
-function requireAdminAccess(request, config) {
+export function requireAdminAccess(request, config) {
   if (!config.adminApiKey) {
     throw new HttpError(404, "Audit history endpoint is not enabled.", "AUDIT_HISTORY_DISABLED");
   }
@@ -115,9 +115,9 @@ export async function handleAuditApi({
     const websiteUrl = body.websiteUrl ?? body.url;
     const target = normalizeWebsiteUrl(websiteUrl);
     await initialUrlSafetyValidator(target.normalizedUrl);
-    const job = jobStore.enqueue({ normalizedUrl: target.normalizedUrl, userId: user.id });
+    const job = jobStore.enqueue({ normalizedUrl: target.normalizedUrl, userId: user.id, requestId: request.requestId });
     const statusUrl = `/api/audit-jobs/${job.id}`;
-    telemetry?.record("audit_job_enqueued", { jobId: job.id, outcome: "queued" });
+    telemetry?.record("audit.queued", { jobId: job.id, requestId: request.requestId, durationMs: 0, auditMode: config.renderedAuditEnabled ? "rendered" : "basic", outcome: "queued" });
 
     return sendJson(
       response,

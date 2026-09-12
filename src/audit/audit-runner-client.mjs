@@ -1,3 +1,4 @@
+import { isCorrelationId, logContext } from "../telemetry/log-context.mjs";
 import { randomUUID } from "node:crypto";
 import { createConnection } from "node:net";
 import {
@@ -107,7 +108,8 @@ export function createAuditRunnerClient({ socketPath, requestTimeoutMs = 60_000 
       return exchange(socketPath, {
         protocolVersion: auditRunnerProtocolVersion,
         type: "audit",
-        requestId: randomUUID(),
+        requestId: isCorrelationId(logContext().jobId) ? logContext().jobId : randomUUID(),
+        ...(isCorrelationId(logContext().requestId) ? { correlation: { requestId: logContext().requestId } } : {}),
         normalizedUrl,
         options: {
           renderedAuditEnabled: options.renderedAuditEnabled === true,

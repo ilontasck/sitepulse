@@ -13,7 +13,8 @@ function recordCleanupFailure(telemetry) {
   try {
     telemetry?.record("auth_session_cleanup_failed", {
       outcome: "failure",
-      reason: "storage_error"
+      reason: "storage_error",
+      errorCode: "DB_FAILURE"
     });
   } catch {
     // Cleanup observability must never affect the web process lifecycle.

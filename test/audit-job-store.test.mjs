@@ -92,6 +92,7 @@ describe("audit job store", () => {
 
     assert.deepEqual(created, {
       id: "job-1",
+      requestId: null,
       status: "queued",
       normalizedUrl: "https://example.com",
       userId: TEST_USER_ID,

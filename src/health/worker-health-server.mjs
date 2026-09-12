@@ -55,7 +55,9 @@ export function createWorkerHealthServer({
         ok: available,
         service: "noqori-worker",
         status,
-        activeJob: workerSnapshot()?.activeJob === true
+        activeJob: workerSnapshot()?.activeJob === true,
+        lastJobAt: workerSnapshot()?.lastJobAt || null,
+        lastPollAt: workerSnapshot()?.lastPollAt || null
       });
     }
 

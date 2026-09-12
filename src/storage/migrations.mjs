@@ -5,12 +5,15 @@ import { migration003Users } from "./migrations/003_users.mjs";
 import { migration004Sessions } from "./migrations/004_sessions.mjs";
 import { migration005AuditOwnership } from "./migrations/005_audit_ownership.mjs";
 
+import { migration006Observability } from "./migrations/006_observability.mjs";
+
 export const sitePulseMigrations = [
   migration001InitialAudits,
   migration002AuditJobs,
   migration003Users,
   migration004Sessions,
-  migration005AuditOwnership
+  migration005AuditOwnership,
+  migration006Observability
 ];
 
 function validateMigrations(migrations) {

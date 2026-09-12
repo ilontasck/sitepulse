@@ -1,3 +1,4 @@
+import { isCorrelationId } from "../telemetry/log-context.mjs";
 import { randomUUID } from "node:crypto";
 import { createAuditRecord, insertAuditRecord } from "./audit-record.mjs";
 import { withDatabase, withImmediateTransaction } from "./sqlite-database.mjs";
@@ -27,6 +28,7 @@ function toJob(row) {
 
   return {
     id: row.id,
+    requestId: row.request_id || null,
     status: row.status,
     normalizedUrl: row.normalized_url,
     userId: row.user_id,
@@ -76,7 +78,7 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
   const leaseTokenGenerator = options.leaseTokenGenerator || randomUUID;
 
   return {
-    enqueue({ normalizedUrl, userId }) {
+    enqueue({ normalizedUrl, userId, requestId = null }) {
       const now = toIsoTime(clock());
       const id = idGenerator();
       const ownerId = requireUserId(userId);
@@ -85,9 +87,9 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
         database.prepare(`
           INSERT INTO audit_jobs (
             id, status, normalized_url, attempt_count, max_attempts,
-            available_at, created_at, updated_at, user_id
-          ) VALUES (?, 'queued', ?, 0, 2, ?, ?, ?, ?)
-        `).run(id, normalizedUrl, now, now, now, ownerId);
+            available_at, created_at, updated_at, user_id, request_id
+          ) VALUES (?, 'queued', ?, 0, 2, ?, ?, ?, ?, ?)
+        `).run(id, normalizedUrl, now, now, now, ownerId, isCorrelationId(requestId) ? requestId : null);
 
         return toJob(database.prepare("SELECT * FROM audit_jobs WHERE id = ?").get(id));
       });
@@ -279,7 +281,7 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
     recoverExpired() {
       const now = toIsoTime(clock());
 
-      return withDatabase(databaseFilePath, (database) =>
+      const recovered = withDatabase(databaseFilePath, (database) =>
         withImmediateTransaction(database, () => {
           const failed = database.prepare(`
             UPDATE audit_jobs
@@ -294,7 +296,8 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
             WHERE status = 'running'
               AND lease_expires_at <= ?
               AND attempt_count >= max_attempts
-          `).run(now, now, now).changes;
+            RETURNING id, request_id, attempt_count, created_at
+          `).all(now, now, now);
           const requeued = database.prepare(`
             UPDATE audit_jobs
             SET status = 'queued',
@@ -309,11 +312,14 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
             WHERE status = 'running'
               AND lease_expires_at <= ?
               AND attempt_count < max_attempts
-          `).run(now, now, now).changes;
+            RETURNING id, request_id, attempt_count, created_at
+          `).all(now, now, now);
 
-          return { requeued, failed };
+          return { failed, requeued };
         })
       );
+      try { options.onRecovered?.(recovered); } catch { /* Committed recovery must survive telemetry failures. */ }
+      return { failed: recovered.failed.length, requeued: recovered.requeued.length };
     }
   };
 }

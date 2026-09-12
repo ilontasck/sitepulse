@@ -195,9 +195,9 @@ describe("asynchronous audit API", () => {
     assert.equal(persistedJob.normalizedUrl, "https://luna-cafe.com");
     assert.equal(auditGeneratorCalls, 0);
     assert.equal(countRows(api.config.databaseFilePath, "audits"), auditCountBefore);
-    assert.deepEqual(telemetryEntries.at(-1), {
-      event: "audit_job_enqueued",
-      fields: { jobId: body.job.id, outcome: "queued" }
+    assert.deepEqual(telemetryEntries.find((entry) => entry.event === "audit.queued" && entry.fields.jobId === body.job.id), {
+      event: "audit.queued",
+      fields: { jobId: body.job.id, requestId: response.headers.get("x-request-id"), durationMs: 0, auditMode: "basic", outcome: "queued" }
     });
     assert.equal(JSON.stringify(telemetryEntries.at(-1)).includes("luna-cafe.com"), false);
   });

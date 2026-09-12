@@ -46,7 +46,8 @@ describe("SQLite migrations", () => {
       { version: 2, name: "audit jobs" },
       { version: 3, name: "users" },
       { version: 4, name: "sessions" },
-      { version: 5, name: "audit ownership" }
+      { version: 5, name: "audit ownership" },
+      { version: 6, name: "production observability" }
     ]);
     assert.equal(schema.tables.some(({ name }) => name === "audits"), true);
     assert.equal(schema.tables.some(({ name }) => name === "audit_jobs"), true);
@@ -123,7 +124,8 @@ describe("SQLite migrations", () => {
         { version: 2, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 3, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 4, appliedAt: "2026-08-13T10:00:00.000Z" },
-        { version: 5, appliedAt: "2026-08-13T10:00:00.000Z" }
+        { version: 5, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 6, appliedAt: "2026-08-13T10:00:00.000Z" }
       ]
     );
   });
@@ -172,7 +174,7 @@ describe("SQLite migrations", () => {
 
     assert.deepEqual({ ...state.audit }, { id: "legacy-audit", normalized_url: "https://example.com" });
     assert.deepEqual({ ...state.job }, { id: "legacy-job", status: "queued", normalized_url: "https://example.com" });
-    assert.deepEqual(state.versions, [1, 2, 3, 4, 5]);
+    assert.deepEqual(state.versions, [1, 2, 3, 4, 5, 6]);
   });
 
   it("adds nullable restricted ownership without changing legacy audits or jobs", async () => {
@@ -224,7 +226,7 @@ describe("SQLite migrations", () => {
       database.prepare("UPDATE audits SET user_id = ? WHERE id = ?").run("owner-1", "legacy-audit");
       database.prepare("UPDATE audit_jobs SET user_id = ? WHERE id = ?").run("owner-1", "legacy-job");
       assert.throws(() => database.prepare("DELETE FROM users WHERE id = ?").run("owner-1"), /foreign key constraint/i);
-      assert.deepEqual(versions, [1, 2, 3, 4, 5]);
+      assert.deepEqual(versions, [1, 2, 3, 4, 5, 6]);
     });
   });
 
@@ -352,7 +354,7 @@ describe("SQLite migrations", () => {
     const databaseFilePath = await temporaryDatabase();
     runMigrations(databaseFilePath);
     const failingMigration = {
-      version: 6,
+      version: 7,
       name: "intentional failure",
       up(database) {
         database.exec("CREATE TABLE must_rollback (id TEXT PRIMARY KEY);");
@@ -366,11 +368,11 @@ describe("SQLite migrations", () => {
     );
 
     const state = inspectDatabase(databaseFilePath, (database) => ({
-      version6: database.prepare("SELECT version FROM schema_migrations WHERE version = 6").get(),
+      version7: database.prepare("SELECT version FROM schema_migrations WHERE version = 7").get(),
       rolledBackTable: database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'must_rollback'").get()
     }));
 
-    assert.equal(state.version6, undefined);
+    assert.equal(state.version7, undefined);
     assert.equal(state.rolledBackTable, undefined);
   });
 

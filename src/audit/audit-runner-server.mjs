@@ -1,3 +1,5 @@
+import { createAuditTelemetry } from "../telemetry/audit-telemetry.mjs";
+import { withLogContext } from "../telemetry/log-context.mjs";
 import { createServer } from "node:net";
 import { classifyAuditFailure } from "./audit-failure-classifier.mjs";
 import {
@@ -47,6 +49,7 @@ export function createAuditRunnerServer({
   listenFd,
   auditGenerator,
   renderedAuditAllowed = false,
+  telemetry = createAuditTelemetry(),
   connectionIdleTimeoutMs = 2_000
 }) {
   if (typeof auditGenerator !== "function") {
@@ -123,9 +126,21 @@ export function createAuditRunnerServer({
         activeRequest = true;
         activeController = new AbortController();
         try {
-          const audit = await auditGenerator(request.normalizedUrl, {
-            ...request.options,
-            signal: activeController.signal
+          const audit = await withLogContext({ jobId: request.requestId, requestId: request.correlation?.requestId,
+            auditMode: request.options.renderedAuditEnabled ? "rendered" : "basic" }, async () => {
+            const started = performance.now();
+            telemetry.record("runner.started", { durationMs: 0 });
+            try {
+              const result = await auditGenerator(request.normalizedUrl, {
+                ...request.options, telemetry, signal: activeController.signal
+              });
+              telemetry.record("runner.completed", { durationMs: Math.round(performance.now() - started) });
+              return result;
+            } catch (error) {
+              telemetry.record("runner.failed", { phase: "generate", errorCode: safeError(error).code,
+                durationMs: Math.round(performance.now() - started) });
+              throw error;
+            }
           });
           send({
             protocolVersion: auditRunnerProtocolVersion,
