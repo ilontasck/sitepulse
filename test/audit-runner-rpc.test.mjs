@@ -9,7 +9,7 @@ import { createAuditRunnerServer } from "../src/audit/audit-runner-server.mjs";
 import { auditRunnerMaxRequestBytes } from "../src/audit/audit-runner-protocol.mjs";
 
 describe("audit runner Unix RPC", () => {
-  it("negotiates protocol v1 and returns the audit for the same request ID", async () => {
+  it("negotiates protocol v2 and returns the audit for the same request ID", async () => {
     const directory = mkdtempSync(join(tmpdir(), "noqori-runner-rpc-"));
     const socketPath = join(directory, "audit.sock");
     const server = createAuditRunnerServer({
@@ -27,7 +27,7 @@ describe("audit runner Unix RPC", () => {
 
       assert.deepEqual(await client.checkReadiness(), {
         ready: true,
-        protocolVersion: 1,
+        protocolVersion: 2,
         renderedAuditAllowed: false
       });
 
@@ -53,12 +53,12 @@ describe("audit runner Unix RPC", () => {
       const response = await new Promise((resolve, reject) => {
         const socket = createConnection({ path: socketPath });
         let buffer = "";
-        socket.on("connect", () => socket.write('{"protocolVersion":1,"type":"hello"}\n'));
+        socket.on("connect", () => socket.write('{"protocolVersion":2,"type":"hello"}\n'));
         socket.on("data", (chunk) => {
           buffer += chunk.toString("utf8");
           const frames = buffer.trim().split("\n").map((line) => JSON.parse(line));
           if (frames.length === 1) {
-            socket.write('{"protocolVersion":1,"type":"audit","requestId":"request-1","normalizedUrl":"https://example.com","options":{},"secret":"do-not-reflect"}\n');
+            socket.write('{"protocolVersion":2,"type":"audit","requestId":"request-1","normalizedUrl":"https://example.com","options":{},"secret":"do-not-reflect"}\n');
           } else {
             resolve(frames[1]);
             socket.destroy();
@@ -89,10 +89,10 @@ describe("audit runner Unix RPC", () => {
         for (const line of lines.filter(Boolean)) {
           const request = JSON.parse(line);
           if (request.type === "hello") {
-          socket.write('{"protocolVersion":1,"type":"hello","capabilities":{"renderedAuditAllowed":false}}\n');
+          socket.write('{"protocolVersion":2,"type":"hello","capabilities":{"renderedAuditAllowed":false}}\n');
           } else {
             socket.write(`${JSON.stringify({
-              protocolVersion: 1,
+              protocolVersion: 2,
               type: "result",
               requestId: request.requestId,
               audit: {},
@@ -175,11 +175,11 @@ describe("audit runner Unix RPC", () => {
       const socket = createConnection({ path: socketPath });
       let buffer = "";
       await new Promise((resolve, reject) => {
-        socket.on("connect", () => socket.write('{"protocolVersion":1,"type":"hello"}\n'));
+        socket.on("connect", () => socket.write('{"protocolVersion":2,"type":"hello"}\n'));
         socket.on("data", (chunk) => {
           buffer += chunk.toString("utf8");
           if (!buffer.includes("\n")) return;
-          socket.end('{"protocolVersion":1,"type":"audit","requestId":"00000000-0000-4000-8000-000000000001","normalizedUrl":"https://example.com","options":{"renderedAuditEnabled":false}}\n');
+          socket.end('{"protocolVersion":2,"type":"audit","requestId":"00000000-0000-4000-8000-000000000001","normalizedUrl":"https://example.com","options":{"renderedAuditEnabled":false}}\n');
           resolve();
         });
         socket.on("error", reject);
@@ -245,7 +245,7 @@ describe("audit runner Unix RPC", () => {
         const socket = createConnection({ path: socketPath, allowHalfOpen: true });
         const timer = setTimeout(() => reject(new Error("Runner did not reject the truncated frame.")), 250);
         let payload = "";
-        socket.on("connect", () => socket.end('{"protocolVersion":1,"type":"hello"'));
+        socket.on("connect", () => socket.end('{"protocolVersion":2,"type":"hello"'));
         socket.on("data", (chunk) => { payload += chunk.toString("utf8"); });
         socket.on("end", () => {
           clearTimeout(timer);
@@ -341,7 +341,7 @@ describe("audit runner Unix RPC", () => {
     const directory = mkdtempSync(join(tmpdir(), "noqori-runner-rpc-"));
     const socketPath = join(directory, "audit.sock");
     const fakeRunner = createNetServer((socket) => {
-      socket.once("data", () => socket.end('{"protocolVersion":1,"type":"hello","capabilities":{"renderedAuditAllowed":false},"extra":true}\n'));
+      socket.once("data", () => socket.end('{"protocolVersion":2,"type":"hello","capabilities":{"renderedAuditAllowed":false},"extra":true}\n'));
     });
     try {
       await new Promise((resolve, reject) => {

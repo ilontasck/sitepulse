@@ -1,6 +1,6 @@
 import { isCorrelationId } from "../telemetry/log-context.mjs";
 
-export const auditRunnerProtocolVersion = 1;
+export const auditRunnerProtocolVersion = 2;
 export const auditRunnerMaxRequestBytes = 16 * 1024;
 export const auditRunnerMaxResponseBytes = 4 * 1024 * 1024;
 

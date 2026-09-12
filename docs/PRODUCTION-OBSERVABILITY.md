@@ -19,7 +19,7 @@ Examples (identifiers are illustrative):
 {"timestamp":"2026-09-12T10:00:01.000Z","level":"error","type":"sitepulse.audit","event":"audit.failed","requestId":"11111111-1111-4111-8111-111111111111","jobId":"22222222-2222-4222-8222-222222222222","worker":"33333333-3333-4333-8333-333333333333","auditMode":"basic","attempt":2,"phase":"generate","errorCode":"AUDIT_TIMEOUT","durationMs":45001,"outcome":"failed"}
 ```
 
-The HTTP server always generates a fresh UUID and returns `X-Request-ID`, including errors, readiness and static responses. Client IDs are ignored, even valid UUIDs: format validation alone cannot establish that an input is free of secrets. AsyncLocalStorage isolates concurrent request/job contexts. Enqueue persists the server ID. Worker restores it when claiming/retrying. Production RPC uses the job UUID as its existing protocol request ID and carries an optional validated originating request ID. Local and isolated scanner logs therefore share job context. A successful persistence event adds the final audit/report ID.
+The HTTP server always generates a fresh UUID and returns `X-Request-ID`, including errors, readiness and static responses. Client IDs are ignored, even valid UUIDs: format validation alone cannot establish that an input is free of secrets. AsyncLocalStorage isolates concurrent request/job contexts. Enqueue persists the server ID. Worker restores it when claiming/retrying. Production RPC version 2 rejects old runners during the readiness handshake before any claim. It uses the job UUID as its existing protocol request ID and carries an optional validated originating request ID. Local and isolated scanner logs therefore share job context. A successful persistence event adds the final audit/report ID.
 
 Events:
 
@@ -44,7 +44,7 @@ Public `/api/health` stays liveness; `/api/ready` checks current SQLite schema a
 
 ## Alert checks
 
-Run `node --env-file=/etc/noqori/noqori.env --env-file=/etc/noqori/noqori-secrets.env scripts/check-observability.mjs` from the release directory as an authorized operator with journal access. The secret environment file follows the existing root-owned 0600 policy; never put the actual key in a command argument. The checker only sends the admin key to a fixed loopback origin, refuses redirects and has bounded probe/journal timeouts. PORT/WORKER_HEALTH_PORT select local ports. Missing admin configuration/journal access produces an explicit monitoring alert, not a green result.
+Run `node --env-file=/etc/noqori/noqori.env --env-file=/etc/noqori/noqori-secrets.env scripts/check-observability.mjs` from the release directory as an authorized operator with journal access. The secret environment file follows the existing root-owned 0600 policy; never put the actual key in a command argument. The checker only sends the admin key to a fixed loopback origin, refuses redirects and has bounded probe/journal timeouts. PORT/WORKER_HEALTH_PORT select local ports. Any journalctl stderr diagnostic (including partial system-journal access warnings) fails closed. Missing admin configuration/journal access produces an explicit monitoring alert, not a green result.
 
 The script emits a safe `operations.alert_check` JSON object containing condition codes only. Exit 0 = healthy, 1 = active conditions, 2 = checker/configuration failure. It queries journal messages from the last 15 minutes with an 8 MiB buffer limit; exceeding it reports journal unavailable.
 

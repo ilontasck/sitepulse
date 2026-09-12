@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { evaluateAlerts, summarizeJournal } from "../src/telemetry/alert-conditions.mjs";
+import { evaluateAlerts, summarizeJournalResult } from "../src/telemetry/alert-conditions.mjs";
 
 const run = promisify(execFile);
 function port(value, fallback) {
@@ -23,7 +23,7 @@ try {
     process.env.ADMIN_API_KEY ? read(`${api}/api/operations`, { "X-Admin-Key": process.env.ADMIN_API_KEY }) : null,
     read(`${api}/api/ready`), read(`${worker}/readyz`),
     run("journalctl", ["-u", "noqori-api.service", "-u", "noqori-worker.service", "--since", "15 minutes ago", "--output=cat", "--no-pager"],
-      { timeout: 6_000, maxBuffer: 8 * 1024 * 1024 }).then(({ stdout }) => summarizeJournal(stdout)).catch(() => null)
+      { timeout: 6_000, maxBuffer: 8 * 1024 * 1024 }).then(summarizeJournalResult).catch(() => null)
   ]);
   const alerts = evaluateAlerts({ operations, apiReady: apiHealth?.ok === true, workerReady: workerHealth?.ok === true, journal });
   console.log(JSON.stringify({ timestamp: new Date().toISOString(), level: alerts.length ? "error" : "info", event: "operations.alert_check", alerts }));

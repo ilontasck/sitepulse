@@ -8,7 +8,7 @@ describe("production audit routing", () => {
     const runnerClient = {
       async checkReadiness() {
         calls.push("ready");
-        return { ready: true, protocolVersion: 1, renderedAuditAllowed: false };
+        return { ready: true, protocolVersion: 2, renderedAuditAllowed: false };
       },
       async generateAudit(url, options) {
         calls.push({ url, options });
@@ -25,7 +25,7 @@ describe("production audit routing", () => {
       }
     );
 
-    assert.deepEqual(await execution.executorReadiness(), { ready: true, protocolVersion: 1, renderedAuditAllowed: false });
+    assert.deepEqual(await execution.executorReadiness(), { ready: true, protocolVersion: 2, renderedAuditAllowed: false });
     assert.equal((await execution.securityValidator("https://example.com")).normalizedUrl, "https://example.com");
     const audit = await execution.auditGenerator("https://example.com", { renderedAuditEnabled: false });
     assert.equal(audit.scanner.mode, "isolated-runner");
@@ -40,7 +40,7 @@ describe("production audit routing", () => {
       { env: "production", auditRunnerSocketPath: "/run/noqori-audit.sock", renderedAuditEnabled: true },
       {
         runnerClient: {
-          async checkReadiness() { return { ready: true, protocolVersion: 1, renderedAuditAllowed: false }; },
+          async checkReadiness() { return { ready: true, protocolVersion: 2, renderedAuditAllowed: false }; },
           async generateAudit() { throw new Error("must not run"); }
         },
         async loadLocalAuditGenerator() { throw new Error("must not load"); }

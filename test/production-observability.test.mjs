@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
+import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { createAuditTelemetry } from "../src/telemetry/audit-telemetry.mjs";
 import { createRequestId, isCorrelationId, withLogContext } from "../src/telemetry/log-context.mjs";
 import { createApiMetrics, queueMetrics } from "../src/telemetry/queue-metrics.mjs";
-import { evaluateAlerts, summarizeJournal } from "../src/telemetry/alert-conditions.mjs";
+import { evaluateAlerts, summarizeJournal, summarizeJournalResult } from "../src/telemetry/alert-conditions.mjs";
 import { createApp } from "../src/http/app.mjs";
 import { loadConfig } from "../src/config/env.mjs";
 import { createAuditJobStore } from "../src/storage/audit-job-store.mjs";
@@ -151,7 +152,62 @@ test("API metrics expire and alerts cover degradation, DB failures and restarts"
 });
 
 test("RPC rejects untrusted correlation fields", () => {
-  const frame = { type: "audit", protocolVersion: 1, requestId: randomUUID(), normalizedUrl: "https://example.com", options: { renderedAuditEnabled: false } };
+  const frame = { type: "audit", protocolVersion: 2, requestId: randomUUID(), normalizedUrl: "https://example.com", options: { renderedAuditEnabled: false } };
   assert.throws(() => validateAuditRequest({ ...frame, correlation: { requestId: secret } }));
   assert.throws(() => validateAuditRequest({ ...frame, correlation: { requestId: randomUUID(), password: secret } }));
+});
+
+test("worker readiness logs transitions without polling spam and reports persistence failures with correlation", async () => {
+  const lines = [];
+  const telemetry = createAuditTelemetry({ write: (line) => lines.push(JSON.parse(line)) });
+  const job = { id: randomUUID(), requestId: randomUUID(), normalizedUrl: "https://example.com", createdAt: new Date().toISOString(), attemptCount: 1, leaseToken: randomUUID() };
+  let ready = false;
+  let availableJob = job;
+  const worker = createAuditJobWorker({
+    workerId: randomUUID(), telemetry, securityValidator: async () => {},
+    executorReadiness: async () => ({ ready }), auditGenerator: async () => ({}),
+    jobStore: {
+      recoverExpired: () => ({ requeued: 0, failed: 0 }),
+      claimNext: () => { const next = availableJob; availableJob = null; return next; },
+      renewLease: () => ({ renewed: true }),
+      complete() { throw Object.assign(new Error(secret), { code: "ERR_SQLITE_ERROR" }); },
+      handleFailure({ failure }) { assert.equal(failure.code, "DB_FAILURE"); return { transitioned: true, job: { status: "queued" } }; }
+    }
+  });
+  for (let i = 0; i < 10; i++) assert.equal((await worker.runOnce()).status, "executor-unavailable");
+  assert.equal(lines.filter((entry) => entry.event === "worker.error").length, 1);
+  ready = true;
+  assert.equal((await worker.runOnce()).status, "queued");
+  const failure = lines.find((entry) => entry.event === "worker.job_failed");
+  assert.equal(failure.jobId, job.id);
+  assert.equal(failure.requestId, job.requestId);
+  assert.equal(failure.phase, "persist");
+  assert.equal(failure.errorCode, "DB_FAILURE");
+  assert.doesNotMatch(JSON.stringify(lines), new RegExp(secret));
+});
+
+
+test("journal permission warnings cannot report zero-error healthy monitoring", () => {
+  const journal = summarizeJournalResult({ stdout: "", stderr: "Hint: You are currently not seeing messages from other users and the system." });
+  assert.equal(journal, null);
+  assert.ok(evaluateAlerts({ journal }).includes("JOURNAL_UNAVAILABLE"));
+  assert.equal(summarizeJournalResult({ stdout: '{"event":"worker.started"}', stderr: "access restricted" }), null);
+  assert.equal(summarizeJournalResult({ stdout: '{"event":"worker.started"}', stderr: "" }).workerStarts, 1);
+});
+
+test("a v1 runner is rejected during readiness without claiming a job", async (t) => {
+  const directory = mkdtempSync(join(tmpdir(), "noqori-v1-runner-"));
+  const socketPath = join(directory, "runner.sock");
+  const server = createNetServer((socket) => {
+    socket.once("data", () => socket.end('{"protocolVersion":1,"type":"hello","capabilities":{"renderedAuditAllowed":false}}\n'));
+  });
+  await new Promise((resolve, reject) => { server.once("error", reject); server.listen(socketPath, resolve); });
+  t.after(async () => { await new Promise((resolve) => server.close(resolve)); rmSync(directory, { recursive: true, force: true }); });
+  const client = createAuditRunnerClient({ socketPath });
+  await assert.rejects(client.checkReadiness(), { code: "AUDIT_RUNNER_PROTOCOL_MISMATCH" });
+  let claims = 0;
+  const worker = createAuditJobWorker({ workerId: randomUUID(), auditGenerator: client.generateAudit,
+    executorReadiness: client.checkReadiness, jobStore: { recoverExpired: () => ({}), claimNext: () => { claims++; } } });
+  assert.equal((await worker.runOnce()).status, "executor-unavailable");
+  assert.equal(claims, 0);
 });

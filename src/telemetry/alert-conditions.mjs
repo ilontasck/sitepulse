@@ -36,3 +36,9 @@ export function summarizeJournal(lines) {
   }
   return { dbErrors, workerStarts, workerStartupErrors };
 }
+
+export function summarizeJournalResult({ stdout, stderr }) {
+  // journalctl may exit 0 while warning that system messages are inaccessible.
+  // Fail closed on all diagnostics rather than depend on localized warning text.
+  return stderr?.trim() ? null : summarizeJournal(stdout);
+}
