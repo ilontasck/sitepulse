@@ -35,6 +35,23 @@ function affectedUrl(report, check) {
   return report.signals?.lab?.finalUrl || report.signals?.lighthouse?.finalUrl || report.normalizedUrl || null;
 }
 
+function findingTitle(check) {
+  const id = String(check.id || "");
+  const titles = {
+    "title-length": "Title length needs adjustment",
+    "title-present": "Page title is missing",
+    "meta-description": "Meta description needs review",
+    "canonical": "Canonical URL needs review",
+    "robots-indexable": "Indexing directive needs review",
+    "open-graph": "Open Graph metadata needs review",
+    "html-lang": "HTML language attribute is missing",
+    "button-name": "Some buttons need accessible names",
+    "heading-structure": "Heading structure needs review",
+    "cta": "A clear call to action is missing"
+  };
+  return titles[id] || String(check.label || "Confirmed issue");
+}
+
 function recommendationFor(category, check, failedIndex) {
   const label = `${check.id || ""} ${check.label || ""}`;
   const matchers = [
@@ -73,7 +90,7 @@ export function selectMiniAuditFindings(report, { limit = 3 } = {}) {
         category: category.label || category.id || "Audit finding",
         categoryId: category.id || null,
         severity: normalizeSeverity(check.priority),
-        title: String(check.label || "Confirmed issue"),
+        title: findingTitle(check),
         explanation: `The automated audit found this issue on the page. Evidence: ${evidence}.`,
         affectedUrl: affectedUrl(report, check),
         evidence,
