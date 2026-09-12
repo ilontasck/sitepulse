@@ -14,6 +14,10 @@ import {
 } from "../src/client-acquisition/index.mjs";
 
 const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+const safeCliErrorCodes = new Set([
+  "URL_REQUIRED", "URL_TOO_LONG", "INVALID_URL", "UNSUPPORTED_URL_PROTOCOL",
+  "INVALID_PUBLIC_DOMAIN", "UNSAFE_URL", "HOSTNAME_NOT_RESOLVED", "UNSAFE_REDIRECT", "HTML_TOO_LARGE"
+]);
 
 export function parseMiniAuditArgs(argv) {
   const positional = [];
@@ -53,7 +57,7 @@ export async function runMiniAudit(args, dependencies = {}) {
       renderedAuditLimiter: args.rendered ? (dependencies.renderedAuditLimiter || createRenderedAuditLimiter(1)) : undefined
     });
   } catch (error) {
-    if (error?.code) throw error;
+    if (safeCliErrorCodes.has(error?.code)) throw error;
     report = null;
   }
   const miniAudit = createMiniAudit(report, { inputUrl: args.url, limit: args.findings || 3 });
