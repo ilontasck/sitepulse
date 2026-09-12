@@ -10,6 +10,10 @@ node_modules/
 data/*
 !data/.gitkeep
 
+# Internal client-acquisition outputs
+reports/leads/
+outreach/
+
 # Test and browser artifacts
 test-results/
 playwright-report/

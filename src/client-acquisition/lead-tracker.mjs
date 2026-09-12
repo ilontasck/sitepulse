@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 
 export const leadColumns = [
   "company", "website", "industry", "contact_name", "contact_method", "contact_value",
-  "finding_1", "finding_2", "finding_3", "audit_date", "contacted_at", "status", "follow_up_at", "result", "revenue"
+  "finding_1", "finding_2", "finding_3", "finding_4", "finding_5", "audit_date", "contacted_at", "status", "follow_up_at", "result", "revenue"
 ];
 
 function csvCell(value) {
@@ -17,6 +17,7 @@ export function createLeadRecord({ miniAudit, company = "", industry = "", conta
     company, website: miniAudit.normalizedUrl || miniAudit.website, industry, contact_name: contactName,
     contact_method: contactMethod, contact_value: contactValue,
     finding_1: miniAudit.findings[0]?.title || "", finding_2: miniAudit.findings[1]?.title || "", finding_3: miniAudit.findings[2]?.title || "",
+    finding_4: miniAudit.findings[3]?.title || "", finding_5: miniAudit.findings[4]?.title || "",
     audit_date: new Date().toISOString(), contacted_at: "", status, follow_up_at: "", result: "", revenue: ""
   };
 }

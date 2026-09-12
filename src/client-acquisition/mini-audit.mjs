@@ -40,7 +40,10 @@ function recommendationFor(category, check, failedIndex) {
   const matchers = [
     [/input-label|form|label/i, /label|field/], [/image-alt|alt/i, /alt text|image/],
     [/button-name|button/i, /button|action/], [/title-length/i, /tune|title/],
-    [/title/i, /title|offer/], [/h1/i, /H1|heading/], [/viewport/i, /viewport/],
+    [/title/i, /title|offer/], [/h1|heading/i, /H1|heading/], [/viewport/i, /viewport/],
+    [/canonical/i, /canonical|duplicate|index/], [/robots|indexable/i, /robots|index/],
+    [/open-graph|social/i, /social|sharing|open graph/], [/meta-description|description/i, /description|snippet/],
+    [/html-lang|language/i, /language|lang/], [/heading-structure/i, /heading|structure/], [/cta|call.?to.?action/i, /call|action|conversion/],
     [/response-time|server-response/i, /response|server/], [/html-size/i, /HTML|markup/],
     [/script-count|javascript/i, /script/], [/caching/i, /Cache|cache/],
     [/lcp|cls|tbt|lighthouse/i, /LCP|layout|thread|Lighthouse|image/]
@@ -50,9 +53,7 @@ function recommendationFor(category, check, failedIndex) {
     const candidate = category.recommendations?.find((item) => matched[1].test(item));
     if (candidate) return candidate;
   }
-  return category.recommendations?.[failedIndex]
-    || category.recommendations?.[0]
-    || "Review this area during the full audit.";
+  return category.recommendations?.[0] || "Review this area during the full audit.";
 }
 
 export function selectMiniAuditFindings(report, { limit = 3 } = {}) {
