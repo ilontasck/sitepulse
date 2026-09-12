@@ -46,6 +46,7 @@ describe("client acquisition toolkit", () => {
     ] }, ...report().categories.slice(1)] }));
     assert.deepEqual(mini.findings.map((finding) => finding.title), ["Inputs have labels.", "Title missing", "Images have alt text."]);
     assert.equal(mini.findings[0].severity, "HIGH");
+    assert.equal(mini.findings[0].metric, "2");
     assert.equal(mini.additionalFindings, 1);
   });
 

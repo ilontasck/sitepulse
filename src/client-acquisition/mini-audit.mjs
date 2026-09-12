@@ -25,6 +25,10 @@ function evidenceFor(check) {
   return evidence.length > 0 ? evidence : null;
 }
 
+function metricFromEvidence(evidence) {
+  return evidence.match(/\b\d+(?:[.,]\d+)?\s*(?:ms|s|kb|kib|bytes?|%|px)?\b/i)?.[0]?.trim() || null;
+}
+
 function affectedUrl(report) {
   return report.signals?.lighthouse?.finalUrl || report.normalizedUrl || null;
 }
@@ -56,7 +60,7 @@ export function selectMiniAuditFindings(report, { limit = 3 } = {}) {
         explanation: `The automated audit found this issue on the page. Evidence: ${evidence}.`,
         affectedUrl: affectedUrl(report),
         evidence,
-        metric: evidence,
+        metric: metricFromEvidence(evidence),
         recommendation: recommendationFor(category, failedIndex),
         source: "automated HTML audit"
       });
@@ -88,8 +92,4 @@ export function createMiniAudit(report, options = {}) {
     warnings: Array.isArray(report?.warnings) ? report.warnings : [],
     recommendation: "Full Website Audit"
   };
-}
-
-export function severityRank(severity) {
-  return severityOrder.indexOf(normalizeSeverity(severity));
 }
