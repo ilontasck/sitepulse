@@ -17,7 +17,7 @@ const projectRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
 export function parseMiniAuditArgs(argv) {
   const positional = [];
-  const options = { outreach: true, lead: false, rendered: false };
+  const options = { outreach: true, lead: false, rendered: false, findings: 3 };
   const valueOptions = new Map([
     ["--company", "company"], ["--industry", "industry"], ["--contact-name", "contactName"],
     ["--contact-method", "contactMethod"], ["--contact-value", "contactValue"], ["--status", "status"]
@@ -27,6 +27,11 @@ export function parseMiniAuditArgs(argv) {
     if (arg === "--no-outreach") options.outreach = false;
     else if (arg === "--lead") options.lead = true;
     else if (arg === "--rendered") options.rendered = true;
+    else if (arg === "--findings") {
+      const value = Number(argv[++index]);
+      if (!Number.isInteger(value) || value < 3 || value > 5) throw new Error("--findings must be an integer between 3 and 5.");
+      options.findings = value;
+    }
     else if (arg === "--help" || arg === "-h") options.help = true;
     else if (valueOptions.has(arg)) {
       const value = argv[++index];
@@ -41,14 +46,21 @@ export function parseMiniAuditArgs(argv) {
 
 export async function runMiniAudit(args, dependencies = {}) {
   const auditGenerator = dependencies.auditGenerator || generateAudit;
-  const report = await auditGenerator(args.url, {
-    renderedAuditEnabled: args.rendered === true,
-    renderedAuditLimiter: args.rendered ? (dependencies.renderedAuditLimiter || createRenderedAuditLimiter(1)) : undefined
-  });
-  const miniAudit = createMiniAudit(report, { limit: 3 });
+  let report;
+  try {
+    report = await auditGenerator(args.url, {
+      renderedAuditEnabled: args.rendered === true,
+      renderedAuditLimiter: args.rendered ? (dependencies.renderedAuditLimiter || createRenderedAuditLimiter(1)) : undefined
+    });
+  } catch (error) {
+    if (error?.code) throw error;
+    report = null;
+  }
+  const miniAudit = createMiniAudit(report, { inputUrl: args.url, limit: args.findings || 3 });
   const basename = outputBasename(miniAudit);
-  const reportsDirectory = join(projectRoot, "reports", "leads");
-  const outreachDirectory = join(projectRoot, "outreach");
+  const outputRoot = dependencies.projectRoot || projectRoot;
+  const reportsDirectory = join(outputRoot, "reports", "leads");
+  const outreachDirectory = join(outputRoot, "outreach");
   await mkdir(reportsDirectory, { recursive: true });
   const reportPath = join(reportsDirectory, `${basename}.md`);
   await writeFile(reportPath, renderMiniAuditMarkdown(miniAudit), "utf8");
@@ -60,13 +72,13 @@ export async function runMiniAudit(args, dependencies = {}) {
   }
   let leadPath = null;
   if (args.lead) {
-    leadPath = await appendLeadRecord(join(projectRoot, "data", "leads.csv"), createLeadRecord({ miniAudit, ...args }));
+    leadPath = await appendLeadRecord(join(outputRoot, "data", "leads.csv"), createLeadRecord({ miniAudit, ...args }));
   }
   return { miniAudit, reportPath, outreachPath, leadPath };
 }
 
 function printHelp() {
-  console.log("Usage: pnpm mini-audit <public-url> [--rendered] [--no-outreach] [--lead] [--company name] [--industry type] [--contact-name name] [--contact-method method] [--contact-value value] [--status STATUS]");
+  console.log("Usage: pnpm mini-audit <public-url> [--findings 3|4|5] [--rendered] [--no-outreach] [--lead] [--company name] [--industry type] [--contact-name name] [--contact-method method] [--contact-value value] [--status STATUS]");
   console.log("Runs the existing safe audit pipeline and writes an internal Markdown mini-audit. No message is sent.");
 }
 
