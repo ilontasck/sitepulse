@@ -235,6 +235,56 @@ describe("authenticated audit ownership", () => {
     assert.equal(JSON.parse(relational.audit.report_json).userId, undefined);
   });
 
+  it("expires free reports and lets only the owner soft-delete them without leaking linked jobs", async () => {
+    const api = await startApi();
+    const owner = await register(api, "retention-owner@example.com");
+    const other = await register(api, "retention-other@example.com");
+    const created = await (await auditRequest(api, { cookie: owner.cookie })).json();
+    const worker = createAuditJobWorker({
+      jobStore: api.jobStore,
+      workerId: "retention-worker",
+      securityValidator: async () => true,
+      auditGenerator: async () => fakeAudit(),
+      leaseMs: 30_000,
+      heartbeatMs: 10_000
+    });
+    await worker.runOnce();
+    const jobBefore = await (await ownedGet(api, created.job.statusUrl, owner.cookie)).json();
+    const auditPath = jobBefore.job.auditUrl;
+    const stored = withDatabase(api.config.databaseFilePath, (database) =>
+      database.prepare("SELECT created_at, expires_at FROM audits WHERE id = ?").get(jobBefore.job.auditId)
+    );
+    assert.equal(new Date(stored.expires_at).getTime() - new Date(stored.created_at).getTime(), 30 * 24 * 60 * 60 * 1_000);
+    assert.equal((await ownedGet(api, auditPath, owner.cookie)).status, 200);
+
+    const denied = await fetch(`${api.baseUrl}${auditPath}`, {
+      method: "DELETE",
+      headers: { Cookie: other.cookie, Origin: publicOrigin }
+    });
+    assert.equal(denied.status, 404);
+    assert.equal((await denied.json()).error.code, "AUDIT_NOT_FOUND");
+    const deleted = await fetch(`${api.baseUrl}${auditPath}`, {
+      method: "DELETE",
+      headers: { Cookie: owner.cookie, Origin: publicOrigin }
+    });
+    assert.equal(deleted.status, 204);
+    assert.equal((await ownedGet(api, auditPath, owner.cookie)).status, 404);
+    assert.equal((await ownedGet(api, created.job.statusUrl, owner.cookie)).status, 404);
+    assert.equal(withDatabase(api.config.databaseFilePath, (database) =>
+      database.prepare("SELECT deleted_at IS NOT NULL AS deleted FROM audits WHERE id = ?").get(jobBefore.job.auditId).deleted
+    ), 1);
+
+    const secondCreated = await (await auditRequest(api, { cookie: owner.cookie, body: { websiteUrl: "fresh.example.com" } })).json();
+    await worker.runOnce();
+    const secondJob = await (await ownedGet(api, secondCreated.job.statusUrl, owner.cookie)).json();
+    assert.equal((await ownedGet(api, secondJob.job.auditUrl, owner.cookie)).status, 200);
+    withDatabase(api.config.databaseFilePath, (database) =>
+      database.prepare("UPDATE audits SET expires_at = ? WHERE id = ?").run("2020-01-01T00:00:00.000Z", secondJob.job.auditId)
+    );
+    assert.equal((await ownedGet(api, secondJob.job.auditUrl, owner.cookie)).status, 404);
+    assert.equal((await ownedGet(api, secondCreated.job.statusUrl, owner.cookie)).status, 404);
+  });
+
   it("keeps legacy NULL ownership recoverable by workers but private from users", async () => {
     const api = await startApi();
     const owner = await register(api, "owner@example.com");

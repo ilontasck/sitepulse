@@ -205,16 +205,18 @@ describe("audit job store", () => {
     assert.equal(completed.job.workerId, null);
     assert.equal(completed.job.leaseToken, null);
     assert.equal(completed.job.userId, TEST_USER_ID);
-    const storedAudit = await createAuditStore(fixture.databaseFilePath).findById("audit-1");
+    const auditStore = createAuditStore(fixture.databaseFilePath, { clock: () => "2026-08-13T10:00:00.000Z" });
+    const storedAudit = await auditStore.findById("audit-1");
     assert.equal(storedAudit.id, "audit-1");
     assert.equal(storedAudit.domain, "example.com");
     const database = new DatabaseSync(fixture.databaseFilePath);
-    const relationalAudit = database.prepare("SELECT user_id, report_json FROM audits WHERE id = ?").get("audit-1");
+    const relationalAudit = database.prepare("SELECT user_id, report_json, created_at, expires_at FROM audits WHERE id = ?").get("audit-1");
     database.close();
     assert.equal(relationalAudit.user_id, TEST_USER_ID);
     assert.equal(JSON.parse(relationalAudit.report_json).userId, undefined);
-    assert.equal(await createAuditStore(fixture.databaseFilePath).findByIdForUser("audit-1", TEST_USER_ID) !== null, true);
-    assert.equal(await createAuditStore(fixture.databaseFilePath).findByIdForUser("audit-1", OTHER_USER_ID), null);
+    assert.equal(new Date(relationalAudit.expires_at).getTime() - new Date(relationalAudit.created_at).getTime(), 30 * 24 * 60 * 60 * 1_000);
+    assert.equal(await auditStore.findByIdForUser("audit-1", TEST_USER_ID) !== null, true);
+    assert.equal(await auditStore.findByIdForUser("audit-1", OTHER_USER_ID), null);
     assert.deepEqual(
       fixture.store.complete({
         jobId: claimed.id,

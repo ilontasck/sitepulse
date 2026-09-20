@@ -48,13 +48,39 @@ describe("SQLite migrations", () => {
       { version: 4, name: "sessions" },
       { version: 5, name: "audit ownership" },
       { version: 6, name: "production observability" },
-      { version: 7, name: "password_reset_tokens" }
+      { version: 7, name: "password_reset_tokens" },
+      { version: 8, name: "retention and deletion foundation" }
     ]);
     assert.equal(schema.tables.some(({ name }) => name === "audits"), true);
     assert.equal(schema.tables.some(({ name }) => name === "audit_jobs"), true);
     assert.equal(schema.tables.some(({ name }) => name === "users"), true);
     assert.equal(schema.tables.some(({ name }) => name === "sessions"), true);
     assert.equal(schema.tables.some(({ name }) => name === "password_reset_tokens"), true);
+  });
+
+  it("adds retention and deletion state and backfills existing reports with thirty-day expiry", async () => {
+    const databaseFilePath = await temporaryDatabase();
+    runMigrations(databaseFilePath, { migrations: sitePulseMigrations.slice(0, 7) });
+    inspectDatabase(databaseFilePath, (database) => {
+      database.prepare(`
+        INSERT INTO audits (id, created_at, updated_at, normalized_url, domain, overall_score, scanner_mode, report_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run("existing-report", "2026-08-01T10:00:00.000Z", "2026-08-01T10:00:00.000Z", "https://example.com", "example.com", 80, "html", "{}");
+    });
+
+    runMigrations(databaseFilePath);
+
+    const state = inspectDatabase(databaseFilePath, (database) => ({
+      report: database.prepare("SELECT expires_at, deleted_at FROM audits WHERE id = ?").get("existing-report"),
+      auditIndexes: database.prepare("PRAGMA index_list(audits)").all().map(({ name }) => name),
+      userIndexes: database.prepare("PRAGMA index_list(users)").all().map(({ name }) => name),
+      userColumns: database.prepare("PRAGMA table_info(users)").all().map(({ name }) => name)
+    }));
+    assert.deepEqual({ ...state.report }, { expires_at: "2026-08-31T10:00:00.000Z", deleted_at: null });
+    assert.equal(state.auditIndexes.includes("idx_audits_active_expiry"), true);
+    assert.equal(state.userIndexes.includes("idx_users_purge_after"), true);
+    assert.equal(state.userColumns.includes("deletion_requested_at"), true);
+    assert.equal(state.userColumns.includes("purge_after"), true);
   });
 
   it("adopts a legacy audits database without losing readable records", async () => {
@@ -128,7 +154,8 @@ describe("SQLite migrations", () => {
         { version: 4, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 5, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 6, appliedAt: "2026-08-13T10:00:00.000Z" },
-        { version: 7, appliedAt: "2026-08-13T10:00:00.000Z" }
+        { version: 7, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 8, appliedAt: "2026-08-13T10:00:00.000Z" }
       ]
     );
   });
@@ -177,7 +204,7 @@ describe("SQLite migrations", () => {
 
     assert.deepEqual({ ...state.audit }, { id: "legacy-audit", normalized_url: "https://example.com" });
     assert.deepEqual({ ...state.job }, { id: "legacy-job", status: "queued", normalized_url: "https://example.com" });
-    assert.deepEqual(state.versions, [1, 2, 3, 4, 5, 6, 7]);
+    assert.deepEqual(state.versions, [1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
   it("adds nullable restricted ownership without changing legacy audits or jobs", async () => {
@@ -229,7 +256,7 @@ describe("SQLite migrations", () => {
       database.prepare("UPDATE audits SET user_id = ? WHERE id = ?").run("owner-1", "legacy-audit");
       database.prepare("UPDATE audit_jobs SET user_id = ? WHERE id = ?").run("owner-1", "legacy-job");
       assert.throws(() => database.prepare("DELETE FROM users WHERE id = ?").run("owner-1"), /foreign key constraint/i);
-      assert.deepEqual(versions, [1, 2, 3, 4, 5, 6, 7]);
+      assert.deepEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8]);
     });
   });
 
@@ -399,7 +426,7 @@ describe("SQLite migrations", () => {
     const databaseFilePath = await temporaryDatabase();
     runMigrations(databaseFilePath);
     const failingMigration = {
-      version: 8,
+      version: 9,
       name: "intentional failure",
       up(database) {
         database.exec("CREATE TABLE must_rollback (id TEXT PRIMARY KEY);");
@@ -413,11 +440,11 @@ describe("SQLite migrations", () => {
     );
 
     const state = inspectDatabase(databaseFilePath, (database) => ({
-      version8: database.prepare("SELECT version FROM schema_migrations WHERE version = 8").get(),
+      version9: database.prepare("SELECT version FROM schema_migrations WHERE version = 9").get(),
       rolledBackTable: database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'must_rollback'").get()
     }));
 
-    assert.equal(state.version8, undefined);
+    assert.equal(state.version9, undefined);
     assert.equal(state.rolledBackTable, undefined);
   });
 

@@ -22,7 +22,9 @@ function toUser(row) {
     passwordHash: row.password_hash,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    disabledAt: row.disabled_at
+    disabledAt: row.disabled_at,
+    deletionRequestedAt: row.deletion_requested_at,
+    purgeAfter: row.purge_after
   };
 }
 
@@ -71,7 +73,7 @@ export function createAuthStore(databaseFilePath, options = {}) {
       toUser(database.prepare(`
         SELECT
           id, email_original, email_normalized, password_hash,
-          created_at, updated_at, disabled_at
+          created_at, updated_at, disabled_at, deletion_requested_at, purge_after
         FROM users
         WHERE email_normalized = ?
         LIMIT 1
@@ -80,6 +82,14 @@ export function createAuthStore(databaseFilePath, options = {}) {
   }
 
   return {
+    async findUserById(userId) {
+      return withDatabase(databaseFilePath, (database) => toUser(database.prepare(`
+        SELECT id, email_original, email_normalized, password_hash,
+               created_at, updated_at, disabled_at, deletion_requested_at, purge_after
+        FROM users WHERE id = ? LIMIT 1
+      `).get(userId)));
+    },
+
     async createUserWithSession({
       emailOriginal,
       emailNormalized,
@@ -143,6 +153,28 @@ export function createAuthStore(databaseFilePath, options = {}) {
 
     findUserByNormalizedEmail,
 
+    async requestAccountDeletion({ userId, purgeAfter }) {
+      const now = requireTimestamp(clock(), "clock");
+      requireTimestamp(purgeAfter, "purgeAfter");
+      return withDatabase(databaseFilePath, (database) => withImmediateTransaction(database, () => {
+        const disabled = database.prepare(`
+          UPDATE users
+          SET disabled_at = ?, deletion_requested_at = ?, purge_after = ?, updated_at = ?
+          WHERE id = ? AND disabled_at IS NULL AND deletion_requested_at IS NULL
+        `).run(now, now, purgeAfter, now, userId);
+        if (disabled.changes !== 1) return false;
+        database.prepare(`
+          UPDATE sessions SET revoked_at = ?
+          WHERE user_id = ? AND revoked_at IS NULL
+        `).run(now, userId);
+        database.prepare(`
+          UPDATE password_reset_tokens SET invalidated_at = ?
+          WHERE user_id = ? AND used_at IS NULL AND invalidated_at IS NULL
+        `).run(now, userId);
+        return true;
+      }));
+    },
+
     async replacePasswordResetToken({ userId, tokenHash, expiresAt }) {
       requireTokenHash(tokenHash, "tokenHash");
       requireTimestamp(expiresAt, "expiresAt");
@@ -186,6 +218,7 @@ export function createAuthStore(databaseFilePath, options = {}) {
               AND password_reset_tokens.invalidated_at IS NULL
               AND password_reset_tokens.expires_at > ?
               AND users.disabled_at IS NULL
+              AND users.deletion_requested_at IS NULL
             LIMIT 1
           `).get(tokenHash, now);
           if (!token) return false;
@@ -203,7 +236,7 @@ export function createAuthStore(databaseFilePath, options = {}) {
           const passwordUpdated = database.prepare(`
             UPDATE users
             SET password_hash = ?, updated_at = ?
-            WHERE id = ? AND disabled_at IS NULL
+            WHERE id = ? AND disabled_at IS NULL AND deletion_requested_at IS NULL
           `).run(passwordHash, now, token.user_id).changes;
           if (passwordUpdated !== 1) {
             throw new AuthStoreError("AUTH_STORAGE_CONSTRAINT", "Authentication data could not be stored.");
@@ -245,13 +278,16 @@ export function createAuthStore(databaseFilePath, options = {}) {
             users.password_hash,
             users.created_at,
             users.updated_at,
-            users.disabled_at
+            users.disabled_at,
+            users.deletion_requested_at,
+            users.purge_after
           FROM sessions
           INNER JOIN users ON users.id = sessions.user_id
           WHERE sessions.token_hash = ?
             AND sessions.revoked_at IS NULL
             AND sessions.expires_at > ?
             AND users.disabled_at IS NULL
+            AND users.deletion_requested_at IS NULL
           LIMIT 1
         `).get(tokenHash, now);
 

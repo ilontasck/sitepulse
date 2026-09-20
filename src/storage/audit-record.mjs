@@ -9,7 +9,7 @@ export function createAuditRecord(audit, { id, now }) {
   };
 }
 
-export function insertAuditRecord(database, record, { userId = null } = {}) {
+export function insertAuditRecord(database, record, { userId = null, expiresAt = null } = {}) {
   const scannerMode = record.scanner?.mode || "unknown";
 
   database.prepare(`
@@ -22,9 +22,10 @@ export function insertAuditRecord(database, record, { userId = null } = {}) {
       overall_score,
       scanner_mode,
       report_json,
-      user_id
+      user_id,
+      expires_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     record.id,
     record.createdAt,
@@ -34,7 +35,8 @@ export function insertAuditRecord(database, record, { userId = null } = {}) {
     record.overallScore,
     scannerMode,
     JSON.stringify(record),
-    userId
+    userId,
+    expiresAt
   );
 
   return record;

@@ -4,7 +4,7 @@ import { HttpError } from "./http-error.mjs";
 import { resolveAuthenticatedUser } from "./auth-request.mjs";
 import { readJsonBody } from "./body.mjs";
 import { requireTrustedOrigin } from "./origin-policy.mjs";
-import { sendJson } from "./respond.mjs";
+import { sendJson, sendNoContent } from "./respond.mjs";
 
 function parseLimit(searchParams) {
   const rawLimit = searchParams.get("limit");
@@ -168,6 +168,17 @@ export async function handleAuditApi({
   }
 
   const auditIdMatch = url.pathname.match(/^\/api\/audits\/([0-9a-f-]{36})$/i);
+
+  if (auditIdMatch && request.method === "DELETE") {
+    const user = await requireAuthenticatedUser(request, response, { authService, cookiePolicy });
+    requireTrustedOrigin(request, config.publicOrigin);
+    rateLimiters.general(request, response, user);
+    const deleted = await store.softDeleteForUser(auditIdMatch[1], user.id);
+    if (!deleted) {
+      throw new HttpError(404, "Audit report was not found.", "AUDIT_NOT_FOUND");
+    }
+    return sendNoContent(response);
+  }
 
   if (auditIdMatch && request.method === "GET") {
     const user = await requireAuthenticatedUser(request, response, { authService, cookiePolicy });

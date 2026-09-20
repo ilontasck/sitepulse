@@ -540,6 +540,74 @@ describe("authentication HTTP API", () => {
     assert.equal((await limited.json()).error.code, "RATE_LIMITED");
   });
 
+  it("deletes an authenticated account only after password confirmation and immediately revokes access", async () => {
+    const deliveries = [];
+    const api = await startApi({ dependencies: { deliverPasswordReset: async (delivery) => deliveries.push(delivery) } });
+    const registration = await register(api, "delete-me@example.com");
+    const registrationBody = await registration.json();
+    const firstSession = sessionTokenFrom(registration);
+    const secondLogin = await authRequest(api, "/api/auth/login", {
+      body: { email: "delete-me@example.com", password: "correct horse battery staple" }
+    });
+    const secondSession = sessionTokenFrom(secondLogin);
+    await authRequest(api, "/api/auth/password-reset/request", { body: { email: "delete-me@example.com" } });
+    const resetToken = deliveries[0].token;
+    const reportId = "11111111-1111-4111-8111-111111111111";
+    const jobId = "22222222-2222-4222-8222-222222222222";
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1_000).toISOString();
+    withDatabase(api.config.databaseFilePath, (database) => {
+      database.prepare(`
+        INSERT INTO audits (id, created_at, updated_at, normalized_url, domain, overall_score, scanner_mode, report_json, user_id, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(reportId, now, now, "https://delete.example.com", "delete.example.com", 80, "html", JSON.stringify({ id: reportId }), registrationBody.user.id, expiresAt);
+      database.prepare(`
+        INSERT INTO audit_jobs (id, status, normalized_url, audit_id, attempt_count, max_attempts, available_at, created_at, updated_at, completed_at, user_id)
+        VALUES (?, 'completed', ?, ?, 1, 2, ?, ?, ?, ?, ?)
+      `).run(jobId, "https://delete.example.com", reportId, now, now, now, now, registrationBody.user.id);
+    });
+
+    const unauthenticated = await authRequest(api, "/api/auth/account", { method: "DELETE", body: { password: "correct horse battery staple" } });
+    const missingOrigin = await authRequest(api, "/api/auth/account", { method: "DELETE", cookie: firstSession, origin: null, body: { password: "correct horse battery staple" } });
+    const missingPassword = await authRequest(api, "/api/auth/account", { method: "DELETE", cookie: firstSession, body: {} });
+    const wrongPassword = await authRequest(api, "/api/auth/account", { method: "DELETE", cookie: firstSession, body: { password: "wrong password" } });
+    assert.equal(unauthenticated.status, 401);
+    assert.equal(missingOrigin.status, 403);
+    for (const response of [missingPassword, wrongPassword]) {
+      assert.equal(response.status, 401);
+      assert.equal((await response.json()).error.code, "INVALID_CREDENTIALS");
+    }
+
+    const deleted = await authRequest(api, "/api/auth/account", {
+      method: "DELETE",
+      cookie: firstSession,
+      body: { password: "correct horse battery staple" }
+    });
+    assert.equal(deleted.status, 204);
+    assert.match(deleted.headers.get("set-cookie"), /Max-Age=0/);
+    for (const token of [firstSession, secondSession]) {
+      assert.equal((await authRequest(api, "/api/auth/me", { method: "GET", cookie: token, origin: null, contentType: null })).status, 401);
+    }
+    assert.equal((await authRequest(api, "/api/auth/login", {
+      body: { email: "delete-me@example.com", password: "correct horse battery staple" }
+    })).status, 401);
+    assert.equal((await authRequest(api, "/api/auth/password-reset/confirm", {
+      body: { token: resetToken, password: "replacement password" }
+    })).status, 400);
+    assert.equal((await authRequest(api, `/api/audits/${reportId}`, { method: "GET", cookie: secondSession, origin: null, contentType: null })).status, 401);
+    assert.equal((await authRequest(api, `/api/audit-jobs/${jobId}`, { method: "GET", cookie: secondSession, origin: null, contentType: null })).status, 401);
+
+    const state = withDatabase(api.config.databaseFilePath, (database) => ({
+      user: database.prepare("SELECT disabled_at, deletion_requested_at, purge_after FROM users WHERE id = ?").get(registrationBody.user.id),
+      activeSessions: database.prepare("SELECT COUNT(*) AS count FROM sessions WHERE user_id = ? AND revoked_at IS NULL").get(registrationBody.user.id).count,
+      activeResets: database.prepare("SELECT COUNT(*) AS count FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL AND invalidated_at IS NULL").get(registrationBody.user.id).count
+    }));
+    assert.equal(state.user.disabled_at, state.user.deletion_requested_at);
+    assert.equal(new Date(state.user.purge_after).getTime() - new Date(state.user.deletion_requested_at).getTime() <= 30 * 24 * 60 * 60 * 1_000, true);
+    assert.equal(state.activeSessions, 0);
+    assert.equal(state.activeResets, 0);
+  });
+
   it("requires authentication and trusted Origin for audit creation after ownership migration", async () => {
     const api = await startApi({ dependencies: { initialUrlSafetyValidator: async () => true } });
     const unauthenticated = await fetch(`${api.baseUrl}/api/audits`, {

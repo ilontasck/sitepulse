@@ -9,6 +9,7 @@ import {
 
 export const SESSION_TTL_MS = 14 * 24 * 60 * 60 * 1_000;
 export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1_000;
+export const ACCOUNT_PURGE_TTL_MS = 30 * 24 * 60 * 60 * 1_000;
 
 export class AuthServiceError extends Error {
   constructor(code, message) {
@@ -130,6 +131,19 @@ export function createAuthService({
       return tokenHash ? authStore.revokeSessionByTokenHash(tokenHash) : false;
     },
 
+    async deleteAccount({ userId, password } = {}) {
+      const user = await authStore.findUserById(userId);
+      const verified = user && !user.disabledAt && !user.deletionRequestedAt
+        ? await passwordService.verifyPassword(password, user.passwordHash)
+        : await passwordService.verifyDummyPassword(password);
+      if (!verified || !user || user.disabledAt || user.deletionRequestedAt) {
+        throw invalidCredentials();
+      }
+      const purgeAfter = new Date(clock().getTime() + ACCOUNT_PURGE_TTL_MS).toISOString();
+      const deleted = await authStore.requestAccountDeletion({ userId, purgeAfter });
+      if (!deleted) throw invalidCredentials();
+    },
+
     async requestPasswordReset({ email } = {}) {
       let identity;
       try {
@@ -139,7 +153,7 @@ export function createAuthService({
       }
 
       const user = await authStore.findUserByNormalizedEmail(identity.normalized);
-      if (!user || user.disabledAt) {
+      if (!user || user.disabledAt || user.deletionRequestedAt) {
         return { accepted: true };
       }
 

@@ -780,8 +780,8 @@ describe("audit queue resilience", () => {
       jobsTable: database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'audit_jobs'").get().count
     }));
 
-    assert.deepEqual(results.map((rows) => rows.map(({ version }) => version)), [[1, 2, 3, 4, 5, 6, 7], [1, 2, 3, 4, 5, 6, 7]]);
-    assert.deepEqual(schema.migrations.map(({ version }) => version), [1, 2, 3, 4, 5, 6, 7]);
+    assert.deepEqual(results.map((rows) => rows.map(({ version }) => version)), [[1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7, 8]]);
+    assert.deepEqual(schema.migrations.map(({ version }) => version), [1, 2, 3, 4, 5, 6, 7, 8]);
     assert.equal(schema.auditsTable, 1);
     assert.equal(schema.jobsTable, 1);
   });
@@ -794,11 +794,11 @@ describe("audit queue resilience", () => {
     const migrations = runMigrations(databaseFilePath);
     await lock.released();
 
-    assert.deepEqual(migrations.map(({ version }) => version), [1, 2, 3, 4, 5, 6, 7]);
+    assert.deepEqual(migrations.map(({ version }) => version), [1, 2, 3, 4, 5, 6, 7, 8]);
     const schemaVersions = inspectDatabase(databaseFilePath, (database) =>
       database.prepare("SELECT version FROM schema_migrations ORDER BY version").all().map(({ version }) => version)
     );
-    assert.deepEqual(schemaVersions, [1, 2, 3, 4, 5, 6, 7]);
+    assert.deepEqual(schemaVersions, [1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
   it("recovers persisted queued and expired work after a simulated process restart", async () => {

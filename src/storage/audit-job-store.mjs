@@ -2,6 +2,7 @@ import { isCorrelationId } from "../telemetry/log-context.mjs";
 import { randomUUID } from "node:crypto";
 import { createAuditRecord, insertAuditRecord } from "./audit-record.mjs";
 import { withDatabase, withImmediateTransaction } from "./sqlite-database.mjs";
+import { FREE_REPORT_TTL_MS } from "./audit-store.mjs";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
@@ -76,6 +77,7 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
   const clock = options.clock || (() => new Date());
   const idGenerator = options.idGenerator || randomUUID;
   const leaseTokenGenerator = options.leaseTokenGenerator || randomUUID;
+  const reportTtlMs = options.reportTtlMs ?? FREE_REPORT_TTL_MS;
 
   return {
     enqueue({ normalizedUrl, userId, requestId = null }) {
@@ -102,13 +104,22 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
     },
 
     findByIdForUser(jobId, userId) {
+      const now = toIsoTime(clock());
       return withDatabase(databaseFilePath, (database) =>
         toJob(database.prepare(`
-          SELECT *
+          SELECT audit_jobs.*
           FROM audit_jobs
-          WHERE id = ? AND user_id = ?
+          INNER JOIN users ON users.id = audit_jobs.user_id
+          LEFT JOIN audits ON audits.id = audit_jobs.audit_id
+          WHERE audit_jobs.id = ? AND audit_jobs.user_id = ?
+            AND users.disabled_at IS NULL
+            AND users.deletion_requested_at IS NULL
+            AND (
+              audit_jobs.audit_id IS NULL
+              OR (audits.deleted_at IS NULL AND audits.expires_at > ?)
+            )
           LIMIT 1
-        `).get(jobId, userId))
+        `).get(jobId, userId, now))
       );
     },
 
@@ -186,7 +197,8 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
           }
 
           const auditRecord = createAuditRecord(audit, { id: idGenerator(), now });
-          insertAuditRecord(database, auditRecord, { userId: ownedJob.user_id });
+          const expiresAt = new Date(new Date(now).getTime() + reportTtlMs).toISOString();
+          insertAuditRecord(database, auditRecord, { userId: ownedJob.user_id, expiresAt });
           const completedJob = database.prepare(`
             UPDATE audit_jobs
             SET status = 'completed',

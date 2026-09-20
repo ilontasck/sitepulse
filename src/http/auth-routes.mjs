@@ -144,6 +144,19 @@ export async function handleAuthApi({
     return sendNoContent(response);
   }
 
+  if (url.pathname === "/api/auth/account") {
+    if (request.method !== "DELETE") throw methodNotAllowed();
+    const user = await resolveAuthenticatedUser(request, { authService, cookiePolicy });
+    if (!user) throw new HttpError(401, "Sign in to continue.", "AUTHENTICATION_REQUIRED");
+    requireTrustedOrigin(request, config.publicOrigin);
+    const body = requireObjectBody(
+      await readJsonBody(request, config.requestBodyLimitBytes, { strictContentType: true })
+    );
+    await performAuthOperation(() => authService.deleteAccount({ userId: user.id, password: body.password }), response);
+    response.setHeader("Set-Cookie", cookiePolicy.clear());
+    return sendNoContent(response);
+  }
+
   if (url.pathname === "/api/auth/logout") {
     if (request.method !== "POST") throw methodNotAllowed();
     requireTrustedOrigin(request, config.publicOrigin);
