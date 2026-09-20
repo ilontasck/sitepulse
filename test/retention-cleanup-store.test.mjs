@@ -52,6 +52,8 @@ describe("retention cleanup store", () => {
       insertReport(database, "expired", "owner", { expiresAt: "2026-09-20T11:59:59.000Z" });
       insertReport(database, "deleted", "owner", { expiresAt: "2026-10-01T00:00:00.000Z", deletedAt: "2026-09-20T11:00:00.000Z" });
       insertReport(database, "active", "owner", { expiresAt: "2026-09-20T12:00:01.000Z" });
+      database.prepare("INSERT INTO audit_monthly_usage (user_id, period_start, used_count) VALUES ('owner','2026-09-01T00:00:00.000Z',3)").run();
+      database.prepare("UPDATE audit_jobs SET quota_period_start='2026-09-01T00:00:00.000Z', quota_charged=1 WHERE id='job-expired'").run();
     });
 
     assert.deepEqual(store.cleanup({ limit: 100 }), { reports: 2, pendingJobs: 0, accounts: 0 });
@@ -59,6 +61,7 @@ describe("retention cleanup store", () => {
     databaseState(databaseFilePath, (database) => {
       assert.deepEqual(database.prepare("SELECT id FROM audits ORDER BY id").all().map(({ id }) => id), ["active"]);
       assert.deepEqual(database.prepare("SELECT id FROM audit_jobs ORDER BY id").all().map(({ id }) => id), ["job-active"]);
+      assert.equal(database.prepare("SELECT used_count FROM audit_monthly_usage WHERE user_id='owner'").get().used_count, 3);
       assert.deepEqual(database.prepare("PRAGMA foreign_key_check").all(), []);
     });
   });
@@ -100,6 +103,8 @@ describe("retention cleanup store", () => {
       insertReport(database, "later-report", "later", { expiresAt: "2026-10-01T00:00:00.000Z" });
       database.prepare("INSERT INTO sessions (id, user_id, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)").run("session-due", "due", Buffer.alloc(32, 1), "2026-08-01T00:00:00.000Z", "2026-10-01T00:00:00.000Z");
       database.prepare("INSERT INTO password_reset_tokens (id, user_id, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)").run("reset-due", "due", Buffer.alloc(32, 2), "2026-08-01T00:00:00.000Z", "2026-10-01T00:00:00.000Z");
+      database.prepare("INSERT INTO audit_monthly_usage (user_id, period_start, used_count) VALUES (?, ?, ?)").run("due", "2026-09-01T00:00:00.000Z", 1);
+      database.prepare("INSERT INTO audit_monthly_usage (user_id, period_start, used_count) VALUES (?, ?, ?)").run("later", "2026-09-01T00:00:00.000Z", 1);
     });
 
     const result = store.cleanup({ limit: 100 });
@@ -110,6 +115,8 @@ describe("retention cleanup store", () => {
       assert.equal(database.prepare("SELECT COUNT(*) AS count FROM audit_jobs WHERE user_id = 'due'").get().count, 0);
       assert.equal(database.prepare("SELECT COUNT(*) AS count FROM sessions WHERE user_id = 'due'").get().count, 0);
       assert.equal(database.prepare("SELECT COUNT(*) AS count FROM password_reset_tokens WHERE user_id = 'due'").get().count, 0);
+      assert.equal(database.prepare("SELECT COUNT(*) AS count FROM audit_monthly_usage WHERE user_id = 'due'").get().count, 0);
+      assert.equal(database.prepare("SELECT COUNT(*) AS count FROM audit_monthly_usage WHERE user_id = 'later'").get().count, 1);
       assert.deepEqual(database.prepare("PRAGMA foreign_key_check").all(), []);
     });
   });

@@ -164,6 +164,19 @@ button { cursor: pointer; }
   color: var(--nq-ink);
 }
 
+.nqQuota {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--nq-space-2) var(--nq-space-3);
+  align-items: baseline;
+  width: min(100%, 39rem);
+  margin-top: var(--nq-space-3);
+  color: var(--nq-graphite);
+  font-size: var(--nq-type-body-sm);
+}
+.nqQuota b { color: var(--nq-ember-text); }
+.nqQuota small { color: var(--nq-muted); }
+
 @media (max-width: 520px) {
   .nqSignedIn {
     align-items: stretch;

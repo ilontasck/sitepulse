@@ -22,8 +22,8 @@ function insertTestUser(databaseFilePath, userId = TEST_USER_ID, email = "queue-
     const now = "2026-08-14T10:00:00.000Z";
     database.prepare(`
       INSERT INTO users (
-        id, email_original, email_normalized, password_hash, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?)
+        id, email_original, email_normalized, password_hash, created_at, updated_at, plan_code
+      ) VALUES (?, ?, ?, ?, ?, ?, 'pro')
     `).run(userId, email, email, "x".repeat(64), now, now);
   });
 }
@@ -780,8 +780,8 @@ describe("audit queue resilience", () => {
       jobsTable: database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'audit_jobs'").get().count
     }));
 
-    assert.deepEqual(results.map((rows) => rows.map(({ version }) => version)), [[1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7, 8]]);
-    assert.deepEqual(schema.migrations.map(({ version }) => version), [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.deepEqual(results.map((rows) => rows.map(({ version }) => version)), [[1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 5, 6, 7, 8, 9]]);
+    assert.deepEqual(schema.migrations.map(({ version }) => version), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
     assert.equal(schema.auditsTable, 1);
     assert.equal(schema.jobsTable, 1);
   });
@@ -794,11 +794,11 @@ describe("audit queue resilience", () => {
     const migrations = runMigrations(databaseFilePath);
     await lock.released();
 
-    assert.deepEqual(migrations.map(({ version }) => version), [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.deepEqual(migrations.map(({ version }) => version), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
     const schemaVersions = inspectDatabase(databaseFilePath, (database) =>
       database.prepare("SELECT version FROM schema_migrations ORDER BY version").all().map(({ version }) => version)
     );
-    assert.deepEqual(schemaVersions, [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.deepEqual(schemaVersions, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
   it("recovers persisted queued and expired work after a simulated process restart", async () => {
@@ -890,6 +890,9 @@ describe("audit queue resilience", () => {
       });
       const cookie = registration.headers.get("set-cookie")?.split(";", 1)[0];
       assert.equal(registration.status, 201);
+      inspectDatabase(databaseFilePath, (database) =>
+        database.prepare("UPDATE users SET plan_code='pro' WHERE email_normalized='burst-owner@example.com'").run()
+      );
       const targets = Array.from({ length: 10 }, (_, index) => `https://burst-${index}.example.com`);
       const responses = await Promise.all(targets.map((websiteUrl) =>
         fetch(`${baseUrl}/api/audits`, {

@@ -49,13 +49,15 @@ describe("SQLite migrations", () => {
       { version: 5, name: "audit ownership" },
       { version: 6, name: "production observability" },
       { version: 7, name: "password_reset_tokens" },
-      { version: 8, name: "retention and deletion foundation" }
+      { version: 8, name: "retention and deletion foundation" },
+      { version: 9, name: "plans and monthly audit quotas" }
     ]);
     assert.equal(schema.tables.some(({ name }) => name === "audits"), true);
     assert.equal(schema.tables.some(({ name }) => name === "audit_jobs"), true);
     assert.equal(schema.tables.some(({ name }) => name === "users"), true);
     assert.equal(schema.tables.some(({ name }) => name === "sessions"), true);
     assert.equal(schema.tables.some(({ name }) => name === "password_reset_tokens"), true);
+    assert.equal(schema.tables.some(({ name }) => name === "audit_monthly_usage"), true);
   });
 
   it("adds retention and deletion state and backfills existing reports with thirty-day expiry", async () => {
@@ -81,6 +83,27 @@ describe("SQLite migrations", () => {
     assert.equal(state.userIndexes.includes("idx_users_purge_after"), true);
     assert.equal(state.userColumns.includes("deletion_requested_at"), true);
     assert.equal(state.userColumns.includes("purge_after"), true);
+  });
+
+  it("adds constrained plans, free job snapshots, and persistent monthly usage", async () => {
+    const databaseFilePath = await temporaryDatabase();
+    runMigrations(databaseFilePath, { migrations: sitePulseMigrations.slice(0, 8) });
+    inspectDatabase(databaseFilePath, (database) => {
+      const now = "2026-09-20T10:00:00.000Z";
+      database.prepare(`INSERT INTO users
+        (id,email_original,email_normalized,password_hash,created_at,updated_at)
+        VALUES ('owner','owner@example.com','owner@example.com',?,?,?)`).run("x".repeat(64), now, now);
+      database.prepare(`INSERT INTO audit_jobs
+        (id,status,normalized_url,attempt_count,max_attempts,available_at,created_at,updated_at,user_id)
+        VALUES ('job','queued','https://example.com',0,2,?,?,?,'owner')`).run(now, now, now);
+    });
+    runMigrations(databaseFilePath);
+    inspectDatabase(databaseFilePath, (database) => {
+      assert.equal(database.prepare("SELECT plan_code FROM users WHERE id='owner'").get().plan_code, "free");
+      assert.equal(database.prepare("SELECT plan_code_snapshot, quota_charged FROM audit_jobs WHERE id='job'").get().plan_code_snapshot, "free");
+      assert.throws(() => database.prepare("UPDATE users SET plan_code='enterprise' WHERE id='owner'").run(), /check constraint/i);
+      assert.throws(() => database.prepare("INSERT INTO audit_monthly_usage VALUES ('owner','2026-09-01T00:00:00.000Z',-1)").run(), /check constraint/i);
+    });
   });
 
   it("adopts a legacy audits database without losing readable records", async () => {
@@ -155,7 +178,8 @@ describe("SQLite migrations", () => {
         { version: 5, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 6, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 7, appliedAt: "2026-08-13T10:00:00.000Z" },
-        { version: 8, appliedAt: "2026-08-13T10:00:00.000Z" }
+        { version: 8, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 9, appliedAt: "2026-08-13T10:00:00.000Z" }
       ]
     );
   });
@@ -204,7 +228,7 @@ describe("SQLite migrations", () => {
 
     assert.deepEqual({ ...state.audit }, { id: "legacy-audit", normalized_url: "https://example.com" });
     assert.deepEqual({ ...state.job }, { id: "legacy-job", status: "queued", normalized_url: "https://example.com" });
-    assert.deepEqual(state.versions, [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert.deepEqual(state.versions, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
   it("adds nullable restricted ownership without changing legacy audits or jobs", async () => {
@@ -256,7 +280,7 @@ describe("SQLite migrations", () => {
       database.prepare("UPDATE audits SET user_id = ? WHERE id = ?").run("owner-1", "legacy-audit");
       database.prepare("UPDATE audit_jobs SET user_id = ? WHERE id = ?").run("owner-1", "legacy-job");
       assert.throws(() => database.prepare("DELETE FROM users WHERE id = ?").run("owner-1"), /foreign key constraint/i);
-      assert.deepEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8]);
+      assert.deepEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8, 9]);
     });
   });
 
@@ -426,7 +450,7 @@ describe("SQLite migrations", () => {
     const databaseFilePath = await temporaryDatabase();
     runMigrations(databaseFilePath);
     const failingMigration = {
-      version: 9,
+      version: 10,
       name: "intentional failure",
       up(database) {
         database.exec("CREATE TABLE must_rollback (id TEXT PRIMARY KEY);");
@@ -440,11 +464,11 @@ describe("SQLite migrations", () => {
     );
 
     const state = inspectDatabase(databaseFilePath, (database) => ({
-      version9: database.prepare("SELECT version FROM schema_migrations WHERE version = 9").get(),
+      version10: database.prepare("SELECT version FROM schema_migrations WHERE version = 10").get(),
       rolledBackTable: database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'must_rollback'").get()
     }));
 
-    assert.equal(state.version9, undefined);
+    assert.equal(state.version10, undefined);
     assert.equal(state.rolledBackTable, undefined);
   });
 

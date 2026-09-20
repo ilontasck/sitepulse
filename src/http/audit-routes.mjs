@@ -5,6 +5,7 @@ import { resolveAuthenticatedUser } from "./auth-request.mjs";
 import { readJsonBody } from "./body.mjs";
 import { requireTrustedOrigin } from "./origin-policy.mjs";
 import { sendJson, sendNoContent } from "./respond.mjs";
+import { AuditQuotaExceededError } from "../storage/audit-job-store.mjs";
 
 function parseLimit(searchParams) {
   const rawLimit = searchParams.get("limit");
@@ -115,7 +116,18 @@ export async function handleAuditApi({
     const websiteUrl = body.websiteUrl ?? body.url;
     const target = normalizeWebsiteUrl(websiteUrl);
     await initialUrlSafetyValidator(target.normalizedUrl);
-    const job = jobStore.enqueue({ normalizedUrl: target.normalizedUrl, userId: user.id, requestId: request.requestId });
+    let job;
+    try {
+      job = jobStore.enqueue({ normalizedUrl: target.normalizedUrl, userId: user.id,
+        requestId: request.requestId, renderedAuditEnabled: config.renderedAuditEnabled });
+    } catch (error) {
+      if (!(error instanceof AuditQuotaExceededError)) throw error;
+      const retryAfter = Math.max(1, Math.ceil((new Date(error.quota.quota.resetsAt).getTime() - Date.now()) / 1000));
+      return sendJson(response, 429, {
+        error: { code: "AUDIT_QUOTA_EXCEEDED", message: "Your monthly audit quota has been used." },
+        quota: error.quota
+      }, { "Retry-After": String(retryAfter) });
+    }
     const statusUrl = `/api/audit-jobs/${job.id}`;
     telemetry?.record("audit.queued", { jobId: job.id, requestId: request.requestId, durationMs: 0, auditMode: config.renderedAuditEnabled ? "rendered" : "basic", outcome: "queued" });
 
@@ -132,6 +144,17 @@ export async function handleAuditApi({
       },
       { Location: statusUrl, "Retry-After": "1" }
     );
+  }
+
+  if (url.pathname === "/api/audits/quota") {
+    if (request.method !== "GET") {
+      throw new HttpError(405, "Method is not allowed for this endpoint.", "METHOD_NOT_ALLOWED");
+    }
+    const user = await requireAuthenticatedUser(request, response, { authService, cookiePolicy });
+    rateLimiters.general(request, response, user);
+    const quota = jobStore.quotaForUser(user.id, { renderedAuditEnabled: config.renderedAuditEnabled });
+    if (!quota) throw authenticationRequired();
+    return sendJson(response, 200, quota);
   }
 
   const jobPathMatch = url.pathname.match(/^\/api\/audit-jobs\/([^/]+)$/);

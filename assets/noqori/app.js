@@ -16,6 +16,10 @@ const registrationTemplate = document.getElementById("registrationTemplate");
 const closedRegistration = document.getElementById("closedRegistration");
 const sessionEmail = document.getElementById("sessionEmail");
 const logoutButton = document.getElementById("logoutButton");
+const quotaStatus = document.getElementById("quotaStatus");
+const quotaPlan = document.getElementById("quotaPlan");
+const quotaRemaining = document.getElementById("quotaRemaining");
+const quotaReset = document.getElementById("quotaReset");
 let currentUser = null;
 let registrationMode = "closed";
 
@@ -58,6 +62,7 @@ function showAuthenticated(user) {
   signedInView.hidden = false;
   sessionEmail.textContent = user.email;
   form.hidden = false;
+  void refreshQuota();
 }
 
 function showSignedOut({ message = "", focusLogin = false } = {}) {
@@ -68,11 +73,29 @@ function showSignedOut({ message = "", focusLogin = false } = {}) {
   signedInView.hidden = true;
   signedOutView.hidden = false;
   form.hidden = true;
+  quotaStatus.hidden = true;
   report.hidden = true;
   document.getElementById("landing").hidden = false;
   document.body.classList.remove("noqori-report-view");
   if (message) showAuthError(message, { focusLogin });
   else hideAuthError();
+}
+
+async function refreshQuota() {
+  if (!currentUser) return;
+  try {
+    const response = await fetch("/api/audits/quota");
+    requireFreshSession(response);
+    const payload = await response.json();
+    if (!response.ok || !payload.quota) return;
+    const quota = payload.quota;
+    quotaPlan.textContent = payload.plan === "pro" ? "Pro" : "Free beta";
+    quotaRemaining.textContent = `${quota.remaining} of ${quota.limit} audits remaining`;
+    quotaReset.textContent = `Resets ${new Date(quota.resetsAt).toLocaleDateString()}`;
+    quotaStatus.hidden = false;
+  } catch {
+    quotaStatus.hidden = true;
+  }
 }
 
 async function parseAuthResponse(response) {
@@ -324,6 +347,13 @@ async function requestAudit(websiteUrl, { signal } = {}) {
   }
 
   if (!response.ok) {
+    if (payload.error?.code === "AUDIT_QUOTA_EXCEEDED") {
+      const reset = payload.quota?.quota?.resetsAt;
+      const resetLabel = reset && !Number.isNaN(new Date(reset).getTime())
+        ? new Date(reset).toLocaleDateString()
+        : "next month";
+      throw createPublicError(`You have used all audits for this month. Your quota resets ${resetLabel}.`, payload.error.code);
+    }
     throw createPublicError(payload.error?.message || "Audit request failed.", payload.error?.code);
   }
 
@@ -863,6 +893,7 @@ form.addEventListener("submit", async event => {
     const job = await requestAudit(input.value, { signal: run.controller.signal });
     assertActiveRun(run);
     run.job = job;
+    void refreshQuota();
     loadingText.textContent = "Your audit is queued…";
     analysisExperience.setState("queued");
     const audit = await pollAuditJob(job.statusUrl, {
@@ -883,6 +914,7 @@ form.addEventListener("submit", async event => {
   } catch (error) {
     if (isAbortError(error) || activeAuditRun !== run) return;
     if (error.code === "AUTHENTICATION_REQUIRED") return;
+    if (run.job) void refreshQuota();
     loading.hidden = true;
     runButton.disabled = false;
     analysisExperience.fail(error.message || "Could not run the audit. Please try again.", { code: error.code });

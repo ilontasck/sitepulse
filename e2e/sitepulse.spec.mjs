@@ -60,6 +60,49 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/auth/me", route => fulfillJson(route, 200, {
     user: { id: "e2e-user", email: "e2e@example.com", createdAt: "2026-08-22T09:00:00.000Z" }
   }));
+  await page.route("**/api/audits/quota", route => fulfillJson(route, 200, {
+    plan: "free", quota: { limit: 3, used: 1, remaining: 2, periodStart: "2026-09-01T00:00:00.000Z",
+      resetsAt: "2026-10-01T00:00:00.000Z" },
+    features: { renderedEligible: true, renderedAvailable: true, retention: "30 days" }
+  }));
+});
+
+test("shows the server-provided free beta quota", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("#quotaPlan")).toHaveText("Free beta");
+  await expect(page.locator("#quotaRemaining")).toHaveText("2 of 3 audits remaining");
+  await expect(page.locator("#quotaStatus")).toBeVisible();
+});
+
+test("shows a clear monthly quota exceeded message", async ({ page }) => {
+  await page.route("**/api/audits", route => fulfillJson(route, 429, {
+    error: { code: "AUDIT_QUOTA_EXCEEDED", message: "Your monthly audit quota has been used." },
+    quota: { plan: "free", quota: { limit: 3, used: 3, remaining: 0,
+      periodStart: "2026-09-01T00:00:00.000Z", resetsAt: "2026-10-01T00:00:00.000Z" } }
+  }));
+  await page.goto("/");
+  await page.locator("#urlInput").fill("example.com");
+  await page.locator("#runBtn").click();
+  await expect(page.getByText(/You have used all audits for this month\. Your quota resets .+\./)).toBeVisible();
+});
+
+test("refreshes remaining quota after an accepted audit", async ({ page }) => {
+  let reads = 0;
+  await page.unroute("**/api/audits/quota");
+  await page.route("**/api/audits/quota", route => {
+    reads += 1;
+    return fulfillJson(route, 200, {
+      plan: "free", quota: { limit: 3, used: Math.min(reads, 2), remaining: Math.max(1, 3 - reads),
+        periodStart: "2026-09-01T00:00:00.000Z", resetsAt: "2026-10-01T00:00:00.000Z" },
+      features: { renderedEligible: true, renderedAvailable: true, retention: "30 days" }
+    });
+  });
+  await mockQueuedJobCreation(page);
+  await page.goto("/");
+  await expect(page.locator("#quotaRemaining")).toHaveText("2 of 3 audits remaining");
+  await page.locator("#urlInput").fill("example.com");
+  await page.locator("#runBtn").click();
+  await expect(page.locator("#quotaRemaining")).toHaveText("1 of 3 audits remaining");
 });
 
 async function useRealAuth(page) {
@@ -829,6 +872,17 @@ test("a new submit invalidates a stale completion from the previous job", async 
 });
 
 test("a failed job shows its safe error and stops polling", async ({ page }) => {
+  let quotaReads = 0;
+  await page.unroute("**/api/audits/quota");
+  await page.route("**/api/audits/quota", route => {
+    quotaReads += 1;
+    const remaining = quotaReads === 2 ? 1 : 2;
+    return fulfillJson(route, 200, {
+      plan: "free", quota: { limit: 3, used: 3 - remaining, remaining,
+        periodStart: "2026-09-01T00:00:00.000Z", resetsAt: "2026-10-01T00:00:00.000Z" },
+      features: { renderedEligible: true, renderedAvailable: true, retention: "30 days" }
+    });
+  });
   const jobId = await mockQueuedJobCreation(page);
   let pollCount = 0;
   let postCount = 0;
@@ -869,6 +923,8 @@ test("a failed job shows its safe error and stops polling", async ({ page }) => 
   await expect(page.getByText("AUDIT_TIMEOUT", { exact: true })).toBeVisible();
   await page.waitForTimeout(1200);
   expect(pollCount).toBe(1);
+  await expect(page.locator("#quotaRemaining")).toHaveText("2 of 3 audits remaining");
+  expect(quotaReads).toBeGreaterThanOrEqual(3);
 
   await retry.click();
   await expect(analysis).toBeHidden();

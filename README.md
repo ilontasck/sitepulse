@@ -400,6 +400,10 @@ Returns API process liveness. `GET /api/ready` separately verifies that the shar
 
 Requires a valid SitePulse session and exact trusted `Origin`, validates the URL, creates an owner-scoped persistent audit job, and returns immediately with `202 Accepted`.
 
+During the beta, authenticated accounts start on the `free` plan with three accepted audits per UTC calendar month. The reservation and job enqueue commit atomically. Retries do not consume another audit; a terminal processing failure refunds the reservation once. Successful audits remain charged if their report is later deleted or expires. The internal `pro` policy allows 25 audits per UTC calendar month. Billing and self-service plan changes are not implemented.
+
+Free reports expire after 30 days. Reports created by a job that captured the internal `pro` policy expire after 12 calendar months; each job keeps its plan snapshot even if the account plan changes while it is queued.
+
 ### Password recovery
 
 `POST /api/auth/password-reset/request` accepts `{ "email": "..." }` and always returns `202 { "accepted": true }` for syntactically valid requests, regardless of whether an account exists. `POST /api/auth/password-reset/confirm` accepts `{ "token": "...", "password": "..." }` and returns `204` after a successful one-time reset. Both endpoints require the exact trusted `Origin` and JSON content type.
@@ -428,6 +432,10 @@ The response contains a queued job and its polling URL:
 ### `GET /api/audit-jobs/:id`
 
 Requires a valid session and returns the safe job status only to its owner. A completed job includes `auditId` and `auditUrl`; a failed job includes only a safe error code and message.
+
+### `GET /api/audits/quota`
+
+Requires a valid session and returns the server-calculated plan, UTC monthly usage, remaining audits, reset timestamp, and effective feature flags. Responses are `private, no-store`. Audit creation returns `429 AUDIT_QUOTA_EXCEEDED` with `Retry-After` when no monthly capacity remains.
 
 ### `GET /api/audits/:id`
 

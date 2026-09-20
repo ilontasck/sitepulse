@@ -18,7 +18,7 @@ function safeFields(fields) {
     else if (enumFields[key]?.has?.(value)) safe[key] = value;
     else if (key === "fallbackReason" && enumFields.reason.has(value)) safe[key] = value;
     else if (key === "errorCode" && typeof value === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(value)) safe[key] = safeErrorCode({ code: value }, "UNKNOWN_ERROR");
-    else if (key === "route" && typeof value === "string" && /^\/(?:api\/(?:health|ready|operations|audits(?::id|\/:id)?|audit-jobs\/:id|auth\/(?:config|register|login|logout|me)|unknown)|static)$/.test(value)) safe[key] = value;
+    else if (key === "route" && typeof value === "string" && /^\/(?:api\/(?:health|ready|operations|audits(?::id|\/:id|\/quota)?|audit-jobs\/:id|auth\/(?:config|register|login|logout|me)|unknown)|static)$/.test(value)) safe[key] = value;
   }
   return safe;
 }

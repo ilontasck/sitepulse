@@ -144,6 +144,23 @@ describe("authentication HTTP API", () => {
     assert.deepEqual({ type: stored.type, length: stored.length }, { type: "blob", length: 32 });
     assert.notEqual(stored.hash.toLowerCase(), Buffer.from(rawToken).toString("hex"));
     assert.equal(JSON.stringify(telemetry).includes(rawToken), false);
+    assert.equal(withDatabase(api.config.databaseFilePath, (database) =>
+      database.prepare("SELECT plan_code FROM users WHERE id = ?").get(body.user.id).plan_code
+    ), "free");
+  });
+
+  it("does not allow registration input or a public route to grant pro", async () => {
+    const api = await startApi();
+    const response = await authRequest(api, "/api/auth/register", {
+      body: { email: "plan@example.com", password: "correct horse battery staple", plan: "pro", plan_code: "pro" }
+    });
+    const body = await response.json();
+    assert.equal(response.status, 201);
+    assert.equal(withDatabase(api.config.databaseFilePath, (database) =>
+      database.prepare("SELECT plan_code FROM users WHERE id = ?").get(body.user.id).plan_code
+    ), "free");
+    const mutation = await authRequest(api, "/api/auth/plan", { body: { plan: "pro" } });
+    assert.equal(mutation.status, 404);
   });
 
   it("returns safe registration validation, duplicate, CSRF, media-type, capacity, and rate-limit errors", async () => {
