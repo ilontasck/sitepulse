@@ -6,6 +6,7 @@ import { migration004Sessions } from "./migrations/004_sessions.mjs";
 import { migration005AuditOwnership } from "./migrations/005_audit_ownership.mjs";
 
 import { migration006Observability } from "./migrations/006_observability.mjs";
+import { migration007PasswordResetTokens } from "./migrations/007_password_reset_tokens.mjs";
 
 export const sitePulseMigrations = [
   migration001InitialAudits,
@@ -13,7 +14,8 @@ export const sitePulseMigrations = [
   migration003Users,
   migration004Sessions,
   migration005AuditOwnership,
-  migration006Observability
+  migration006Observability,
+  migration007PasswordResetTokens
 ];
 
 function validateMigrations(migrations) {

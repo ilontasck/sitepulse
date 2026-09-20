@@ -29,6 +29,9 @@ function mapAuthError(error, response) {
     if (error.code === "INVALID_CREDENTIALS") {
       return new HttpError(401, error.message, error.code);
     }
+    if (error.code === "INVALID_PASSWORD_RESET_TOKEN") {
+      return new HttpError(400, error.message, error.code);
+    }
   }
   return error;
 }
@@ -110,6 +113,35 @@ export async function handleAuthApi({
       throw new HttpError(401, "Sign in to continue.", "AUTHENTICATION_REQUIRED");
     }
     return sendJson(response, 200, { user });
+  }
+
+  if (url.pathname === "/api/auth/password-reset/request") {
+    if (request.method !== "POST") throw methodNotAllowed();
+    rateLimiters.passwordResetRequest(request, response);
+    requireTrustedOrigin(request, config.publicOrigin);
+    const body = requireObjectBody(
+      await readJsonBody(request, config.requestBodyLimitBytes, { strictContentType: true })
+    );
+    let normalizedEmail = null;
+    try {
+      normalizedEmail = normalizeEmail(body.email).normalized;
+    } catch {
+      // Invalid and unknown identifiers share the same accepted response.
+    }
+    rateLimiters.passwordResetByEmail(request, response, { normalizedEmail });
+    await performAuthOperation(() => authService.requestPasswordReset(body), response);
+    return sendJson(response, 202, { accepted: true });
+  }
+
+  if (url.pathname === "/api/auth/password-reset/confirm") {
+    if (request.method !== "POST") throw methodNotAllowed();
+    rateLimiters.passwordResetConfirm(request, response);
+    requireTrustedOrigin(request, config.publicOrigin);
+    const body = requireObjectBody(
+      await readJsonBody(request, config.requestBodyLimitBytes, { strictContentType: true })
+    );
+    await performAuthOperation(() => authService.confirmPasswordReset(body), response);
+    return sendNoContent(response);
   }
 
   if (url.pathname === "/api/auth/logout") {

@@ -32,7 +32,11 @@ export function createApp(config, dependencies = {}) {
   const jobStore = dependencies.jobStore || createAuditJobStore(config.databaseFilePath);
   const authStore = dependencies.authStore || createAuthStore(config.databaseFilePath);
   const passwordService = dependencies.passwordService || createPasswordService({ maxConcurrency: config.authScryptMaxConcurrency });
-  const authService = dependencies.authService || createAuthService({ authStore, passwordService });
+  const authService = dependencies.authService || createAuthService({
+    authStore,
+    passwordService,
+    deliverPasswordReset: dependencies.deliverPasswordReset
+  });
   const cookiePolicy = dependencies.cookiePolicy || createSessionCookiePolicy({ publicOrigin: config.publicOrigin });
   const telemetry = dependencies.telemetry || createAuditTelemetry({ enabled: config.telemetryEnabled && config.env !== "test" });
   const readinessCheck = dependencies.readinessCheck || createSqliteReadinessCheck(config.databaseFilePath);
@@ -63,6 +67,22 @@ export function createApp(config, dependencies = {}) {
         const normalizedEmail = typeof context?.normalizedEmail === "string" ? context.normalizedEmail : "invalid";
         return `email:${createHmac("sha256", authEmailRateLimitKey).update(normalizedEmail).digest("hex")}`;
       }
+    }),
+    passwordResetRequest: createRateLimiter({
+      windowMs: config.authLoginRateLimitWindowMs,
+      max: config.authLoginRateLimitMax
+    }),
+    passwordResetByEmail: createRateLimiter({
+      windowMs: config.authLoginRateLimitWindowMs,
+      max: config.authLoginEmailRateLimitMax,
+      keySelector: (_request, context) => {
+        const normalizedEmail = typeof context?.normalizedEmail === "string" ? context.normalizedEmail : "invalid";
+        return `reset-email:${createHmac("sha256", authEmailRateLimitKey).update(normalizedEmail).digest("hex")}`;
+      }
+    }),
+    passwordResetConfirm: createRateLimiter({
+      windowMs: config.authLoginRateLimitWindowMs,
+      max: config.authLoginRateLimitMax
     })
   };
   const auditRateLimiters = dependencies.auditRateLimiters || {

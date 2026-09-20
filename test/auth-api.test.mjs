@@ -396,6 +396,137 @@ describe("authentication HTTP API", () => {
     });
   });
 
+  it("accepts password reset requests uniformly and stores only a one-hour token hash", async () => {
+    const deliveries = [];
+    const api = await startApi({ dependencies: { deliverPasswordReset: async (delivery) => deliveries.push(delivery) } });
+    assert.equal((await register(api)).status, 201);
+
+    const existing = await authRequest(api, "/api/auth/password-reset/request", { body: { email: " Owner@Example.COM " } });
+    const missing = await authRequest(api, "/api/auth/password-reset/request", { body: { email: "missing@example.com" } });
+    const malformed = await authRequest(api, "/api/auth/password-reset/request", { body: { email: "not-an-email" } });
+
+    for (const response of [existing, missing, malformed]) {
+      assert.equal(response.status, 202);
+      assert.deepEqual(await response.json(), { accepted: true });
+      assert.equal(response.headers.get("cache-control"), "no-store");
+    }
+    assert.equal(deliveries.length, 1);
+    assert.equal(deliveries[0].email, "Owner@example.com");
+    assert.equal(new Date(deliveries[0].expiresAt).getTime() - Date.now() > 3_500_000, true);
+    const stored = withDatabase(api.config.databaseFilePath, (database) =>
+      database.prepare(`
+        SELECT typeof(token_hash) AS type, length(token_hash) AS length,
+               hex(token_hash) AS hash, created_at, expires_at
+        FROM password_reset_tokens
+      `).get()
+    );
+    assert.deepEqual({ type: stored.type, length: stored.length }, { type: "blob", length: 32 });
+    assert.equal(
+      stored.hash.toLowerCase(),
+      createHash("sha256").update(Buffer.from(deliveries[0].token, "base64url")).digest("hex")
+    );
+    assert.equal(new Date(stored.expires_at).getTime() - new Date(stored.created_at).getTime(), 60 * 60 * 1_000);
+
+    const csrf = await authRequest(api, "/api/auth/password-reset/request", { origin: null, body: { email: "owner@example.com" } });
+    assert.equal(csrf.status, 403);
+    assert.equal((await csrf.json()).error.code, "CSRF_REJECTED");
+
+    const failingDeliveryApi = await startApi({
+      dependencies: { deliverPasswordReset: async () => { throw new Error("provider unavailable"); } }
+    });
+    assert.equal((await register(failingDeliveryApi, "delivery@example.com")).status, 201);
+    const deliveryFailure = await authRequest(failingDeliveryApi, "/api/auth/password-reset/request", {
+      body: { email: "delivery@example.com" }
+    });
+    assert.equal(deliveryFailure.status, 202);
+    assert.deepEqual(await deliveryFailure.json(), { accepted: true });
+  });
+
+  it("resets the password once, revokes every session, and invalidates an earlier request", async () => {
+    const deliveries = [];
+    const api = await startApi({ dependencies: { deliverPasswordReset: async (delivery) => deliveries.push(delivery) } });
+    const registration = await register(api);
+    const registeredToken = sessionTokenFrom(registration);
+    const secondLogin = await authRequest(api, "/api/auth/login", {
+      body: { email: "owner@example.com", password: "correct horse battery staple" }
+    });
+    const secondSession = sessionTokenFrom(secondLogin);
+
+    await authRequest(api, "/api/auth/password-reset/request", { body: { email: "owner@example.com" } });
+    await authRequest(api, "/api/auth/password-reset/request", { body: { email: "owner@example.com" } });
+    const [first, second] = deliveries;
+    const invalidated = await authRequest(api, "/api/auth/password-reset/confirm", {
+      body: { token: first.token, password: "new correct horse battery" }
+    });
+    assert.equal(invalidated.status, 400);
+    assert.equal((await invalidated.json()).error.code, "INVALID_PASSWORD_RESET_TOKEN");
+
+    const confirmed = await authRequest(api, "/api/auth/password-reset/confirm", {
+      body: { token: second.token, password: "new correct horse battery" }
+    });
+    assert.equal(confirmed.status, 204);
+    for (const token of [registeredToken, secondSession]) {
+      assert.equal((await authRequest(api, "/api/auth/me", { method: "GET", cookie: token, origin: null, contentType: null })).status, 401);
+    }
+    const oldLogin = await authRequest(api, "/api/auth/login", {
+      body: { email: "owner@example.com", password: "correct horse battery staple" }
+    });
+    const newLogin = await authRequest(api, "/api/auth/login", {
+      body: { email: "owner@example.com", password: "new correct horse battery" }
+    });
+    assert.equal(oldLogin.status, 401);
+    assert.equal(newLogin.status, 200);
+
+    const reused = await authRequest(api, "/api/auth/password-reset/confirm", {
+      body: { token: second.token, password: "another correct password" }
+    });
+    assert.equal(reused.status, 400);
+    assert.equal((await reused.json()).error.code, "INVALID_PASSWORD_RESET_TOKEN");
+  });
+
+  it("rejects expired, invalid, malformed, and double-used tokens and rate-limits reset abuse", async () => {
+    const deliveries = [];
+    const api = await startApi({ dependencies: { deliverPasswordReset: async (delivery) => deliveries.push(delivery) } });
+    assert.equal((await register(api)).status, 201);
+    await authRequest(api, "/api/auth/password-reset/request", { body: { email: "owner@example.com" } });
+    const expiredToken = deliveries[0].token;
+    withDatabase(api.config.databaseFilePath, (database) => database.prepare(`
+      UPDATE password_reset_tokens
+      SET created_at = ?, expires_at = ?
+    `).run("2020-01-01T00:00:00.000Z", "2020-01-01T01:00:00.000Z"));
+
+    const validShapeInvalidToken = Buffer.alloc(32, 0x7f).toString("base64url");
+    const csrf = await authRequest(api, "/api/auth/password-reset/confirm", {
+      origin: null,
+      body: { token: validShapeInvalidToken, password: "new correct horse battery" }
+    });
+    assert.equal(csrf.status, 403);
+    assert.equal((await csrf.json()).error.code, "CSRF_REJECTED");
+    for (const token of [expiredToken, validShapeInvalidToken, "malformed", "", null]) {
+      const response = await authRequest(api, "/api/auth/password-reset/confirm", {
+        body: { token, password: "new correct horse battery" }
+      });
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).error.code, "INVALID_PASSWORD_RESET_TOKEN");
+    }
+
+    await authRequest(api, "/api/auth/password-reset/request", { body: { email: "owner@example.com" } });
+    const freshToken = deliveries.at(-1).token;
+    const attempts = await Promise.all([
+      authRequest(api, "/api/auth/password-reset/confirm", { body: { token: freshToken, password: "first concurrent password" } }),
+      authRequest(api, "/api/auth/password-reset/confirm", { body: { token: freshToken, password: "second concurrent password" } })
+    ]);
+    assert.deepEqual(attempts.map(({ status }) => status).sort(), [204, 400]);
+
+    const limitedApi = await startApi({
+      configOverrides: { AUTH_LOGIN_RATE_LIMIT_MAX: 1, AUTH_LOGIN_EMAIL_RATE_LIMIT_MAX: 1 }
+    });
+    assert.equal((await authRequest(limitedApi, "/api/auth/password-reset/request", { body: { email: "one@example.com" } })).status, 202);
+    const limited = await authRequest(limitedApi, "/api/auth/password-reset/request", { body: { email: "two@example.com" } });
+    assert.equal(limited.status, 429);
+    assert.equal((await limited.json()).error.code, "RATE_LIMITED");
+  });
+
   it("requires authentication and trusted Origin for audit creation after ownership migration", async () => {
     const api = await startApi({ dependencies: { initialUrlSafetyValidator: async () => true } });
     const unauthenticated = await fetch(`${api.baseUrl}/api/audits`, {

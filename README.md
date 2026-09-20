@@ -364,7 +364,7 @@ Notes:
 - `AUDIT_JOB_LEASE_MS` and `AUDIT_JOB_HEARTBEAT_MS` protect running jobs from duplicate completion; the heartbeat must be shorter than the lease.
 - `PUBLIC_ORIGIN` is the exact trusted Origin for cookie-authenticated mutations; production requires HTTPS.
 - `AUTH_REGISTRATION_MODE` accepts only `closed` or `public`. The runtime default and production example are `closed`; development and test environments must choose their intended mode explicitly.
-- Login attempts are limited by both remote IP (`AUTH_LOGIN_RATE_LIMIT_MAX`) and a keyed normalized-email bucket (`AUTH_LOGIN_EMAIL_RATE_LIMIT_MAX`) within `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`.
+- Login and password-reset attempts are limited by remote IP (`AUTH_LOGIN_RATE_LIMIT_MAX`) and keyed normalized-email buckets (`AUTH_LOGIN_EMAIL_RATE_LIMIT_MAX`) within `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`.
 - `AUDIT_USER_RATE_LIMIT_*` limits new audits per authenticated user. The closed-beta default is 10 per hour, in addition to the coarse IP limiter.
 - `TELEMETRY_ENABLED` controls privacy-safe JSON audit events on stdout. Test environments keep the collector active but suppress output unless explicitly injected.
 - `.env` is ignored and should not be committed.
@@ -378,6 +378,12 @@ Returns API process liveness. `GET /api/ready` separately verifies that the shar
 ### `POST /api/audits`
 
 Requires a valid SitePulse session and exact trusted `Origin`, validates the URL, creates an owner-scoped persistent audit job, and returns immediately with `202 Accepted`.
+
+### Password recovery
+
+`POST /api/auth/password-reset/request` accepts `{ "email": "..." }` and always returns `202 { "accepted": true }` for syntactically valid requests, regardless of whether an account exists. `POST /api/auth/password-reset/confirm` accepts `{ "token": "...", "password": "..." }` and returns `204` after a successful one-time reset. Both endpoints require the exact trusted `Origin` and JSON content type.
+
+The application stores only a SHA-256 token hash. Tokens expire after one hour; a new request invalidates older pending tokens, and successful confirmation revokes every session for the account. Delivery is intentionally a no-op unless the application embeds `createApp` with an injected `deliverPasswordReset` callback. Delivery failures are best-effort and cannot change the enumeration-safe API response; STE-35 must add monitoring and retries when it connects that seam to an email provider.
 
 ```json
 {

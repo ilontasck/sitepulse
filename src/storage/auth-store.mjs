@@ -143,6 +143,89 @@ export function createAuthStore(databaseFilePath, options = {}) {
 
     findUserByNormalizedEmail,
 
+    async replacePasswordResetToken({ userId, tokenHash, expiresAt }) {
+      requireTokenHash(tokenHash, "tokenHash");
+      requireTimestamp(expiresAt, "expiresAt");
+      const now = requireTimestamp(clock(), "clock");
+      const tokenId = idGenerator("password-reset-token");
+
+      return withDatabase(databaseFilePath, (database) =>
+        withImmediateTransaction(database, () => {
+          database.prepare(`
+            UPDATE password_reset_tokens
+            SET invalidated_at = ?
+            WHERE user_id = ?
+              AND used_at IS NULL
+              AND invalidated_at IS NULL
+          `).run(now, userId);
+          database.prepare(`
+            INSERT INTO password_reset_tokens (
+              id, user_id, token_hash, created_at, expires_at, used_at, invalidated_at
+            ) VALUES (?, ?, ?, ?, ?, NULL, NULL)
+          `).run(tokenId, userId, tokenHash, now, expiresAt);
+          return { id: tokenId, userId, createdAt: now, expiresAt };
+        })
+      );
+    },
+
+    async consumePasswordResetToken({ tokenHash, passwordHash }) {
+      requireTokenHash(tokenHash, "tokenHash");
+      if (typeof passwordHash !== "string" || passwordHash.length < 64) {
+        throw new TypeError("passwordHash must be an encoded password hash.");
+      }
+      const now = requireTimestamp(clock(), "clock");
+
+      return withDatabase(databaseFilePath, (database) =>
+        withImmediateTransaction(database, () => {
+          const token = database.prepare(`
+            SELECT password_reset_tokens.id, password_reset_tokens.user_id
+            FROM password_reset_tokens
+            INNER JOIN users ON users.id = password_reset_tokens.user_id
+            WHERE password_reset_tokens.token_hash = ?
+              AND password_reset_tokens.used_at IS NULL
+              AND password_reset_tokens.invalidated_at IS NULL
+              AND password_reset_tokens.expires_at > ?
+              AND users.disabled_at IS NULL
+            LIMIT 1
+          `).get(tokenHash, now);
+          if (!token) return false;
+
+          const claimed = database.prepare(`
+            UPDATE password_reset_tokens
+            SET used_at = ?
+            WHERE id = ?
+              AND used_at IS NULL
+              AND invalidated_at IS NULL
+              AND expires_at > ?
+          `).run(now, token.id, now);
+          if (claimed.changes !== 1) return false;
+
+          const passwordUpdated = database.prepare(`
+            UPDATE users
+            SET password_hash = ?, updated_at = ?
+            WHERE id = ? AND disabled_at IS NULL
+          `).run(passwordHash, now, token.user_id).changes;
+          if (passwordUpdated !== 1) {
+            throw new AuthStoreError("AUTH_STORAGE_CONSTRAINT", "Authentication data could not be stored.");
+          }
+          database.prepare(`
+            UPDATE sessions
+            SET revoked_at = ?
+            WHERE user_id = ? AND revoked_at IS NULL
+          `).run(now, token.user_id);
+          database.prepare(`
+            UPDATE password_reset_tokens
+            SET invalidated_at = ?
+            WHERE user_id = ?
+              AND id <> ?
+              AND used_at IS NULL
+              AND invalidated_at IS NULL
+          `).run(now, token.user_id, token.id);
+          return true;
+        })
+      );
+    },
+
     async findActiveSessionByTokenHash(tokenHash) {
       if (!Buffer.isBuffer(tokenHash) || tokenHash.length !== 32) {
         return null;
