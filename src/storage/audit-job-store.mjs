@@ -142,12 +142,16 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
                 error_code = NULL,
                 error_message = NULL
             WHERE id = (
-              SELECT id
+              SELECT audit_jobs.id
               FROM audit_jobs
-              WHERE status = 'queued'
-                AND available_at <= ?
-                AND attempt_count < max_attempts
-              ORDER BY created_at ASC, id ASC
+              LEFT JOIN users ON users.id = audit_jobs.user_id
+              WHERE audit_jobs.status = 'queued'
+                AND audit_jobs.available_at <= ?
+                AND audit_jobs.attempt_count < audit_jobs.max_attempts
+                AND (audit_jobs.user_id IS NULL OR (
+                  users.disabled_at IS NULL AND users.deletion_requested_at IS NULL
+                ))
+              ORDER BY audit_jobs.created_at ASC, audit_jobs.id ASC
               LIMIT 1
             )
               AND status = 'queued'
@@ -171,6 +175,12 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
             AND status = 'running'
             AND worker_id = ?
             AND lease_token = ?
+            AND (audit_jobs.user_id IS NULL OR EXISTS (
+              SELECT 1 FROM users
+              WHERE users.id = audit_jobs.user_id
+                AND users.disabled_at IS NULL
+                AND users.deletion_requested_at IS NULL
+            ))
           RETURNING *
         `).get(leaseExpiresAt, now, jobId, workerId, leaseToken);
 
@@ -184,15 +194,20 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
       return withDatabase(databaseFilePath, (database) =>
         withImmediateTransaction(database, () => {
           const ownedJob = database.prepare(`
-            SELECT id, user_id
+            SELECT audit_jobs.id, audit_jobs.user_id, users.disabled_at, users.deletion_requested_at
             FROM audit_jobs
-            WHERE id = ?
-              AND status = 'running'
-              AND worker_id = ?
-              AND lease_token = ?
+            LEFT JOIN users ON users.id = audit_jobs.user_id
+            WHERE audit_jobs.id = ?
+              AND audit_jobs.status = 'running'
+              AND audit_jobs.worker_id = ?
+              AND audit_jobs.lease_token = ?
           `).get(jobId, workerId, leaseToken);
 
           if (!ownedJob) {
+            return { completed: false, job: null, audit: null };
+          }
+          if (ownedJob.user_id && (ownedJob.disabled_at || ownedJob.deletion_requested_at)) {
+            database.prepare("DELETE FROM audit_jobs WHERE id = ?").run(jobId);
             return { completed: false, job: null, audit: null };
           }
 
@@ -233,15 +248,21 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
       return withDatabase(databaseFilePath, (database) =>
         withImmediateTransaction(database, () => {
           const ownedJob = database.prepare(`
-            SELECT attempt_count, max_attempts
+            SELECT audit_jobs.attempt_count, audit_jobs.max_attempts, audit_jobs.user_id,
+                   users.disabled_at, users.deletion_requested_at
             FROM audit_jobs
-            WHERE id = ?
-              AND status = 'running'
-              AND worker_id = ?
-              AND lease_token = ?
+            LEFT JOIN users ON users.id = audit_jobs.user_id
+            WHERE audit_jobs.id = ?
+              AND audit_jobs.status = 'running'
+              AND audit_jobs.worker_id = ?
+              AND audit_jobs.lease_token = ?
           `).get(jobId, workerId, leaseToken);
 
           if (!ownedJob) {
+            return { transitioned: false, job: null };
+          }
+          if (ownedJob.user_id && (ownedJob.disabled_at || ownedJob.deletion_requested_at)) {
+            database.prepare("DELETE FROM audit_jobs WHERE id = ?").run(jobId);
             return { transitioned: false, job: null };
           }
 
@@ -295,6 +316,15 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
 
       const recovered = withDatabase(databaseFilePath, (database) =>
         withImmediateTransaction(database, () => {
+          database.prepare(`
+            DELETE FROM audit_jobs
+            WHERE status = 'running'
+              AND EXISTS (
+                SELECT 1 FROM users
+                WHERE users.id = audit_jobs.user_id
+                  AND (users.disabled_at IS NOT NULL OR users.deletion_requested_at IS NOT NULL)
+              )
+          `).run();
           const failed = database.prepare(`
             UPDATE audit_jobs
             SET status = 'failed',
@@ -308,6 +338,12 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
             WHERE status = 'running'
               AND lease_expires_at <= ?
               AND attempt_count >= max_attempts
+              AND (audit_jobs.user_id IS NULL OR EXISTS (
+                SELECT 1 FROM users
+                WHERE users.id = audit_jobs.user_id
+                  AND users.disabled_at IS NULL
+                  AND users.deletion_requested_at IS NULL
+              ))
             RETURNING id, request_id, attempt_count, created_at
           `).all(now, now, now);
           const requeued = database.prepare(`
@@ -324,6 +360,12 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
             WHERE status = 'running'
               AND lease_expires_at <= ?
               AND attempt_count < max_attempts
+              AND (audit_jobs.user_id IS NULL OR EXISTS (
+                SELECT 1 FROM users
+                WHERE users.id = audit_jobs.user_id
+                  AND users.disabled_at IS NULL
+                  AND users.deletion_requested_at IS NULL
+              ))
             RETURNING id, request_id, attempt_count, created_at
           `).all(now, now, now);
 

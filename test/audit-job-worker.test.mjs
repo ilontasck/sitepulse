@@ -362,4 +362,41 @@ describe("audit job worker", () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+
+  it("creates no report when account deletion starts during an audit", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "sitepulse-worker-deletion-"));
+    const databaseFilePath = join(directory, "sitepulse.sqlite");
+    try {
+      runMigrations(databaseFilePath);
+      const database = new DatabaseSync(databaseFilePath);
+      database.prepare(`
+        INSERT INTO users (id, email_original, email_normalized, password_hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run("11111111-1111-4111-8111-111111111111", "owner@example.test", "owner@example.test", "x".repeat(64), "2026-08-13T10:00:00.000Z", "2026-08-13T10:00:00.000Z");
+      database.close();
+      const jobStore = createAuditJobStore(databaseFilePath, {
+        clock: () => "2026-08-13T10:00:00.000Z",
+        idGenerator: () => "job-1",
+        leaseTokenGenerator: () => "lease-1"
+      });
+      jobStore.enqueue({ normalizedUrl: "https://example.com", userId: "11111111-1111-4111-8111-111111111111" });
+      const worker = workerWith(jobStore, {
+        auditGenerator: async () => {
+          const activeDatabase = new DatabaseSync(databaseFilePath);
+          activeDatabase.prepare("UPDATE users SET disabled_at = ?, deletion_requested_at = ?, purge_after = ? WHERE id = ?")
+            .run("2026-08-13T10:00:01.000Z", "2026-08-13T10:00:01.000Z", "2026-09-12T10:00:01.000Z", "11111111-1111-4111-8111-111111111111");
+          activeDatabase.close();
+          return auditResult();
+        }
+      });
+
+      assert.deepEqual(await worker.runOnce(), { status: "ownership-lost", jobId: "job-1" });
+      const state = new DatabaseSync(databaseFilePath);
+      assert.equal(state.prepare("SELECT COUNT(*) AS count FROM audits").get().count, 0);
+      assert.equal(state.prepare("SELECT COUNT(*) AS count FROM audit_jobs").get().count, 0);
+      state.close();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
 });

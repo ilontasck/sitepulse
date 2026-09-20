@@ -13,6 +13,8 @@ STE-19 replaces repository-stored operator placeholders with an escaped runtime 
 - The NRW supervisory authority is included with its public institutional address and email.
 - Terms use German law only where legally permissible, preserve mandatory consumer protections, use statutory jurisdiction, and contain no invented liability cap or court.
 - The checker rejects old launch markers, unknown template directives, incomplete public configuration, and a closed publication gate.
+- Current authenticated/free reports expire after 30 days. Expired or manually deleted reports are hidden immediately and removed with their linked jobs by bounded retention cleanup.
+- Account deletion disables access and revokes sessions immediately; application-owned jobs, reports, reset tokens, sessions, and the user record are physically purged no later than 30 days after the request.
 
 ## Runtime values still required
 
@@ -28,8 +30,8 @@ These values are intentionally empty in `.env.example` and must come from the pr
 - `LEGAL_HOSTING_PROVIDER`
 - `LEGAL_HOSTING_COUNTRY`
 - `LEGAL_SERVER_LOCATION`
-- `LEGAL_PROCESS_LOG_RETENTION`
-- `LEGAL_AUDIT_REPORT_RETENTION`
+- `LEGAL_PROCESS_LOG_RETENTION` (policy: `30 days, except incident or legal retention`; infrastructure enforcement remains STE-14)
+- `LEGAL_AUDIT_REPORT_RETENTION` (`30 days for current authenticated/free reports`)
 
 Optional values are `LEGAL_CONTACT_PHONE`, `LEGAL_VAT_ID`, and the pair `LEGAL_REGISTER_NAME` plus `LEGAL_REGISTER_NUMBER`. Do not invent them. Leave both register values empty for an Einzelunternehmen that is not entered in the Handelsregister.
 
@@ -44,7 +46,7 @@ Run `node scripts/check-legal-placeholders.mjs` with the same private environmen
 ## Dependencies
 
 - **STE-14:** production hosting has not been provisioned. A plan mentioning Hetzner Cloud Germany/NBG1 is not evidence of an actual provider, contract, server location, or log-retention setting. Populate hosting fields only from the deployed arrangement and confirm any required DPA.
-- **STE-31:** audit/job/report retention and deletion behavior remain undecided and unimplemented in the available source-of-truth. `LEGAL_AUDIT_REPORT_RETENTION` is therefore a deliberate public-launch blocker, not a guessed duration.
+- **STE-31:** application retention, report deletion, account disablement, and bounded physical cleanup are implemented. UI work remains outside this backend phase.
 - **STE-60:** NOQORI remains the current brand. Any future brand decision must update the legal text and runtime values as a separate change.
 - **Final legal review:** a qualified lawyer must review the Privacy Policy, Impressum, Terms, legal bases, age language, liability wording, contact sufficiency, consumer rules, data-subject process, and the actual production facts.
 
@@ -52,17 +54,17 @@ Run `node scripts/check-legal-placeholders.mjs` with the same private environmen
 
 | Data | Storage | Current behavior |
 | --- | --- | --- |
-| Account email | SQLite `users` | Stored until account deletion process is completed |
+| Account email | SQLite `users` | Disabled immediately on deletion request; physically purged no later than 30 days later |
 | Password | Salted scrypt hash in `users` | Plaintext is never stored |
 | Session | SHA-256 token hash in `sessions` | Active for 14 days; revoked sessions are cleaned after the configured cleanup interval |
 | Password reset | SHA-256 token hash in `password_reset_tokens` | One-hour, single-use; newer request invalidates older pending tokens; successful reset revokes all sessions |
-| Submitted URL and audit job | SQLite `audit_jobs` | Owner-scoped; retention awaits STE-31 |
-| Audit report | SQLite `audits` | Owner-scoped; retention/deletion awaits STE-31 |
+| Submitted URL and audit job | SQLite `audit_jobs` | Owner-scoped; removed with expired/deleted reports or during account purge |
+| Audit report | SQLite `audits` | Current authenticated/free tier: maximum 30 days; manual deletion hides immediately and cleanup removes physically |
 | Client IP | In-memory rate-limit bucket | Not stored in SQLite or application logs |
-| Operational telemetry | Process output / hosting journal | Privacy-safe allowlisted fields; actual infrastructure retention awaits STE-14 |
+| Operational telemetry | Process output / hosting journal | Policy: 30 days except incident/legal retention; actual infrastructure enforcement awaits STE-14 |
 
 NOQORI currently sets only the strictly necessary session cookie. It uses no analytics, advertising, external fonts, tracking storage, `localStorage`, `sessionStorage`, or IndexedDB. The current cookie assessment should be reviewed under the applicable GDPR and TDDDG rules before launch.
 
 ## Current status
 
-The code-side legal configuration and publication guard are ready for review. STE-19 is not Done and the service is not public-launch ready while runtime identity/contact values, actual STE-14 hosting facts, STE-31 retention behavior, and final legal advice are outstanding.
+The code-side legal configuration, publication guard, and STE-31 retention behavior are ready for review. The service is not public-launch ready while runtime identity/contact values, actual STE-14 hosting and log-retention enforcement, and final legal advice are outstanding.

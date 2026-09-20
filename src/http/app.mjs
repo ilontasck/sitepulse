@@ -4,10 +4,12 @@ import { join } from "node:path";
 import { createAuthService } from "../auth/auth-service.mjs";
 import { createPasswordService } from "../auth/password.mjs";
 import { startSessionCleanupScheduler } from "../auth/session-cleanup-scheduler.mjs";
+import { startDataRetentionCleanupScheduler } from "../privacy/data-retention-cleanup-scheduler.mjs";
 import { createSqliteReadinessCheck } from "../health/sqlite-readiness.mjs";
 import { createAuditJobStore } from "../storage/audit-job-store.mjs";
 import { createAuditStore } from "../storage/audit-store.mjs";
 import { createAuthStore } from "../storage/auth-store.mjs";
+import { createRetentionCleanupStore } from "../storage/retention-cleanup-store.mjs";
 import { runMigrations } from "../storage/migrations.mjs";
 import { createAuditTelemetry } from "../telemetry/audit-telemetry.mjs";
 import { safeErrorCode } from "../audit/audit-failure-classifier.mjs";
@@ -31,6 +33,7 @@ export function createApp(config, dependencies = {}) {
   const store = dependencies.store || createAuditStore(config.databaseFilePath);
   const jobStore = dependencies.jobStore || createAuditJobStore(config.databaseFilePath);
   const authStore = dependencies.authStore || createAuthStore(config.databaseFilePath);
+  const retentionCleanupStore = dependencies.retentionCleanupStore || createRetentionCleanupStore(config.databaseFilePath);
   const passwordService = dependencies.passwordService || createPasswordService({ maxConcurrency: config.authScryptMaxConcurrency });
   const authService = dependencies.authService || createAuthService({
     authStore,
@@ -246,7 +249,17 @@ export function createApp(config, dependencies = {}) {
     authStore,
     telemetry
   });
-  server.once("close", () => sessionCleanup.stop());
+  const retentionCleanup = (dependencies.startDataRetentionCleanupScheduler || startDataRetentionCleanupScheduler)({
+    ...dependencies.dataRetentionCleanupOptions,
+    cleanupStore: retentionCleanupStore,
+    telemetry,
+    intervalMs: config.dataRetentionCleanupIntervalMs,
+    batchSize: config.dataRetentionCleanupBatchSize
+  });
+  server.once("close", () => {
+    sessionCleanup.stop();
+    retentionCleanup.stop();
+  });
   server.markStopping = () => {
     stopping = true;
   };

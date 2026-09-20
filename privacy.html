@@ -209,12 +209,14 @@
               </div>
               <h3>Account deletion</h3>
               <p>
-                The application currently does not expose a self-service account
-                deletion interface. To request deletion of your account and
-                associated data, contact
+                An authenticated account holder can request deletion through the
+                account deletion API after confirming the current password. The
+                account is disabled immediately, all sessions are revoked, pending
+                password-reset tokens are invalidated, and account-owned reports and
+                jobs become inaccessible. Application personal data is physically
+                purged no later than 30 days after the request, unless retention is
+                required for an incident or by law. You may also contact
                 {{LEGAL_CONTACT_EMAIL}}.
-                Account deletion is subject to data that is required to be retained
-                for legal or contractual reasons.
               </p>
               <div class="nqLegalNote" data-tone="review" role="note">
                 <span aria-hidden="true">⚖</span>
@@ -371,22 +373,13 @@
               </p>
               <h3>Retention</h3>
               <p>
-                Audit reports and their job records are retained according to this
-                configured rule: <b>{{LEGAL_AUDIT_REPORT_RETENTION}}</b>. You may
-                request deletion of specific reports or your entire audit history
-                by contacting {{LEGAL_CONTACT_EMAIL}}.
+                Current authenticated/free audit reports and their job records are
+                retained for no more than 30 days from creation. The configured
+                public wording is: <b>{{LEGAL_AUDIT_REPORT_RETENTION}}</b>. An
+                authenticated owner can delete an individual report through the API;
+                it becomes inaccessible immediately and is physically removed with
+                its linked job by the next retention cleanup run.
               </p>
-              <div class="nqLegalNote" data-tone="review" role="note">
-                <span aria-hidden="true">⚖</span>
-                <p>
-                  <b>PUBLIC-LAUNCH BLOCKER:</b> Before public launch: 1) Define the
-                  legitimate purpose for storing completed reports; 2) Define an
-                  audit/report retention period or defensible retention criteria;
-                  3) Define deletion behavior; 4) Update this Privacy Policy with
-                  the actual retention rule; 5) Implement automated/manual deletion
-                  behavior if required by the final retention decision.
-                </p>
-              </div>
             </section>
 
             <!-- § 7 Operational logs -->
@@ -415,6 +408,11 @@
                   {{LEGAL_PROCESS_LOG_RETENTION}}
                 </dd>
               </dl>
+              <p>
+                The policy is 30 days, except where an incident or legal retention
+                requires a longer period. Enforcement by the actual hosting or
+                journald infrastructure remains part of STE-14 deployment work.
+              </p>
             </section>
 
             <!-- § 8 No tracking or analytics -->
@@ -451,8 +449,8 @@
                   <tbody>
                     <tr>
                       <td>Account data (email, password hash)</td>
-                      <td>Until account is deleted</td>
-                      <td>Manual request to controller. No self-service yet.</td>
+                      <td>No later than 30 days after an authenticated deletion request</td>
+                      <td>Immediate disablement; automated FK-safe physical purge after the deadline</td>
                     </tr>
                     <tr>
                       <td>Active session token hash</td>
@@ -474,14 +472,14 @@
                       <td>
                         {{LEGAL_AUDIT_REPORT_RETENTION}}
                       </td>
-                      <td>No automatic deletion currently implemented</td>
+                      <td>Linked job is physically removed when its report expires or is deleted</td>
                     </tr>
                     <tr>
                       <td>Completed audit reports</td>
                       <td>
                         {{LEGAL_AUDIT_REPORT_RETENTION}}
                       </td>
-                      <td>No automatic deletion currently implemented</td>
+                      <td>Hidden at expiry or manual deletion, then physically removed by retention cleanup</td>
                     </tr>
                     <tr>
                       <td>Process log output</td>
@@ -578,7 +576,7 @@
                 <p>
                   <b>Requires legal review:</b> Confirm which rights apply under
                   the specific legal basis and jurisdiction before publication.
-                  A self-service data deletion feature should be implemented.
+                  Confirm the operational process for any additional data-subject requests.
                 </p>
               </div>
             </section>

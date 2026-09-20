@@ -37,8 +37,8 @@ const publicLegalValues = {
   LEGAL_HOSTING_PROVIDER: "Example Hosting",
   LEGAL_HOSTING_COUNTRY: "Germany",
   LEGAL_SERVER_LOCATION: "Example Region",
-  LEGAL_PROCESS_LOG_RETENTION: "Example runtime retention",
-  LEGAL_AUDIT_REPORT_RETENTION: "Example STE-31 retention"
+  LEGAL_PROCESS_LOG_RETENTION: "30 days, except incident or legal retention",
+  LEGAL_AUDIT_REPORT_RETENTION: "30 days for current authenticated/free reports"
 };
 
 async function withLegalServer(overrides, callback) {
@@ -219,6 +219,17 @@ describe("legal pages", () => {
     assert.match(body, /Landesbeauftragte für Datenschutz und Informationsfreiheit Nordrhein-Westfalen/);
     assert.match(body, /poststelle@ldi\.nrw\.de/);
     assert.doesNotMatch(body, /TTDSG/);
+  });
+
+  it("matches the implemented thirty-day report and account deletion policy", async () => {
+    await withLegalServer(publicLegalValues, async (runtimeBaseUrl) => {
+      const body = await (await fetch(`${runtimeBaseUrl}/privacy`)).text();
+      assert.match(body, /retained for no more than 30 days from creation/);
+      assert.match(body, /inaccessible immediately and is physically removed/);
+      assert.match(body, /physically\s+purged no later than 30 days after the request/);
+      assert.match(body, /infrastructure remains part of STE-14/);
+      assert.doesNotMatch(body, /No automatic deletion currently implemented|retention period or defensible retention criteria|Pro tier/i);
+    });
   });
 
   it("contains no hardcoded operator contact data in legal templates", async () => {

@@ -351,8 +351,10 @@ LEGAL_PUBLICATION_DATE=
 LEGAL_HOSTING_PROVIDER=
 LEGAL_HOSTING_COUNTRY=
 LEGAL_SERVER_LOCATION=
-LEGAL_PROCESS_LOG_RETENTION=
-LEGAL_AUDIT_REPORT_RETENTION=
+LEGAL_PROCESS_LOG_RETENTION=30 days, except incident or legal retention
+LEGAL_AUDIT_REPORT_RETENTION=30 days for current authenticated/free reports
+DATA_RETENTION_CLEANUP_INTERVAL_MS=21600000
+DATA_RETENTION_CLEANUP_BATCH_SIZE=100
 LEGAL_VAT_ID=
 LEGAL_REGISTER_NAME=
 LEGAL_REGISTER_NUMBER=
@@ -385,6 +387,7 @@ Notes:
 - `AUDIT_USER_RATE_LIMIT_*` limits new audits per authenticated user. The closed-beta default is 10 per hour, in addition to the coarse IP limiter.
 - `TELEMETRY_ENABLED` controls privacy-safe JSON audit events on stdout. Test environments keep the collector active but suppress output unless explicitly injected.
 - `LEGAL_PUBLICATION_READY` defaults to `false`. Production refuses to start unless it is `true` and the operator, contact, publication, hosting, log-retention, and audit-retention fields are complete. Legal values are escaped before runtime HTML rendering. Phone, VAT ID, and the paired register name/number are optional and their sections are omitted when absent.
+- `DATA_RETENTION_CLEANUP_INTERVAL_MS` defaults to six hours and `DATA_RETENTION_CLEANUP_BATCH_SIZE` to 100. Cleanup removes expired or manually deleted reports and due deletion-pending accounts in bounded, FK-safe transactions.
 - `.env` is ignored and should not be committed.
 
 ## API Overview

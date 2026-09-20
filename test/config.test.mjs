@@ -134,4 +134,12 @@ describe("configuration", () => {
       LEGAL_REGISTER_NUMBER: "EX 123"
     }));
   });
+
+  it("configures bounded periodic data-retention cleanup", () => {
+    const config = loadConfig({ DATA_RETENTION_CLEANUP_INTERVAL_MS: 7_200_000, DATA_RETENTION_CLEANUP_BATCH_SIZE: 25 });
+    assert.equal(config.dataRetentionCleanupIntervalMs, 7_200_000);
+    assert.equal(config.dataRetentionCleanupBatchSize, 25);
+    assert.throws(() => loadConfig({ DATA_RETENTION_CLEANUP_INTERVAL_MS: 0 }), /positive integer/);
+    assert.throws(() => loadConfig({ DATA_RETENTION_CLEANUP_BATCH_SIZE: 0 }), /positive integer/);
+  });
 });

@@ -9,7 +9,8 @@ import {
 
 export const SESSION_TTL_MS = 14 * 24 * 60 * 60 * 1_000;
 export const PASSWORD_RESET_TTL_MS = 60 * 60 * 1_000;
-export const ACCOUNT_PURGE_TTL_MS = 30 * 24 * 60 * 60 * 1_000;
+// Leave more than one scheduler interval before the public 30-day maximum.
+export const ACCOUNT_PURGE_TTL_MS = 29 * 24 * 60 * 60 * 1_000;
 
 export class AuthServiceError extends Error {
   constructor(code, message) {

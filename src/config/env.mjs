@@ -242,6 +242,16 @@ export function loadConfig(overrides = {}) {
       overrides.AUDIT_USER_RATE_LIMIT_MAX ?? process.env.AUDIT_USER_RATE_LIMIT_MAX,
       10
     ),
+    dataRetentionCleanupIntervalMs: parsePositiveInteger(
+      "DATA_RETENTION_CLEANUP_INTERVAL_MS",
+      overrides.DATA_RETENTION_CLEANUP_INTERVAL_MS ?? process.env.DATA_RETENTION_CLEANUP_INTERVAL_MS,
+      21_600_000
+    ),
+    dataRetentionCleanupBatchSize: parsePositiveInteger(
+      "DATA_RETENTION_CLEANUP_BATCH_SIZE",
+      overrides.DATA_RETENTION_CLEANUP_BATCH_SIZE ?? process.env.DATA_RETENTION_CLEANUP_BATCH_SIZE,
+      100
+    ),
     telemetryEnabled: parseBoolean("TELEMETRY_ENABLED", overrides.TELEMETRY_ENABLED ?? process.env.TELEMETRY_ENABLED, true)
   };
 }
