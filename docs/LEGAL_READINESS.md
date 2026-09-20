@@ -13,7 +13,7 @@ STE-19 replaces repository-stored operator placeholders with an escaped runtime 
 - The NRW supervisory authority is included with its public institutional address and email.
 - Terms use German law only where legally permissible, preserve mandatory consumer protections, use statutory jurisdiction, and contain no invented liability cap or court.
 - The checker rejects old launch markers, unknown template directives, incomplete public configuration, and a closed publication gate.
-- Current authenticated/free reports expire after 30 days. Expired or manually deleted reports are hidden immediately and removed with their linked jobs by bounded retention cleanup.
+- Current authenticated/free reports are available for up to 30 days. At expiry they become inaccessible immediately; scheduled bounded cleanup later removes expired or manually deleted reports with their linked jobs.
 - Account deletion disables access and revokes sessions immediately; application-owned jobs, reports, reset tokens, sessions, and the user record are physically purged no later than 30 days after the request.
 
 ## Runtime values still required
@@ -31,7 +31,7 @@ These values are intentionally empty in `.env.example` and must come from the pr
 - `LEGAL_HOSTING_COUNTRY`
 - `LEGAL_SERVER_LOCATION`
 - `LEGAL_PROCESS_LOG_RETENTION` (policy: `30 days, except incident or legal retention`; infrastructure enforcement remains STE-14)
-- `LEGAL_AUDIT_REPORT_RETENTION` (`30 days for current authenticated/free reports`)
+- `LEGAL_AUDIT_REPORT_RETENTION` (`Available for up to 30 days; expired reports are removed by scheduled retention cleanup.`)
 
 Optional values are `LEGAL_CONTACT_PHONE`, `LEGAL_VAT_ID`, and the pair `LEGAL_REGISTER_NAME` plus `LEGAL_REGISTER_NUMBER`. Do not invent them. Leave both register values empty for an Einzelunternehmen that is not entered in the Handelsregister.
 
@@ -59,7 +59,7 @@ Run `node scripts/check-legal-placeholders.mjs` with the same private environmen
 | Session | SHA-256 token hash in `sessions` | Active for 14 days; revoked sessions are cleaned after the configured cleanup interval |
 | Password reset | SHA-256 token hash in `password_reset_tokens` | One-hour, single-use; newer request invalidates older pending tokens; successful reset revokes all sessions |
 | Submitted URL and audit job | SQLite `audit_jobs` | Owner-scoped; removed with expired/deleted reports or during account purge |
-| Audit report | SQLite `audits` | Current authenticated/free tier: maximum 30 days; manual deletion hides immediately and cleanup removes physically |
+| Audit report | SQLite `audits` | Current authenticated/free tier: available for up to 30 days; expiry or manual deletion hides immediately, then scheduled cleanup removes physically |
 | Client IP | In-memory rate-limit bucket | Not stored in SQLite or application logs |
 | Operational telemetry | Process output / hosting journal | Policy: 30 days except incident/legal retention; actual infrastructure enforcement awaits STE-14 |
 

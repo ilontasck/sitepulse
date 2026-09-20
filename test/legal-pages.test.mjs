@@ -38,7 +38,7 @@ const publicLegalValues = {
   LEGAL_HOSTING_COUNTRY: "Germany",
   LEGAL_SERVER_LOCATION: "Example Region",
   LEGAL_PROCESS_LOG_RETENTION: "30 days, except incident or legal retention",
-  LEGAL_AUDIT_REPORT_RETENTION: "30 days for current authenticated/free reports"
+  LEGAL_AUDIT_REPORT_RETENTION: "Available for up to 30 days; expired reports are removed by scheduled retention cleanup."
 };
 
 async function withLegalServer(overrides, callback) {
@@ -224,11 +224,13 @@ describe("legal pages", () => {
   it("matches the implemented thirty-day report and account deletion policy", async () => {
     await withLegalServer(publicLegalValues, async (runtimeBaseUrl) => {
       const body = await (await fetch(`${runtimeBaseUrl}/privacy`)).text();
-      assert.match(body, /retained for no more than 30 days from creation/);
+      assert.match(body, /available for up to\s+30 days from creation/);
+      assert.match(body, /At expiry they immediately become inaccessible/);
+      assert.match(body, /expired data is physically removed by the scheduled retention\s+cleanup/);
       assert.match(body, /inaccessible immediately and is physically removed/);
       assert.match(body, /physically\s+purged no later than 30 days after the request/);
       assert.match(body, /infrastructure remains part of STE-14/);
-      assert.doesNotMatch(body, /No automatic deletion currently implemented|retention period or defensible retention criteria|Pro tier/i);
+      assert.doesNotMatch(body, /retained for no more than 30 days|physically retained (?:for )?(?:no more than|maximum) 30 days|No automatic deletion currently implemented|retention period or defensible retention criteria|Pro tier/i);
     });
   });
 

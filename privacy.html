@@ -373,9 +373,11 @@
               </p>
               <h3>Retention</h3>
               <p>
-                Current authenticated/free audit reports and their job records are
-                retained for no more than 30 days from creation. The configured
-                public wording is: <b>{{LEGAL_AUDIT_REPORT_RETENTION}}</b>. An
+                Current authenticated/free audit reports are available for up to
+                30 days from creation. At expiry they immediately become inaccessible,
+                and expired data is physically removed by the scheduled retention
+                cleanup. The configured public wording is:
+                <b>{{LEGAL_AUDIT_REPORT_RETENTION}}</b>. An
                 authenticated owner can delete an individual report through the API;
                 it becomes inaccessible immediately and is physically removed with
                 its linked job by the next retention cleanup run.
