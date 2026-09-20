@@ -339,6 +339,23 @@ WORKER_HEALTH_PORT=3001
 AUDIT_JOB_LEASE_MS=30000
 AUDIT_JOB_HEARTBEAT_MS=10000
 TELEMETRY_ENABLED=true
+LEGAL_PUBLICATION_READY=false
+LEGAL_OPERATOR_NAME=
+LEGAL_OPERATOR_ADDRESS_LINE1=
+LEGAL_OPERATOR_POSTAL_CODE=
+LEGAL_OPERATOR_CITY=
+LEGAL_OPERATOR_COUNTRY=
+LEGAL_CONTACT_EMAIL=
+LEGAL_CONTACT_PHONE=
+LEGAL_PUBLICATION_DATE=
+LEGAL_HOSTING_PROVIDER=
+LEGAL_HOSTING_COUNTRY=
+LEGAL_SERVER_LOCATION=
+LEGAL_PROCESS_LOG_RETENTION=
+LEGAL_AUDIT_REPORT_RETENTION=
+LEGAL_VAT_ID=
+LEGAL_REGISTER_NAME=
+LEGAL_REGISTER_NUMBER=
 PUBLIC_ORIGIN=http://127.0.0.1:3000
 AUTH_SCRYPT_MAX_CONCURRENCY=1
 AUTH_REGISTRATION_MODE=public
@@ -367,6 +384,7 @@ Notes:
 - Login and password-reset attempts are limited by remote IP (`AUTH_LOGIN_RATE_LIMIT_MAX`) and keyed normalized-email buckets (`AUTH_LOGIN_EMAIL_RATE_LIMIT_MAX`) within `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`.
 - `AUDIT_USER_RATE_LIMIT_*` limits new audits per authenticated user. The closed-beta default is 10 per hour, in addition to the coarse IP limiter.
 - `TELEMETRY_ENABLED` controls privacy-safe JSON audit events on stdout. Test environments keep the collector active but suppress output unless explicitly injected.
+- `LEGAL_PUBLICATION_READY` defaults to `false`. Production refuses to start unless it is `true` and the operator, contact, publication, hosting, log-retention, and audit-retention fields are complete. Legal values are escaped before runtime HTML rendering. Phone, VAT ID, and the paired register name/number are optional and their sections are omitted when absent.
 - `.env` is ignored and should not be committed.
 
 ## API Overview

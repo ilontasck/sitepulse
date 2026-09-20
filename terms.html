@@ -65,20 +65,17 @@
           <main class="nqLegalMain" id="main-content">
 
             <!-- Development readiness notice -->
-            <div class="nqLegalNotReady" role="note" aria-label="Development notice">
+            {{#LEGAL_DRAFT}}<div class="nqLegalNotReady" role="note" aria-label="Development notice">
               <span aria-hidden="true">⚠</span>
               <div>
                 <b>NOT READY FOR PUBLIC LAUNCH</b>
                 <p>
-                  These Terms of Service are a draft for development purposes.
-                  All <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: …]</span>
-                  items must be resolved, and a qualified lawyer must review
-                  the complete document before it is presented to users or
-                  published to a production domain. Do not treat this draft as
-                  legally effective.
+                  Runtime legal information is not configured and publication has
+                  not been approved. A qualified lawyer must review this draft
+                  before it is presented as legally effective.
                 </p>
               </div>
-            </div>
+            </div>{{/LEGAL_DRAFT}}
 
             <!-- Page heading -->
             <div class="nqLegalPageHead">
@@ -89,10 +86,10 @@
                 <dd>NOQORI</dd>
                 <dt>Last updated</dt>
                 <dd><b>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: publication date]</span>
+                  {{LEGAL_PUBLICATION_DATE}}
                 </b></dd>
                 <dt>Version</dt>
-                <dd>Draft — development only</dd>
+                <dd>{{LEGAL_STATUS}}</dd>
               </dl>
             </div>
 
@@ -102,7 +99,7 @@
               <p>
                 NOQORI ("the service") is an automated
                 website audit tool operated by
-                <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Controller legal name]</span>
+                {{LEGAL_OPERATOR_NAME}}
                 ("NOQORI", "we", "us").
               </p>
               <p>
@@ -337,9 +334,10 @@
               </p>
               <p>
                 You may close your account at any time by contacting
-                <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Contact email]</span>.
-                Upon account closure, your account data and audit history will be
-                deleted, subject to any retention obligations under applicable law.
+                {{LEGAL_CONTACT_EMAIL}}.
+                The controller will assess and carry out the request under the
+                applicable data-protection and retention rules. Automated
+                self-service deletion is not currently available.
               </p>
               <div class="nqLegalNote" data-tone="review" role="note">
                 <span aria-hidden="true">⚖</span>
@@ -355,16 +353,14 @@
             <section class="nqLegalSection" id="liability" aria-labelledby="h-liability">
               <h2 id="h-liability">10. Limitation of liability</h2>
               <p>
-                To the maximum extent permitted by applicable law, NOQORI and its
-                operators shall not be liable for any indirect, incidental, special,
-                consequential, or punitive damages, or for any loss of profits,
-                revenue, data, or business opportunities, arising out of or in
-                connection with your use of the service.
+                Liability is governed by mandatory German law. Nothing in these
+                Terms excludes liability for intent, gross negligence, injury to
+                life, body or health, guarantees, product liability, or any other
+                liability that cannot legally be excluded or limited.
               </p>
               <p>
-                NOQORI's total liability to you for any claim arising from your use
-                of the service shall not exceed
-                <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Liability cap — to be determined by legal counsel based on the applicable business model and jurisdiction]</span>.
+                For ordinary negligence, liability is limited only where and to the
+                extent permitted by applicable law. No invented monetary cap applies.
               </p>
               <div class="nqLegalNote" data-tone="review" role="note">
                 <span aria-hidden="true">⚖</span>
@@ -403,16 +399,13 @@
             <!-- § 13 Governing law -->
             <section class="nqLegalSection" id="governing-law" aria-labelledby="h-governing-law">
               <h2 id="h-governing-law">13. Governing law &amp; jurisdiction</h2>
-              <dl class="nqLegalDl">
-                <dt>Governing law</dt>
-                <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Applicable jurisdiction — e.g. the laws of Germany / England and Wales]</span>
-                </dd>
-                <dt>Jurisdiction</dt>
-                <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Courts with exclusive jurisdiction — confirm with legal counsel]</span>
-                </dd>
-              </dl>
+              <p>
+                German law applies where legally permissible. Mandatory consumer
+                protections, including protections of the consumer's habitual
+                residence, remain unaffected. Statutory jurisdiction applies unless
+                the parties can and do make a valid jurisdiction agreement under
+                applicable law.
+              </p>
               <div class="nqLegalNote" data-tone="review" role="note">
                 <span aria-hidden="true">⚖</span>
                 <p>
@@ -434,11 +427,11 @@
               <dl class="nqLegalDl">
                 <dt>Email</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Official contact email address]</span>
+                  {{LEGAL_CONTACT_EMAIL}}
                 </dd>
                 <dt>Postal</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Postal address]</span>
+                  {{LEGAL_OPERATOR_ADDRESS}}
                 </dd>
               </dl>
             </section>

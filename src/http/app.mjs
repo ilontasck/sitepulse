@@ -21,7 +21,7 @@ import { createRateLimiter } from "./rate-limit.mjs";
 import { createSessionCookiePolicy } from "./session-cookie.mjs";
 import { applySecurityHeaders } from "./security.mjs";
 import { sendJson } from "./respond.mjs";
-import { serveStaticFile } from "./static-files.mjs";
+import { isLegalRoute, serveStaticFile } from "./static-files.mjs";
 
 export function createApp(config, dependencies = {}) {
   const publicRoot = config.projectRoot;
@@ -191,7 +191,7 @@ export function createApp(config, dependencies = {}) {
           return handled;
         }
 
-        const file = await serveStaticFile(request.url, publicRoot);
+        const file = await serveStaticFile(request.url, publicRoot, { legalConfig: config.legal });
         response.writeHead(200, { "Content-Type": file.contentType });
         return response.end(file.body);
       } catch (error) {
@@ -213,6 +213,15 @@ export function createApp(config, dependencies = {}) {
             error: {
               code: "INTERNAL_SERVER_ERROR",
               message: "Something went wrong."
+            }
+          });
+        }
+
+        if (isLegalRoute(url?.pathname)) {
+          return sendJson(response, 500, {
+            error: {
+              code: "LEGAL_PAGE_UNAVAILABLE",
+              message: "Legal page is unavailable."
             }
           });
         }

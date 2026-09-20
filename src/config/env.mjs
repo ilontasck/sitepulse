@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { createLegalConfig } from "../legal/legal-config.mjs";
 
 const projectRoot = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -132,6 +133,7 @@ export function loadConfig(overrides = {}) {
     projectRoot,
     adminApiKey: overrides.ADMIN_API_KEY || process.env.ADMIN_API_KEY || "",
     databaseFilePath,
+    legal: createLegalConfig({ ...process.env, ...overrides }),
     migrationsManagedExternally: parseBoolean(
       "MIGRATIONS_MANAGED_EXTERNALLY",
       overrides.MIGRATIONS_MANAGED_EXTERNALLY ?? process.env.MIGRATIONS_MANAGED_EXTERNALLY,

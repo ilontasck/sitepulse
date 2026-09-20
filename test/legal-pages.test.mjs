@@ -21,9 +21,43 @@ import { fileURLToPath } from "node:url";
 import { after, before, describe, it } from "node:test";
 import { loadConfig } from "../src/config/env.mjs";
 import { createApp } from "../src/http/app.mjs";
+import { checkLegalReadiness, inspectLegalTemplate } from "../scripts/check-legal-placeholders.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
+const publicLegalValues = {
+  LEGAL_PUBLICATION_READY: "true",
+  LEGAL_OPERATOR_NAME: "Example Operator",
+  LEGAL_OPERATOR_ADDRESS_LINE1: "Example Street 1",
+  LEGAL_OPERATOR_POSTAL_CODE: "12345",
+  LEGAL_OPERATOR_CITY: "Example City",
+  LEGAL_OPERATOR_COUNTRY: "Germany",
+  LEGAL_CONTACT_EMAIL: "legal@example.test",
+  LEGAL_PUBLICATION_DATE: "2026-09-20",
+  LEGAL_HOSTING_PROVIDER: "Example Hosting",
+  LEGAL_HOSTING_COUNTRY: "Germany",
+  LEGAL_SERVER_LOCATION: "Example Region",
+  LEGAL_PROCESS_LOG_RETENTION: "Example runtime retention",
+  LEGAL_AUDIT_REPORT_RETENTION: "Example STE-31 retention"
+};
+
+async function withLegalServer(overrides, callback) {
+  const dir = mkdtempSync(join(tmpdir(), "sitepulse-legal-runtime-"));
+  const config = loadConfig({
+    PORT: 0,
+    NODE_ENV: "test",
+    AUTH_REGISTRATION_MODE: "closed",
+    DATABASE_FILE_PATH: join(dir, "sitepulse.sqlite"),
+    ...overrides
+  });
+  const localServer = createApp(config);
+  await new Promise((resolve) => localServer.listen(0, "127.0.0.1", resolve));
+  try {
+    await callback(`http://127.0.0.1:${localServer.address().port}`);
+  } finally {
+    await new Promise((resolve) => localServer.close(resolve));
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Shared test server
@@ -111,34 +145,92 @@ describe("legal pages", () => {
     assert.match(body, /Terms of Service/);
   });
 
-  // ── Development readiness: placeholder strings must be present ────────────
-  // These assertions confirm legal pages are NOT yet falsely presented as complete.
+  // ── Development readiness gate ────────────────────────────────────────────
 
-  it("/privacy contains required development placeholders", async () => {
+  it("/privacy is visibly a draft without exposing template variables", async () => {
     const body = await (await fetch(`${baseUrl}/privacy`)).text();
     assert.match(
       body,
-      /REQUIRED BEFORE PUBLIC LAUNCH/,
-      "Privacy page must contain placeholder markers while owner data is unresolved"
+      /Draft — not approved for public launch/,
+      "Privacy page must identify an unconfigured development draft"
     );
+    assert.doesNotMatch(body, /{{|REQUIRED BEFORE PUBLIC LAUNCH/);
   });
 
-  it("/impressum contains required development placeholders", async () => {
+  it("/impressum is visibly a draft without exposing template variables", async () => {
     const body = await (await fetch(`${baseUrl}/impressum`)).text();
     assert.match(
       body,
-      /REQUIRED BEFORE PUBLIC LAUNCH/,
-      "Impressum must contain placeholder markers while owner data is unresolved"
+      /Draft — not approved for public launch/,
+      "Impressum must identify an unconfigured development draft"
     );
+    assert.doesNotMatch(body, /{{|REQUIRED BEFORE PUBLIC LAUNCH/);
   });
 
-  it("/terms contains required development placeholders", async () => {
+  it("/terms is visibly a draft without exposing template variables", async () => {
     const body = await (await fetch(`${baseUrl}/terms`)).text();
     assert.match(
       body,
-      /REQUIRED BEFORE PUBLIC LAUNCH/,
-      "Terms must contain placeholder markers while owner data is unresolved"
+      /Draft — not approved for public launch/,
+      "Terms must identify an unconfigured development draft"
     );
+    assert.doesNotMatch(body, /{{|REQUIRED BEFORE PUBLIC LAUNCH/);
+  });
+
+  it("renders escaped public runtime values through real legal routes", async () => {
+    await withLegalServer({
+      ...publicLegalValues,
+      LEGAL_OPERATOR_NAME: "Operator <script>alert(1)</script>",
+      LEGAL_OPERATOR_ADDRESS_LINE1: "A & B Street 1"
+    }, async (runtimeBaseUrl) => {
+      for (const route of ["privacy", "impressum", "terms"]) {
+        const body = await (await fetch(`${runtimeBaseUrl}/${route}`)).text();
+        assert.match(body, /Operator &lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+        assert.doesNotMatch(body, /<script>alert\(1\)<\/script>/);
+        assert.doesNotMatch(body, /nqLegalNotReady/);
+        assert.doesNotMatch(body, /data-tone="review"|PUBLIC-LAUNCH BLOCKER|Requires legal review/);
+      }
+      const impressum = await (await fetch(`${runtimeBaseUrl}/impressum`)).text();
+      assert.match(impressum, /A &amp; B Street 1/);
+      assert.doesNotMatch(impressum, /id="register"|id="umsatzsteuer"|<dt>Telefon<\/dt>/);
+    });
+  });
+
+  it("shows optional phone, register, and VAT sections only when configured", async () => {
+    await withLegalServer({
+      ...publicLegalValues,
+      LEGAL_CONTACT_PHONE: "+49 000 000000",
+      LEGAL_REGISTER_NAME: "Example Register",
+      LEGAL_REGISTER_NUMBER: "EX 123",
+      LEGAL_VAT_ID: "DE000000000"
+    }, async (runtimeBaseUrl) => {
+      const body = await (await fetch(`${runtimeBaseUrl}/impressum`)).text();
+      assert.match(body, /id="register"/);
+      assert.match(body, /Example Register/);
+      assert.match(body, /EX 123/);
+      assert.match(body, /id="umsatzsteuer"/);
+      assert.match(body, /DE000000000/);
+      assert.match(body, /\+49 000 000000/);
+    });
+  });
+
+  it("publishes the NRW supervisory authority and no obsolete TTDSG reference", async () => {
+    const body = await (await fetch(`${baseUrl}/privacy`)).text();
+    assert.match(body, /Landesbeauftragte für Datenschutz und Informationsfreiheit Nordrhein-Westfalen/);
+    assert.match(body, /poststelle@ldi\.nrw\.de/);
+    assert.doesNotMatch(body, /TTDSG/);
+  });
+
+  it("contains no hardcoded operator contact data in legal templates", async () => {
+    const source = (await Promise.all(
+      ["privacy.html", "impressum.html", "terms.html"].map((fileName) =>
+        readFile(join(root, fileName), "utf8")
+      )
+    )).join("\n");
+    const emails = source.match(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/gu) || [];
+    assert.deepEqual(emails, ["poststelle@ldi.nrw.de"]);
+    assert.doesNotMatch(source, /\+49[\s\d()/-]{6,}/u);
+    assert.doesNotMatch(source.replace("40213", ""), /\b\d{5}\b/u);
   });
 
   // ── Fabricated data must NOT appear ──────────────────────────────────────
@@ -246,47 +338,37 @@ describe("legal pages", () => {
 // ---------------------------------------------------------------------------
 // Placeholder detection script — logic unit tests
 // ---------------------------------------------------------------------------
-describe("legal placeholder detection", () => {
-  const PLACEHOLDER_PATTERN = /\[REQUIRED BEFORE PUBLIC LAUNCH:[^\]]+\]/g;
-
-  it("detects placeholder strings in privacy.html on disk", async () => {
-    const content = await readFile(join(root, "privacy.html"), "utf8");
-    const matches = [...content.matchAll(PLACEHOLDER_PATTERN)];
-    assert.ok(
-      matches.length > 0,
-      `privacy.html must contain at least one [REQUIRED BEFORE PUBLIC LAUNCH:…] placeholder. Found ${matches.length}.`
-    );
+describe("legal template and publication checks", () => {
+  it("contains no old launch markers or unknown template variables", async () => {
+    for (const fileName of ["privacy.html", "impressum.html", "terms.html"]) {
+      const inspection = inspectLegalTemplate(await readFile(join(root, fileName), "utf8"));
+      assert.deepEqual(inspection, { oldMarkers: [], unknownDirectives: [] });
+    }
   });
 
-  it("detects placeholder strings in impressum.html on disk", async () => {
-    const content = await readFile(join(root, "impressum.html"), "utf8");
-    const matches = [...content.matchAll(PLACEHOLDER_PATTERN)];
-    assert.ok(
-      matches.length > 0,
-      `impressum.html must contain at least one [REQUIRED BEFORE PUBLIC LAUNCH:…] placeholder. Found ${matches.length}.`
-    );
+  it("keeps development usable while the public gate remains closed", async () => {
+    const report = await checkLegalReadiness({ LEGAL_PUBLICATION_READY: "false" });
+    assert.equal(report.templatesValid, true);
+    assert.equal(report.ready, false);
+    assert.equal(report.missingRequiredFields.includes("LEGAL_OPERATOR_NAME"), true);
   });
 
-  it("detects placeholder strings in terms.html on disk", async () => {
-    const content = await readFile(join(root, "terms.html"), "utf8");
-    const matches = [...content.matchAll(PLACEHOLDER_PATTERN)];
-    assert.ok(
-      matches.length > 0,
-      `terms.html must contain at least one [REQUIRED BEFORE PUBLIC LAUNCH:…] placeholder. Found ${matches.length}.`
-    );
+  it("validates a complete public runtime configuration", async () => {
+    const report = await checkLegalReadiness(publicLegalValues);
+    assert.equal(report.templatesValid, true);
+    assert.equal(report.ready, true);
+    assert.deepEqual(report.missingRequiredFields, []);
   });
 
-  it("pattern correctly identifies a placeholder string", () => {
-    const sample = "Contact: [REQUIRED BEFORE PUBLIC LAUNCH: Controller legal name]";
-    const matches = [...sample.matchAll(PLACEHOLDER_PATTERN)];
-    assert.equal(matches.length, 1);
-    assert.match(matches[0][0], /Controller legal name/);
-  });
-
-  it("pattern does not flag a resolved value", () => {
-    const sample = "Contact: legal@example.com";
-    const matches = [...sample.matchAll(PLACEHOLDER_PATTERN)];
-    assert.equal(matches.length, 0);
+  it("detects old, unknown, lowercase, and malformed placeholder syntax", () => {
+    assert.deepEqual(inspectLegalTemplate("[REQUIRED BEFORE PUBLIC LAUNCH: name] {{LEGAL_UNKNOWN}}"), {
+      oldMarkers: ["[REQUIRED BEFORE PUBLIC LAUNCH: name]"],
+      unknownDirectives: ["{{LEGAL_UNKNOWN}}"]
+    });
+    assert.deepEqual(inspectLegalTemplate("{{legal_operator_name}} {{LEGAL-OPERATOR}} {{LEGAL_OPERATOR_NAME"), {
+      oldMarkers: [],
+      unknownDirectives: ["malformed template directive"]
+    });
   });
 });
 

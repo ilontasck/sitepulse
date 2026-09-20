@@ -1,87 +1,78 @@
 #!/usr/bin/env node
-/**
- * NOQORI — Legal Placeholder Checker
- *
- * Scans the legal HTML pages for unresolved [REQUIRED BEFORE PUBLIC LAUNCH: …]
- * placeholders. Exits with code 0 if none are found (ready for public launch),
- * or code 1 with a detailed report if any remain.
- *
- * Usage:
- *   node scripts/check-legal-placeholders.mjs
- *
- * Integrate into pre-launch CI:
- *   node scripts/check-legal-placeholders.mjs || { echo "Legal pages not ready"; exit 1; }
- */
-
 import { readFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { createLegalConfig } from "../src/legal/legal-config.mjs";
+import {
+  LEGAL_TEMPLATE_BLOCKS,
+  LEGAL_TEMPLATE_TOKENS,
+  renderLegalTemplate
+} from "../src/legal/legal-renderer.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = join(__dirname, "..");
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+export const legalTemplateFiles = Object.freeze(["privacy.html", "impressum.html", "terms.html"]);
+const oldMarkerPattern = /\[REQUIRED BEFORE PUBLIC LAUNCH:[^\]]+\]/gu;
+const directivePattern = /\{\{([#/])?([A-Z0-9_]+)\}\}/gu;
 
-const LEGAL_PAGES = [
-  "privacy.html",
-  "impressum.html",
-  "terms.html"
-];
-
-// Matches [REQUIRED BEFORE PUBLIC LAUNCH: any description text]
-const PLACEHOLDER_PATTERN = /\[REQUIRED BEFORE PUBLIC LAUNCH:[^\]]+\]/g;
-
-async function checkFile(filename) {
-  const path = join(root, filename);
-  let content;
-  try {
-    content = await readFile(path, "utf8");
-  } catch {
-    return { filename, error: `Could not read file: ${path}`, matches: [] };
+export function inspectLegalTemplate(content) {
+  const oldMarkers = [...content.matchAll(oldMarkerPattern)].map(([match]) => match);
+  const unknownDirectives = [];
+  for (const [directive, marker, name] of content.matchAll(directivePattern)) {
+    const allowed = marker
+      ? LEGAL_TEMPLATE_BLOCKS.includes(name)
+      : LEGAL_TEMPLATE_TOKENS.includes(name);
+    if (!allowed) unknownDirectives.push(directive);
   }
+  const recognizedContent = content.replace(directivePattern, "");
+  if (recognizedContent.includes("{{") || recognizedContent.includes("}}")) {
+    unknownDirectives.push("malformed template directive");
+  }
+  return { oldMarkers, unknownDirectives };
+}
 
-  const matches = [...content.matchAll(PLACEHOLDER_PATTERN)].map(m => m[0]);
-  return { filename, error: null, matches };
+export async function checkLegalReadiness(environment = process.env) {
+  const config = createLegalConfig(environment);
+  const results = [];
+  for (const filename of legalTemplateFiles) {
+    const content = await readFile(join(root, filename), "utf8");
+    const inspection = inspectLegalTemplate(content);
+    let renderError = null;
+    try {
+      renderLegalTemplate(content, config);
+    } catch (error) {
+      renderError = error.message;
+    }
+    results.push({ filename, ...inspection, renderError });
+  }
+  const templatesValid = results.every(({ oldMarkers, unknownDirectives, renderError }) =>
+    oldMarkers.length === 0 && unknownDirectives.length === 0 && !renderError
+  );
+  return {
+    ready: templatesValid && config.publicationReady,
+    templatesValid,
+    publicationReady: config.publicationReady,
+    missingRequiredFields: config.missingRequiredFields,
+    results
+  };
 }
 
 async function main() {
-  const results = await Promise.all(LEGAL_PAGES.map(checkFile));
-
-  let totalPlaceholders = 0;
-  let hasErrors = false;
-
-  for (const { filename, error, matches } of results) {
-    if (error) {
-      console.error(`\n  ERROR  ${filename}\n         ${error}`);
-      hasErrors = true;
-      continue;
-    }
-    if (matches.length === 0) {
-      console.log(`  OK     ${filename} — no unresolved placeholders`);
+  const report = await checkLegalReadiness();
+  for (const result of report.results) {
+    if (result.oldMarkers.length || result.unknownDirectives.length || result.renderError) {
+      console.error(`FAIL ${result.filename}: old=${result.oldMarkers.length}, unknown=${result.unknownDirectives.length}${result.renderError ? `, render=${result.renderError}` : ""}`);
     } else {
-      console.log(`\n  FAIL   ${filename} — ${matches.length} unresolved placeholder(s):`);
-      for (const m of matches) {
-        console.log(`           ${m}`);
-      }
-      totalPlaceholders += matches.length;
+      console.log(`OK   ${result.filename}: template variables are resolved by the allowlisted renderer`);
     }
   }
-
-  console.log("");
-
-  if (hasErrors) {
-    console.error("Legal readiness check failed: one or more files could not be read.");
-    process.exit(1);
+  if (!report.publicationReady) {
+    console.error("Legal publication gate is closed: LEGAL_PUBLICATION_READY is false.");
+    console.error(`Runtime values still required: ${report.missingRequiredFields.join(", ") || "none"}`);
   }
-
-  if (totalPlaceholders > 0) {
-    console.error(
-      `Legal readiness check FAILED: ${totalPlaceholders} placeholder(s) must be resolved before public launch.\n` +
-      `See docs/LEGAL_READINESS.md for the full checklist.`
-    );
-    process.exit(1);
-  }
-
-  console.log("Legal readiness check passed: no unresolved placeholders found.");
-  process.exit(0);
+  if (!report.ready) process.exitCode = 1;
+  else console.log("Legal readiness check passed: templates and public runtime configuration are ready.");
 }
 
-main();
+if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
+  await main();
+}

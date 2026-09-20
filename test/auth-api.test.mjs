@@ -201,7 +201,20 @@ describe("authentication HTTP API", () => {
     const api = await startApi({
       configOverrides: {
         NODE_ENV: "production",
-        PUBLIC_ORIGIN: "https://sitepulse.example"
+        PUBLIC_ORIGIN: "https://sitepulse.example",
+        LEGAL_PUBLICATION_READY: "true",
+        LEGAL_OPERATOR_NAME: "Example Operator",
+        LEGAL_OPERATOR_ADDRESS_LINE1: "Example Street 1",
+        LEGAL_OPERATOR_POSTAL_CODE: "12345",
+        LEGAL_OPERATOR_CITY: "Example City",
+        LEGAL_OPERATOR_COUNTRY: "Germany",
+        LEGAL_CONTACT_EMAIL: "legal@example.test",
+        LEGAL_PUBLICATION_DATE: "2026-09-20",
+        LEGAL_HOSTING_PROVIDER: "Example Hosting",
+        LEGAL_HOSTING_COUNTRY: "Germany",
+        LEGAL_SERVER_LOCATION: "Example Region",
+        LEGAL_PROCESS_LOG_RETENTION: "30 days",
+        LEGAL_AUDIT_REPORT_RETENTION: "90 days"
       }
     });
     const response = await authRequest(api, "/api/auth/register", {

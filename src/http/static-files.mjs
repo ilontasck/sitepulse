@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize, relative } from "node:path";
 import { HttpError } from "./http-error.mjs";
+import { renderLegalTemplate } from "../legal/legal-renderer.mjs";
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -14,14 +15,18 @@ const contentTypes = {
   ".webmanifest": "application/manifest+json"
 };
 
-// Legal pages served as static HTML files from the project root.
+// Legal templates are rendered from the project root with escaped runtime values.
 const legalRoutes = new Map([
   ["/privacy", "privacy.html"],
   ["/impressum", "impressum.html"],
   ["/terms", "terms.html"]
 ]);
 
-export async function serveStaticFile(requestUrl, root) {
+export function isLegalRoute(pathname) {
+  return legalRoutes.has(pathname);
+}
+
+export async function serveStaticFile(requestUrl, root, options = {}) {
   const pathname = new URL(requestUrl || "/", "http://localhost").pathname;
 
   // Resolve legal page routes before the generic path check.
@@ -43,7 +48,10 @@ export async function serveStaticFile(requestUrl, root) {
     throw new HttpError(400, "Invalid static file path.", "INVALID_STATIC_PATH");
   }
 
-  const body = await readFile(absolutePath);
+  const fileBody = await readFile(absolutePath);
+  const body = legalFile
+    ? renderLegalTemplate(fileBody.toString("utf8"), options.legalConfig)
+    : fileBody;
 
   return {
     body,
