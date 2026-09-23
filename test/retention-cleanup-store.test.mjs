@@ -56,8 +56,8 @@ describe("retention cleanup store", () => {
       database.prepare("UPDATE audit_jobs SET quota_period_start='2026-09-01T00:00:00.000Z', quota_charged=1 WHERE id='job-expired'").run();
     });
 
-    assert.deepEqual(store.cleanup({ limit: 100 }), { reports: 2, pendingJobs: 0, accounts: 0 });
-    assert.deepEqual(store.cleanup({ limit: 100 }), { reports: 0, pendingJobs: 0, accounts: 0 });
+    assert.deepEqual(store.cleanup({ limit: 100 }), { reports: 2, pendingJobs: 0, accounts: 0, adminOperations: 0 });
+    assert.deepEqual(store.cleanup({ limit: 100 }), { reports: 0, pendingJobs: 0, accounts: 0, adminOperations: 0 });
     databaseState(databaseFilePath, (database) => {
       assert.deepEqual(database.prepare("SELECT id FROM audits ORDER BY id").all().map(({ id }) => id), ["active"]);
       assert.deepEqual(database.prepare("SELECT id FROM audit_jobs ORDER BY id").all().map(({ id }) => id), ["job-active"]);
@@ -119,5 +119,17 @@ describe("retention cleanup store", () => {
       assert.equal(database.prepare("SELECT COUNT(*) AS count FROM audit_monthly_usage WHERE user_id = 'later'").get().count, 1);
       assert.deepEqual(database.prepare("PRAGMA foreign_key_check").all(), []);
     });
+  });
+
+  it("removes admin operations older than 30 days in batches and preserves current entries", () => {
+    const { databaseFilePath, store } = fixture();
+    databaseState(databaseFilePath, database => {
+      const insert=database.prepare("INSERT INTO admin_operation_log VALUES (?,?,?,?,?,?,?)");
+      insert.run("old","2026-08-20T11:59:59.000Z","job.retry","audit_job","job-old","accepted",null);
+      insert.run("current","2026-08-21T12:00:00.000Z","job.retry","audit_job","job-current","accepted",null);
+    });
+    assert.equal(store.cleanup({limit:1}).adminOperations,1);
+    assert.equal(store.cleanup({limit:1}).adminOperations,0);
+    assert.deepEqual(databaseState(databaseFilePath,d=>d.prepare("SELECT id FROM admin_operation_log").all().map(r=>r.id)),["current"]);
   });
 });

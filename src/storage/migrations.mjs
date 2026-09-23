@@ -9,6 +9,7 @@ import { migration006Observability } from "./migrations/006_observability.mjs";
 import { migration007PasswordResetTokens } from "./migrations/007_password_reset_tokens.mjs";
 import { migration008RetentionDeletion } from "./migrations/008_retention_deletion.mjs";
 import { migration009PlansQuotas } from "./migrations/009_plans_quotas.mjs";
+import { migration010AdminOperations } from "./migrations/010_admin_operations.mjs";
 
 export const sitePulseMigrations = [
   migration001InitialAudits,
@@ -19,7 +20,8 @@ export const sitePulseMigrations = [
   migration006Observability,
   migration007PasswordResetTokens,
   migration008RetentionDeletion,
-  migration009PlansQuotas
+  migration009PlansQuotas,
+  migration010AdminOperations
 ];
 
 function validateMigrations(migrations) {

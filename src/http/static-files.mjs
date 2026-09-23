@@ -31,10 +31,10 @@ export async function serveStaticFile(requestUrl, root, options = {}) {
 
   // Resolve legal page routes before the generic path check.
   const legalFile = legalRoutes.get(pathname);
-  const requestedFile = legalFile ?? (pathname === "/" ? "index.html" : pathname.slice(1));
+  const requestedFile = legalFile ?? (pathname === "/" ? "index.html" : pathname === "/admin" ? "admin.html" : pathname.slice(1));
 
   if (
-    requestedFile !== "index.html" &&
+    requestedFile !== "index.html" && requestedFile !== "admin.html" &&
     !legalFile &&
     !requestedFile.startsWith("assets/")
   ) {

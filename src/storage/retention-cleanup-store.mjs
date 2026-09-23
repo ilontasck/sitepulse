@@ -17,6 +17,7 @@ export function createRetentionCleanupStore(databaseFilePath, options = {}) {
   return {
     cleanup({ limit = 100 } = {}) {
       const now = isoTime(clock());
+      const operationLogCutoff = new Date(new Date(now).getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const batchSize = boundedLimit(limit);
       return withDatabase(databaseFilePath, (database) => withImmediateTransaction(database, () => {
         const reportIds = database.prepare(`
@@ -59,7 +60,14 @@ export function createRetentionCleanupStore(databaseFilePath, options = {}) {
           deleteUser.run(id);
         }
 
-        return { reports: reportIds.length, pendingJobs: pendingJobIds.length, accounts: accountIds.length };
+        const operationIds = database.prepare(`
+          SELECT id FROM admin_operation_log
+          WHERE created_at < ? ORDER BY created_at, id LIMIT ?
+        `).all(operationLogCutoff, batchSize).map(({ id }) => id);
+        const deleteOperation = database.prepare("DELETE FROM admin_operation_log WHERE id = ?");
+        for (const id of operationIds) deleteOperation.run(id);
+
+        return { reports: reportIds.length, pendingJobs: pendingJobIds.length, accounts: accountIds.length, adminOperations: operationIds.length };
       }));
     }
   };

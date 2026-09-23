@@ -40,6 +40,10 @@ Normal audit/worker duration is elapsed time of the current attempt. `queueWaitM
 - `recent.completed/failed/failureRate`: terminal outcomes in the last 15 minutes. Retries count only once when finally completed/failed. `completionLatencyAvgMs`: enqueue-to-completion latency, including queueing/retries; null without completions. `lastCompletedAt`: most recent completion in that window, otherwise null.
 - `api.requests/errors/dbErrors/latencyAvgMs/latencyMaxMs`: bounded minute buckets for approximately the last 15 minutes (up to one extra minute), process-local and reset on restart. Includes health and unauthorized API requests; current operations response is recorded after the snapshot. Latency measures HTTP lifecycle, not just handler compute.
 
+The same-origin `/admin` dashboard also reads aggregate user and current UTC-month quota counts. The key stays in JavaScript memory only and is forgotten on reload. `GET /api/operations/failed` and `GET /api/operations/audit-log` expose bounded, opaque-cursor pages containing safe operational fields only; no email, user ID, target URL, or report data is returned.
+
+`POST /api/operations/jobs/:id/retry` additionally requires a trusted Origin. It atomically requeues the same terminal failed job and records `job.retry` in `admin_operation_log`. The recovery does not charge quota again. Operation log entries are removed by the existing bounded retention cleanup after 30 days.
+
 Public `/api/health` stays liveness; `/api/ready` checks current SQLite schema and shutdown state. Existing worker loopback `/healthz` and `/readyz` stay minimal and return no customers or paths; `/readyz` adds `lastJobAt` (last claim) and `lastPollAt`, with `activeJob`, combined SQLite/runner readiness and stopping state. Never expose the worker port through the reverse proxy. An idle worker's last job may be old without being unhealthy. A stuck event loop is caught by probe timeouts; readiness is not a proof that every possible audit can complete.
 
 ## Alert checks

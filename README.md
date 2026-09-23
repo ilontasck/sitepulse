@@ -374,7 +374,7 @@ Notes:
 
 - `DATABASE_FILE_PATH` controls the SQLite database location.
 - `MIGRATIONS_MANAGED_EXTERNALLY=true` is reserved for supervised production services whose shared oneshot migration unit runs first. Local web and worker startup keep the default `false`.
-- `ADMIN_API_KEY` enables protected `GET /api/audits` summaries.
+- `ADMIN_API_KEY` enables protected audit summaries and the same-origin `/admin` operations dashboard. Entered keys remain only in page memory and are forgotten on reload; do not put them in URLs or browser storage.
 - `RENDERED_AUDIT_ENABLED=true` enables the slower Lighthouse/Playwright adapter. The default keeps the original HTML audit behavior.
 - `RENDERED_AUDIT_TIMEOUT_MS` bounds the Lighthouse phase. Navigation or Chromium failures become scanner warnings and keep the HTML result.
 - `RENDERED_AUDIT_MAX_CONCURRENCY` limits active Chromium audits per Node process. The beta default is `1`; excess requests complete with HTML findings instead of waiting in an unbounded queue.
@@ -442,6 +442,12 @@ Requires a valid session and returns the server-calculated plan, UTC monthly usa
 Requires a valid session and returns only the current account's active, non-expired reports, newest first. Pagination uses an opaque keyset cursor over `created_at DESC, id DESC`; `limit` defaults to 10 and is capped at 50. Deleted, expired, disabled-account, and deletion-pending data is excluded in SQLite. Responses are `private, no-store` and never include ownership fields.
 
 The authenticated workspace can open a historical report with the existing report renderer, rerun its URL through the normal quota-enforced `POST /api/audits`, or soft-delete it through the existing owner-scoped `DELETE /api/audits/:id` confirmation flow. Opening history does not consume quota, and deleting a successful report does not refund quota.
+
+### Operations dashboard
+
+`/admin` shows queue and API health, aggregate active/Free/Pro/deletion/disabled user counts, and current UTC-month usage from `audit_monthly_usage`. It never displays customer email, target URL, report contents, or user IDs. Failed jobs use opaque keyset pagination and can be requeued only after confirmation when the owner is active and the job is still terminal failed.
+
+An operator retry recovers the same job: it does not create a duplicate or consume another quota slot, and a terminal failure's refund remains in effect. Successful retries are recorded in `admin_operation_log`; the existing retention cleanup physically removes these entries after 30 days in bounded batches.
 
 ### `GET /api/audits/:id`
 

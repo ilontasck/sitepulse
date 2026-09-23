@@ -10,12 +10,14 @@ import { createAuditJobStore } from "../storage/audit-job-store.mjs";
 import { createAuditStore } from "../storage/audit-store.mjs";
 import { createAuthStore } from "../storage/auth-store.mjs";
 import { createRetentionCleanupStore } from "../storage/retention-cleanup-store.mjs";
+import { createOperationsStore } from "../storage/operations-store.mjs";
 import { runMigrations } from "../storage/migrations.mjs";
 import { createAuditTelemetry } from "../telemetry/audit-telemetry.mjs";
 import { safeErrorCode } from "../audit/audit-failure-classifier.mjs";
 import { createRequestId, logRoute, withLogContext } from "../telemetry/log-context.mjs";
-import { createApiMetrics, queueMetrics } from "../telemetry/queue-metrics.mjs";
-import { handleAuditApi, requireAdminAccess } from "./audit-routes.mjs";
+import { createApiMetrics } from "../telemetry/queue-metrics.mjs";
+import { handleAuditApi } from "./audit-routes.mjs";
+import { handleOperationsApi } from "./operations-routes.mjs";
 import { handleAuthApi } from "./auth-routes.mjs";
 import { HttpError } from "./http-error.mjs";
 import { isHttpError } from "./http-error.mjs";
@@ -34,6 +36,7 @@ export function createApp(config, dependencies = {}) {
   const jobStore = dependencies.jobStore || createAuditJobStore(config.databaseFilePath);
   const authStore = dependencies.authStore || createAuthStore(config.databaseFilePath);
   const retentionCleanupStore = dependencies.retentionCleanupStore || createRetentionCleanupStore(config.databaseFilePath);
+  const operationsStore = dependencies.operationsStore || createOperationsStore(config.databaseFilePath);
   const passwordService = dependencies.passwordService || createPasswordService({ maxConcurrency: config.authScryptMaxConcurrency });
   const authService = dependencies.authService || createAuthService({
     authStore,
@@ -152,12 +155,8 @@ export function createApp(config, dependencies = {}) {
 
           enforceRateLimit(request, response);
 
-          if (request.method === "GET" && url.pathname === "/api/operations") {
-            response.setHeader("Cache-Control", "private, no-store");
-            requireAdminAccess(request, config);
-            const metrics = queueMetrics(config.databaseFilePath);
-            return sendJson(response, 200, { database: { reachable: true }, ...metrics, api: apiMetrics.snapshot() });
-          }
+          const operationsHandled = handleOperationsApi({ request, response, config, url, operationsStore, apiMetrics });
+          if (operationsHandled !== false) return operationsHandled;
 
           const authHandled = await handleAuthApi({
             request,
