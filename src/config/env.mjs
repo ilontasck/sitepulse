@@ -120,6 +120,10 @@ export function loadConfig(overrides = {}) {
   if (auditJobHeartbeatMs >= auditJobLeaseMs) {
     throw new Error("AUDIT_JOB_HEARTBEAT_MS must be shorter than AUDIT_JOB_LEASE_MS.");
   }
+  const transactionalEmailEnabled=parseBoolean("TRANSACTIONAL_EMAIL_ENABLED",overrides.TRANSACTIONAL_EMAIL_ENABLED??process.env.TRANSACTIONAL_EMAIL_ENABLED,false);
+  const emailVerificationRequired=parseBoolean("EMAIL_VERIFICATION_REQUIRED",overrides.EMAIL_VERIFICATION_REQUIRED??process.env.EMAIL_VERIFICATION_REQUIRED,false);
+  const auditEmailNotificationsEnabled=parseBoolean("AUDIT_EMAIL_NOTIFICATIONS_ENABLED",overrides.AUDIT_EMAIL_NOTIFICATIONS_ENABLED??process.env.AUDIT_EMAIL_NOTIFICATIONS_ENABLED,false);
+  if(env==="production"&&!transactionalEmailEnabled&&(emailVerificationRequired||auditEmailNotificationsEnabled))throw new Error("Production email features require TRANSACTIONAL_EMAIL_ENABLED=true.");
 
   return {
     env,
@@ -132,6 +136,13 @@ export function loadConfig(overrides = {}) {
     }),
     projectRoot,
     adminApiKey: overrides.ADMIN_API_KEY || process.env.ADMIN_API_KEY || "",
+    transactionalEmailEnabled,
+    emailVerificationRequired,
+    auditEmailNotificationsEnabled,
+    emailVerificationTtlMs: parsePositiveInteger("EMAIL_VERIFICATION_TTL_MS",overrides.EMAIL_VERIFICATION_TTL_MS??process.env.EMAIL_VERIFICATION_TTL_MS,86_400_000),
+    emailOutboxPollIntervalMs: parsePositiveInteger("EMAIL_OUTBOX_POLL_INTERVAL_MS",overrides.EMAIL_OUTBOX_POLL_INTERVAL_MS??process.env.EMAIL_OUTBOX_POLL_INTERVAL_MS,30_000),
+    emailOutboxBatchSize: parseBoundedPositiveInteger("EMAIL_OUTBOX_BATCH_SIZE",overrides.EMAIL_OUTBOX_BATCH_SIZE??process.env.EMAIL_OUTBOX_BATCH_SIZE,20,100),
+    emailOutboxMaxAttempts: parseBoundedPositiveInteger("EMAIL_OUTBOX_MAX_ATTEMPTS",overrides.EMAIL_OUTBOX_MAX_ATTEMPTS??process.env.EMAIL_OUTBOX_MAX_ATTEMPTS,5,20),
     databaseFilePath,
     legal: createLegalConfig({ ...process.env, ...overrides }),
     migrationsManagedExternally: parseBoolean(

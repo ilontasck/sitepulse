@@ -25,14 +25,19 @@ const historyList = document.getElementById("historyList");
 const historyStatus = document.getElementById("historyStatus");
 const retryHistory = document.getElementById("retryHistory");
 const loadMoreHistory = document.getElementById("loadMoreHistory");
+const fragmentMatch=/^#(reset-password|verify-email)=([A-Za-z0-9_-]{43})$/.exec(location.hash);
+let pendingResetToken=fragmentMatch?.[1]==="reset-password"?fragmentMatch[2]:null;
+let pendingVerificationToken=fragmentMatch?.[1]==="verify-email"?fragmentMatch[2]:null;
+if(fragmentMatch)history.replaceState(null,"",location.pathname+location.search);
 let currentUser = null;
 let registrationMode = "closed";
+let emailVerificationRequired=false;
 let historyItems = [];
 let historyCursor = null;
 let historyRequestVersion = 0;
 
 function validPublicUser(user) {
-  return user && typeof user.id === "string" && typeof user.email === "string" && typeof user.createdAt === "string";
+  return user && typeof user.id === "string" && typeof user.email === "string" && typeof user.createdAt === "string" && (user.emailVerified===undefined||typeof user.emailVerified==="boolean");
 }
 
 function hideAuthError() {
@@ -69,7 +74,9 @@ function showAuthenticated(user) {
   signedOutView.hidden = true;
   signedInView.hidden = false;
   sessionEmail.textContent = user.email;
-  form.hidden = false;
+  const needsVerification=emailVerificationRequired&&user.emailVerified===false;
+  document.getElementById("emailVerificationState").hidden=!needsVerification;
+  form.hidden = needsVerification;
   void refreshQuota();
   auditHistory.hidden = false;
   void loadHistory();
@@ -81,6 +88,7 @@ function showSignedOut({ message = "", focusLogin = false } = {}) {
   analysisExperience?.reset();
   authLoading.hidden = true;
   signedInView.hidden = true;
+  document.getElementById("emailVerificationState").hidden=true;
   signedOutView.hidden = false;
   form.hidden = true;
   quotaStatus.hidden = true;
@@ -369,6 +377,11 @@ loginForm.addEventListener("submit", event => {
   void submitCredentials(loginForm, "login");
 });
 
+document.getElementById("forgotPassword").addEventListener("click",()=>{document.getElementById("passwordResetRequestForm").hidden=false;document.getElementById("resetEmail").focus()});
+document.getElementById("passwordResetRequestForm").addEventListener("submit",async event=>{event.preventDefault();const target=event.currentTarget;setAuthFormBusy(target,true);try{await fetch("/api/auth/password-reset/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:new FormData(target).get("email")})});showAuthError("If an account exists, check your email.")}catch{showAuthError("If an account exists, check your email.")}finally{setAuthFormBusy(target,false)}});
+document.getElementById("passwordResetConfirmForm").addEventListener("submit",async event=>{event.preventDefault();const target=event.currentTarget,values=new FormData(target);if(values.get("password")!==values.get("confirmPassword")){showAuthError("Passwords must match.");return}setAuthFormBusy(target,true);try{const response=await fetch("/api/auth/password-reset/confirm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:pendingResetToken,password:values.get("password")})});if(!response.ok)throw new Error();pendingResetToken=null;target.hidden=true;showAuthError("Password updated. Sign in with your new password.",{focusLogin:true})}catch{showAuthError("This password reset link is invalid or expired.")}finally{setAuthFormBusy(target,false)}});
+document.getElementById("resendVerification").addEventListener("click",async()=>{const response=await fetch("/api/auth/email-verification/request",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});showAuthError(response.ok?"Verification email requested.":"Verification email could not be requested.")});
+
 logoutButton.addEventListener("click", async () => {
   logoutButton.disabled = true;
   hideAuthError();
@@ -395,6 +408,7 @@ async function restoreSession() {
       fetch("/api/auth/me")
     ]);
     const configPayload = await parseAuthResponse(configResponse);
+    emailVerificationRequired=configResponse.ok&&configPayload?.emailVerificationRequired===true;
     configureRegistration(configResponse.ok ? configPayload?.registrationMode : "closed");
 
     if (sessionResponse.ok) {
@@ -412,6 +426,11 @@ async function restoreSession() {
   } finally {
     authPanel.setAttribute("aria-busy", "false");
   }
+}
+
+async function consumeFragmentActions(){
+  if(pendingResetToken){document.getElementById("passwordResetConfirmForm").hidden=false;document.getElementById("resetPassword").focus()}
+  if(pendingVerificationToken){const token=pendingVerificationToken;pendingVerificationToken=null;try{const response=await fetch("/api/auth/email-verification/confirm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token})});if(!response.ok)throw new Error();await restoreSession();showAuthError("Email verified.")}catch{showAuthError("This verification link is invalid or expired.")}}
 }
 
 function requireFreshSession(response) {
@@ -1146,4 +1165,4 @@ window.addEventListener("afterprint", () => {
     delete details.dataset.wasOpen;
   });
 });
-void restoreSession();
+void restoreSession().then(consumeFragmentActions);

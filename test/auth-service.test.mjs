@@ -64,7 +64,8 @@ describe("authentication service", () => {
     assert.deepEqual(result.user, {
       id: "user-1",
       email: "Owner@Example.COM",
-      createdAt: "2026-08-14T10:00:00.000Z"
+      createdAt: "2026-08-14T10:00:00.000Z",
+      emailVerified: true
     });
     assert.equal(result.sessionToken, Buffer.alloc(32, 1).toString("base64url"));
     assert.equal(result.sessionExpiresAt, "2026-08-28T10:00:00.000Z");

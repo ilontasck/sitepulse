@@ -118,6 +118,9 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
   const clock = options.clock || (() => new Date());
   const idGenerator = options.idGenerator || randomUUID;
   const leaseTokenGenerator = options.leaseTokenGenerator || randomUUID;
+  const notificationsEnabled=options.auditEmailNotificationsEnabled===true;
+  const emailOutboxMaxAttempts=options.emailOutboxMaxAttempts||5;
+  function enqueueNotification(database,{kind,jobId,userId,auditId=null,now}){if(!notificationsEnabled||!userId)return;database.prepare(`INSERT OR IGNORE INTO transactional_email_outbox(id,user_id,kind,job_id,audit_id,created_at,available_at,attempt_count,max_attempts) VALUES(?,?,?,?,?,?,?,0,?)`).run(idGenerator(),userId,kind,jobId,auditId,now,now,emailOutboxMaxAttempts);}
 
   return {
     enqueue({ normalizedUrl, userId, requestId = null, renderedAuditEnabled = false }) {
@@ -318,6 +321,7 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
           if (!completedJob) {
             throw new Error("Audit job ownership was lost during completion.");
           }
+          enqueueNotification(database,{kind:"audit_ready",jobId,userId:ownedJob.user_id,auditId:auditRecord.id,now});
 
           return { completed: true, job: toJob(completedJob), audit: auditRecord };
         })
@@ -389,7 +393,7 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
             throw new Error("Audit job ownership was lost during failure handling.");
           }
 
-          if (!shouldRetry) refundQuota(database, row);
+          if (!shouldRetry){refundQuota(database, row);enqueueNotification(database,{kind:"audit_failed",jobId,userId:ownedJob.user_id,now});}
 
           return { transitioned: true, job: toJob(row) };
         })
@@ -432,6 +436,7 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
             RETURNING id, request_id, attempt_count, created_at, user_id, quota_period_start, quota_charged
           `).all(now, now, now);
           for (const row of failed) refundQuota(database, row);
+          for(const row of failed)enqueueNotification(database,{kind:"audit_failed",jobId:row.id,userId:row.user_id,now});
           const requeued = database.prepare(`
             UPDATE audit_jobs
             SET status = 'queued',

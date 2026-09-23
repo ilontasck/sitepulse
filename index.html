@@ -68,6 +68,16 @@
                   <input id="loginPassword" name="password" type="password" autocomplete="current-password" required />
                   <button class="btn" type="submit">Sign in</button>
                 </form>
+                <button class="glassControl" id="forgotPassword" type="button">Forgot password?</button>
+                <form class="nqAuthForm" id="passwordResetRequestForm" hidden>
+                  <label for="resetEmail">Email</label><input id="resetEmail" name="email" type="email" autocomplete="email" required />
+                  <button class="btn" type="submit">Send reset link</button>
+                </form>
+                <form class="nqAuthForm" id="passwordResetConfirmForm" hidden>
+                  <label for="resetPassword">New password</label><input id="resetPassword" name="password" type="password" autocomplete="new-password" minlength="12" required />
+                  <label for="resetPasswordConfirm">Confirm new password</label><input id="resetPasswordConfirm" name="confirmPassword" type="password" autocomplete="new-password" minlength="12" required />
+                  <button class="btn" type="submit">Update password</button>
+                </form>
                 <div id="registrationArea"></div>
                 <div class="nqClosedBeta" id="closedRegistration" hidden>
                   <b>Closed beta</b>
@@ -78,6 +88,7 @@
                 <div><span>Signed in</span><b id="sessionEmail"></b></div>
                 <button class="glassControl" id="logoutButton" type="button">Sign out</button>
               </div>
+              <div class="nqClosedBeta" id="emailVerificationState" hidden><b>Verify your email to run audits.</b><p>Check your email for a verification link.</p><button class="glassControl" id="resendVerification" type="button">Resend verification email</button></div>
             </section>
             <div class="nqQuota" id="quotaStatus" role="status" aria-live="polite" hidden>
               <b id="quotaPlan">Free beta</b>

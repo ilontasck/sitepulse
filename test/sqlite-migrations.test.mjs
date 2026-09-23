@@ -51,7 +51,8 @@ describe("SQLite migrations", () => {
       { version: 7, name: "password_reset_tokens" },
       { version: 8, name: "retention and deletion foundation" },
       { version: 9, name: "plans and monthly audit quotas" },
-      { version: 10, name: "admin operations audit log" }
+      { version: 10, name: "admin operations audit log" },
+      { version: 11, name: "transactional email" }
     ]);
     assert.equal(schema.tables.some(({ name }) => name === "audits"), true);
     assert.equal(schema.tables.some(({ name }) => name === "audit_jobs"), true);
@@ -60,6 +61,8 @@ describe("SQLite migrations", () => {
     assert.equal(schema.tables.some(({ name }) => name === "password_reset_tokens"), true);
     assert.equal(schema.tables.some(({ name }) => name === "audit_monthly_usage"), true);
     assert.equal(schema.tables.some(({ name }) => name === "admin_operation_log"), true);
+    assert.equal(schema.tables.some(({ name }) => name === "email_verification_tokens"), true);
+    assert.equal(schema.tables.some(({ name }) => name === "transactional_email_outbox"), true);
   });
 
   it("adds retention and deletion state and backfills existing reports with thirty-day expiry", async () => {
@@ -182,7 +185,8 @@ describe("SQLite migrations", () => {
         { version: 7, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 8, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 9, appliedAt: "2026-08-13T10:00:00.000Z" },
-        { version: 10, appliedAt: "2026-08-13T10:00:00.000Z" }
+        { version: 10, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 11, appliedAt: "2026-08-13T10:00:00.000Z" }
       ]
     );
   });
@@ -231,7 +235,7 @@ describe("SQLite migrations", () => {
 
     assert.deepEqual({ ...state.audit }, { id: "legacy-audit", normalized_url: "https://example.com" });
     assert.deepEqual({ ...state.job }, { id: "legacy-job", status: "queued", normalized_url: "https://example.com" });
-    assert.deepEqual(state.versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    assert.deepEqual(state.versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 
   it("adds nullable restricted ownership without changing legacy audits or jobs", async () => {
@@ -283,7 +287,7 @@ describe("SQLite migrations", () => {
       database.prepare("UPDATE audits SET user_id = ? WHERE id = ?").run("owner-1", "legacy-audit");
       database.prepare("UPDATE audit_jobs SET user_id = ? WHERE id = ?").run("owner-1", "legacy-job");
       assert.throws(() => database.prepare("DELETE FROM users WHERE id = ?").run("owner-1"), /foreign key constraint/i);
-      assert.deepEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      assert.deepEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     });
   });
 
@@ -453,7 +457,7 @@ describe("SQLite migrations", () => {
     const databaseFilePath = await temporaryDatabase();
     runMigrations(databaseFilePath);
     const failingMigration = {
-      version: 11,
+      version: 12,
       name: "intentional failure",
       up(database) {
         database.exec("CREATE TABLE must_rollback (id TEXT PRIMARY KEY);");
@@ -467,11 +471,11 @@ describe("SQLite migrations", () => {
     );
 
     const state = inspectDatabase(databaseFilePath, (database) => ({
-      version11: database.prepare("SELECT version FROM schema_migrations WHERE version = 11").get(),
+      version12: database.prepare("SELECT version FROM schema_migrations WHERE version = 12").get(),
       rolledBackTable: database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'must_rollback'").get()
     }));
 
-    assert.equal(state.version11, undefined);
+    assert.equal(state.version12, undefined);
     assert.equal(state.rolledBackTable, undefined);
   });
 

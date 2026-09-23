@@ -5,6 +5,7 @@ import { loadConfig } from "../src/config/env.mjs";
 process.env.AUTH_REGISTRATION_MODE = "closed";
 
 describe("configuration", () => {
+  it("keeps email capabilities disabled and fails closed for production dependencies",()=>{const base={NODE_ENV:"test",AUTH_REGISTRATION_MODE:"closed"};const config=loadConfig(base);assert.equal(config.transactionalEmailEnabled,false);assert.equal(config.emailVerificationRequired,false);assert.equal(config.auditEmailNotificationsEnabled,false);assert.throws(()=>loadConfig({NODE_ENV:"production",PUBLIC_ORIGIN:"https://example.test",LEGAL_PUBLICATION_READY:"true",AUTH_REGISTRATION_MODE:"closed",EMAIL_VERIFICATION_REQUIRED:"true"}),/TRANSACTIONAL_EMAIL_ENABLED/);const enabled=loadConfig({...base,TRANSACTIONAL_EMAIL_ENABLED:"true",EMAIL_VERIFICATION_REQUIRED:"true",AUDIT_EMAIL_NOTIFICATIONS_ENABLED:"true"});assert.equal(enabled.emailVerificationTtlMs,86400000);assert.equal(enabled.emailOutboxMaxAttempts,5)});
   const productionLegal = {
     LEGAL_PUBLICATION_READY: "true",
     LEGAL_OPERATOR_NAME: "Example Operator",

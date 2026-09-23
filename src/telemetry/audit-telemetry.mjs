@@ -8,6 +8,7 @@ const enumFields = {
   method: new Set(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]),
   phase: new Set(["preflight", "generate", "persist", "recover", "claim", "heartbeat", "failure-transition", "readiness", "startup", "shutdown"]),
   outcome: new Set(["queued", "running", "failed", "completed", "success", "failure", "not-ready", "ready", "partial", "timed-out", "temporarily-unavailable"]),
+  kind: new Set(["password_reset","email_verification","audit_ready","audit_failed"]),
   reason: new Set(["timeout", "chromium-crash", "concurrency-limit", "network-safety", "navigation", "rendered-error", "html-scan-error", "storage_error", "readiness-check", "lease-renewal-rejected", "lease-renewal-error", "completion-rejected", "failure-transition-rejected"])
 };
 function safeFields(fields) {
@@ -18,7 +19,7 @@ function safeFields(fields) {
     else if (enumFields[key]?.has?.(value)) safe[key] = value;
     else if (key === "fallbackReason" && enumFields.reason.has(value)) safe[key] = value;
     else if (key === "errorCode" && typeof value === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(value)) safe[key] = safeErrorCode({ code: value }, "UNKNOWN_ERROR");
-    else if (key === "route" && typeof value === "string" && /^\/(?:api\/(?:health|ready|operations|audits(?::id|\/:id|\/(?:quota|history))?|audit-jobs\/:id|auth\/(?:config|register|login|logout|me)|unknown)|static)$/.test(value)) safe[key] = value;
+    else if (key === "route" && typeof value === "string" && /^\/(?:api\/(?:health|ready|operations(?:\/failed|\/audit-log|\/jobs\/:id\/retry)?|audits(?::id|\/:id|\/(?:quota|history))?|audit-jobs\/:id|auth\/(?:config|register|login|logout|me|password-reset\/(?:request|confirm)|email-verification\/(?:request|confirm))|unknown)|static)$/.test(value)) safe[key] = value;
   }
   return safe;
 }

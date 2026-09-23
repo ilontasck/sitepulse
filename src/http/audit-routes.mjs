@@ -115,6 +115,7 @@ export async function handleAuditApi({
 }) {
   if (url.pathname === "/api/audits" && request.method === "POST") {
     const user = await requireAuthenticatedUser(request, response, { authService, cookiePolicy });
+    if(config.emailVerificationRequired&&!user.emailVerified)throw new HttpError(403,"Verify your email to run audits.","EMAIL_VERIFICATION_REQUIRED");
     requireTrustedOrigin(request, config.publicOrigin);
     rateLimiters.general(request, response, user);
     rateLimiters.create(request, response, user);

@@ -56,8 +56,8 @@ describe("retention cleanup store", () => {
       database.prepare("UPDATE audit_jobs SET quota_period_start='2026-09-01T00:00:00.000Z', quota_charged=1 WHERE id='job-expired'").run();
     });
 
-    assert.deepEqual(store.cleanup({ limit: 100 }), { reports: 2, pendingJobs: 0, accounts: 0, adminOperations: 0 });
-    assert.deepEqual(store.cleanup({ limit: 100 }), { reports: 0, pendingJobs: 0, accounts: 0, adminOperations: 0 });
+    assert.deepEqual(store.cleanup({ limit: 100 }), { reports: 2, pendingJobs: 0, accounts: 0, adminOperations: 0, emailVerificationTokens: 0, emailOutbox: 0 });
+    assert.deepEqual(store.cleanup({ limit: 100 }), { reports: 0, pendingJobs: 0, accounts: 0, adminOperations: 0, emailVerificationTokens: 0, emailOutbox: 0 });
     databaseState(databaseFilePath, (database) => {
       assert.deepEqual(database.prepare("SELECT id FROM audits ORDER BY id").all().map(({ id }) => id), ["active"]);
       assert.deepEqual(database.prepare("SELECT id FROM audit_jobs ORDER BY id").all().map(({ id }) => id), ["job-active"]);

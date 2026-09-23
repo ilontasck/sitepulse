@@ -104,6 +104,7 @@ export function createOperationsStore(databaseFilePath, options = {}) {
         if (job.status !== "failed" || job.audit_id !== null || (job.user_id !== null && (!job.owner_id || job.disabled_at !== null || job.deletion_requested_at !== null))) throw new JobNotRetryableError("Job is not retryable.");
         const result = database.prepare(`UPDATE audit_jobs SET status='queued',attempt_count=0,available_at=?,updated_at=?,worker_id=NULL,lease_token=NULL,lease_expires_at=NULL,started_at=NULL,completed_at=NULL,failed_at=NULL,error_code=NULL,error_message=NULL WHERE id=? AND status='failed'`).run(now,now,jobId);
         if (result.changes !== 1) throw new JobNotRetryableError("Job is not retryable.");
+        database.prepare(`UPDATE transactional_email_outbox SET canceled_at=?,claimed_until=NULL,claim_token=NULL WHERE job_id=? AND kind='audit_failed' AND delivered_at IS NULL AND dead_lettered_at IS NULL AND canceled_at IS NULL`).run(now,jobId);
         database.prepare(`INSERT INTO admin_operation_log (id,created_at,action,target_type,target_id,outcome,request_id) VALUES (?,?, 'job.retry','audit_job',?,'accepted',?)`).run(idGenerator(),now,jobId,isCorrelationId(requestId)?requestId:null);
         return { id:jobId,status:"queued" };
       }));

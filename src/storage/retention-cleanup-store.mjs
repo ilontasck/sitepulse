@@ -67,7 +67,12 @@ export function createRetentionCleanupStore(databaseFilePath, options = {}) {
         const deleteOperation = database.prepare("DELETE FROM admin_operation_log WHERE id = ?");
         for (const id of operationIds) deleteOperation.run(id);
 
-        return { reports: reportIds.length, pendingJobs: pendingJobIds.length, accounts: accountIds.length, adminOperations: operationIds.length };
+        const verificationIds=database.prepare(`SELECT id FROM email_verification_tokens WHERE expires_at<=? OR COALESCE(used_at,invalidated_at)<? ORDER BY expires_at,id LIMIT ?`).all(now,operationLogCutoff,batchSize).map(({id})=>id);
+        const deleteVerification=database.prepare("DELETE FROM email_verification_tokens WHERE id=?");for(const id of verificationIds)deleteVerification.run(id);
+        const outboxIds=database.prepare(`SELECT id FROM transactional_email_outbox WHERE COALESCE(delivered_at,dead_lettered_at,canceled_at)<? ORDER BY COALESCE(delivered_at,dead_lettered_at,canceled_at),id LIMIT ?`).all(operationLogCutoff,batchSize).map(({id})=>id);
+        const deleteOutbox=database.prepare("DELETE FROM transactional_email_outbox WHERE id=?");for(const id of outboxIds)deleteOutbox.run(id);
+
+        return { reports: reportIds.length, pendingJobs: pendingJobIds.length, accounts: accountIds.length, adminOperations: operationIds.length,emailVerificationTokens:verificationIds.length,emailOutbox:outboxIds.length };
       }));
     }
   };

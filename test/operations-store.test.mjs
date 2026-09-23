@@ -38,11 +38,11 @@ describe("operations store",()=>{
   });
 
   it("atomically requeues one failed job, preserves ownership/plan/quota, and logs success",()=>{
-    const {databaseFilePath,store}=fixture(); db(databaseFilePath,d=>{user(d,"active",{plan:"pro"}); job(d,"failed","failed","active",{plan:"pro",charged:0});});
+    const {databaseFilePath,store}=fixture(); db(databaseFilePath,d=>{user(d,"active",{plan:"pro"}); job(d,"failed","failed","active",{plan:"pro",charged:0});d.prepare("INSERT INTO transactional_email_outbox(id,user_id,kind,job_id,created_at,available_at,attempt_count,max_attempts)VALUES('notice','active','audit_failed','failed',?,?,0,5)").run(now,now);});
     assert.deepEqual(store.retryJob({jobId:"failed",requestId:"123e4567-e89b-42d3-a456-426614174000"}),{id:"failed",status:"queued"});
     assert.throws(()=>store.retryJob({jobId:"failed"}),JobNotRetryableError);
     const state=db(databaseFilePath,d=>({job:d.prepare("SELECT * FROM audit_jobs WHERE id='failed'").get(),logs:d.prepare("SELECT * FROM admin_operation_log").all()}));
-    assert.equal(state.job.attempt_count,0); assert.equal(state.job.worker_id,null); assert.equal(state.job.error_message,null); assert.equal(state.job.user_id,"active"); assert.equal(state.job.plan_code_snapshot,"pro"); assert.equal(state.job.quota_charged,0); assert.equal(state.logs.length,1); assert.equal(state.logs[0].action,"job.retry");
+    assert.equal(state.job.attempt_count,0); assert.equal(state.job.worker_id,null); assert.equal(state.job.error_message,null); assert.equal(state.job.user_id,"active"); assert.equal(state.job.plan_code_snapshot,"pro"); assert.equal(state.job.quota_charged,0); assert.equal(state.logs.length,1); assert.equal(state.logs[0].action,"job.retry");assert.equal(db(databaseFilePath,d=>d.prepare("SELECT canceled_at FROM transactional_email_outbox WHERE id='notice'").get().canceled_at),now);
     const claimed=createAuditJobStore(databaseFilePath,{clock:()=>new Date(now),leaseTokenGenerator:()=>"lease-new"}).claimNext({workerId:"worker-new",leaseMs:1000});
     assert.equal(claimed.id,"failed");
   });

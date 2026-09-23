@@ -91,6 +91,16 @@ afterEach(async () => {
 });
 
 describe("authentication HTTP API", () => {
+  it("registers unverified, resends safely, and confirms without a session",async()=>{
+    const delivered=[];const api=await startApi({configOverrides:{EMAIL_VERIFICATION_REQUIRED:"true"},dependencies:{deliverEmailVerification:async message=>delivered.push(message)}});
+    const registration=await register(api,"verify@example.com"),body=await registration.json(),cookie=sessionTokenFrom(registration);
+    assert.equal(body.user.emailVerified,false);assert.equal(delivered.length,1);
+    const resend=await authRequest(api,"/api/auth/email-verification/request",{cookie,body:{email:"other@example.com"}});assert.equal(resend.status,202);assert.deepEqual(await resend.json(),{accepted:true});assert.equal(delivered.length,2);
+    const old=await authRequest(api,"/api/auth/email-verification/confirm",{body:{token:delivered[0].token}});assert.equal(old.status,400);
+    const confirm=await authRequest(api,"/api/auth/email-verification/confirm",{body:{token:delivered[1].token}});assert.equal(confirm.status,204);
+    const me=await authRequest(api,"/api/auth/me",{method:"GET",cookie});assert.equal((await me.json()).user.emailVerified,true);
+    assert.equal((await authRequest(api,"/api/auth/email-verification/confirm",{body:{token:delivered[1].token}})).status,400);
+  });
   it("exposes registration availability without secrets and fails closed", async () => {
     const closedApi = await startApi({ configOverrides: { AUTH_REGISTRATION_MODE: "closed" } });
     const configResponse = await authRequest(closedApi, "/api/auth/config", { method: "GET" });
@@ -100,7 +110,7 @@ describe("authentication HTTP API", () => {
 
     assert.equal(configResponse.status, 200);
     assert.equal(configResponse.headers.get("cache-control"), "no-store");
-    assert.deepEqual(configBody, { registrationMode: "closed" });
+    assert.deepEqual(configBody, { registrationMode: "closed", emailVerificationRequired: false });
     assert.equal(registrationResponse.status, 403);
     assert.deepEqual(registrationBody, {
       error: {
@@ -114,7 +124,7 @@ describe("authentication HTTP API", () => {
 
     const publicApi = await startApi();
     const publicConfigResponse = await authRequest(publicApi, "/api/auth/config", { method: "GET" });
-    assert.deepEqual(await publicConfigResponse.json(), { registrationMode: "public" });
+    assert.deepEqual(await publicConfigResponse.json(), { registrationMode: "public", emailVerificationRequired: false });
     assert.equal((await register(publicApi, "public@example.com")).status, 201);
   });
 
@@ -138,7 +148,7 @@ describe("authentication HTTP API", () => {
     assert.match(cookieHeader, /SameSite=Lax/);
     assert.match(cookieHeader, /Path=\//);
     assert.doesNotMatch(cookieHeader, /Secure/);
-    assert.deepEqual(Object.keys(body.user).sort(), ["createdAt", "email", "id"]);
+    assert.deepEqual(Object.keys(body.user).sort(), ["createdAt", "email", "emailVerified", "id"]);
     assert.equal(JSON.stringify(body).includes(rawToken), false);
     assert.equal(JSON.stringify(body).includes("password"), false);
     assert.deepEqual({ type: stored.type, length: stored.length }, { type: "blob", length: 32 });
@@ -319,7 +329,7 @@ describe("authentication HTTP API", () => {
 
     assert.equal(unrelatedLogin.status, 200);
     assert.equal(rotatedLogin.status, 200);
-    assert.deepEqual(Object.keys(rotatedBody.user).sort(), ["createdAt", "email", "id"]);
+    assert.deepEqual(Object.keys(rotatedBody.user).sort(), ["createdAt", "email", "emailVerified", "id"]);
     assert.equal(JSON.stringify(rotatedBody).includes(rotatedToken), false);
     assert.equal((await authRequest(api, "/api/auth/me", { method: "GET", cookie: firstToken, origin: null, contentType: null })).status, 401);
     assert.equal((await authRequest(api, "/api/auth/me", { method: "GET", cookie: unrelatedToken, origin: null, contentType: null })).status, 200);
@@ -364,7 +374,7 @@ describe("authentication HTTP API", () => {
 
     assert.equal(valid.status, 200);
     assert.equal(valid.headers.get("cache-control"), "no-store");
-    assert.deepEqual(Object.keys(validBody.user).sort(), ["createdAt", "email", "id"]);
+    assert.deepEqual(Object.keys(validBody.user).sort(), ["createdAt", "email", "emailVerified", "id"]);
     for (const cookie of [undefined, "malformed"]) {
       const response = await authRequest(api, "/api/auth/me", { method: "GET", cookie, origin: null, contentType: null });
       assert.equal(response.status, 401);

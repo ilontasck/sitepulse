@@ -21,6 +21,8 @@ async function main() {
   }
 
   const jobStore = createAuditJobStore(config.databaseFilePath, {
+    auditEmailNotificationsEnabled:config.auditEmailNotificationsEnabled,
+    emailOutboxMaxAttempts:config.emailOutboxMaxAttempts,
     onRecovered({ failed, requeued }) {
       for (const [jobs, event] of [[failed, "audit.failed"], [requeued, "audit.retry_scheduled"]]) {
         for (const job of jobs) telemetry.record(event, { worker: workerId, jobId: job.id, requestId: job.request_id,

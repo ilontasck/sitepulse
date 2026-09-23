@@ -8,7 +8,7 @@ export const createRequestId = () => randomUUID();
 export const logContext = () => context.getStore() || {};
 export const withLogContext = (fields, callback) => context.run({ ...logContext(), ...fields }, callback);
 
-const routes = new Set(["/api/health", "/api/ready", "/api/operations", "/api/operations/failed", "/api/operations/audit-log", "/api/audits", "/api/audits/quota", "/api/audits/history", "/api/auth/config", "/api/auth/register", "/api/auth/login", "/api/auth/logout", "/api/auth/me"]);
+const routes = new Set(["/api/health", "/api/ready", "/api/operations", "/api/operations/failed", "/api/operations/audit-log", "/api/audits", "/api/audits/quota", "/api/audits/history", "/api/auth/config", "/api/auth/register", "/api/auth/login", "/api/auth/logout", "/api/auth/me", "/api/auth/password-reset/request", "/api/auth/password-reset/confirm", "/api/auth/email-verification/request", "/api/auth/email-verification/confirm"]);
 export function logRoute(pathname) {
   if (routes.has(pathname)) return pathname;
   if (/^\/api\/audit-jobs\/[^/]+$/.test(pathname)) return "/api/audit-jobs/:id";

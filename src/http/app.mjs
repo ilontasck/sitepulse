@@ -3,6 +3,8 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import { createAuthService } from "../auth/auth-service.mjs";
 import { createPasswordService } from "../auth/password.mjs";
+import { createEmailService } from "../email/delivery.mjs";
+import { startEmailOutboxScheduler } from "../email/outbox-scheduler.mjs";
 import { startSessionCleanupScheduler } from "../auth/session-cleanup-scheduler.mjs";
 import { startDataRetentionCleanupScheduler } from "../privacy/data-retention-cleanup-scheduler.mjs";
 import { createSqliteReadinessCheck } from "../health/sqlite-readiness.mjs";
@@ -11,6 +13,7 @@ import { createAuditStore } from "../storage/audit-store.mjs";
 import { createAuthStore } from "../storage/auth-store.mjs";
 import { createRetentionCleanupStore } from "../storage/retention-cleanup-store.mjs";
 import { createOperationsStore } from "../storage/operations-store.mjs";
+import { createEmailOutboxStore } from "../storage/email-outbox-store.mjs";
 import { runMigrations } from "../storage/migrations.mjs";
 import { createAuditTelemetry } from "../telemetry/audit-telemetry.mjs";
 import { safeErrorCode } from "../audit/audit-failure-classifier.mjs";
@@ -33,18 +36,23 @@ export function createApp(config, dependencies = {}) {
     (dependencies.runMigrations || runMigrations)(config.databaseFilePath);
   }
   const store = dependencies.store || createAuditStore(config.databaseFilePath);
-  const jobStore = dependencies.jobStore || createAuditJobStore(config.databaseFilePath);
+  const jobStore = dependencies.jobStore || createAuditJobStore(config.databaseFilePath,{auditEmailNotificationsEnabled:config.auditEmailNotificationsEnabled,emailOutboxMaxAttempts:config.emailOutboxMaxAttempts});
   const authStore = dependencies.authStore || createAuthStore(config.databaseFilePath);
   const retentionCleanupStore = dependencies.retentionCleanupStore || createRetentionCleanupStore(config.databaseFilePath);
   const operationsStore = dependencies.operationsStore || createOperationsStore(config.databaseFilePath);
+  const emailOutboxStore=dependencies.emailOutboxStore||createEmailOutboxStore(config.databaseFilePath);
+  const telemetry = dependencies.telemetry || createAuditTelemetry({ enabled: config.telemetryEnabled && config.env !== "test" });
   const passwordService = dependencies.passwordService || createPasswordService({ maxConcurrency: config.authScryptMaxConcurrency });
+  const emailService=dependencies.emailService||createEmailService({adapter:dependencies.emailDeliveryAdapter,publicOrigin:config.publicOrigin,telemetry});
   const authService = dependencies.authService || createAuthService({
     authStore,
     passwordService,
-    deliverPasswordReset: dependencies.deliverPasswordReset
+    deliverPasswordReset: dependencies.deliverPasswordReset||emailService.deliverPasswordReset,
+    deliverEmailVerification: dependencies.deliverEmailVerification||emailService.deliverEmailVerification,
+    emailVerificationRequired:config.emailVerificationRequired,
+    emailVerificationTtlMs:config.emailVerificationTtlMs
   });
   const cookiePolicy = dependencies.cookiePolicy || createSessionCookiePolicy({ publicOrigin: config.publicOrigin });
-  const telemetry = dependencies.telemetry || createAuditTelemetry({ enabled: config.telemetryEnabled && config.env !== "test" });
   const readinessCheck = dependencies.readinessCheck || createSqliteReadinessCheck(config.databaseFilePath);
   const enforceRateLimit =
     dependencies.enforceRateLimit ||
@@ -89,7 +97,9 @@ export function createApp(config, dependencies = {}) {
     passwordResetConfirm: createRateLimiter({
       windowMs: config.authLoginRateLimitWindowMs,
       max: config.authLoginRateLimitMax
-    })
+    }),
+    emailVerificationRequest:createRateLimiter({windowMs:config.authLoginRateLimitWindowMs,max:config.authLoginEmailRateLimitMax,keySelector:(_request,user)=>`verify-user:${user.id}`}),
+    emailVerificationConfirm:createRateLimiter({windowMs:config.authLoginRateLimitWindowMs,max:config.authLoginRateLimitMax})
   };
   const auditRateLimiters = dependencies.auditRateLimiters || {
     general: createRateLimiter({
@@ -255,9 +265,11 @@ export function createApp(config, dependencies = {}) {
     intervalMs: config.dataRetentionCleanupIntervalMs,
     batchSize: config.dataRetentionCleanupBatchSize
   });
+  const emailOutbox=(dependencies.startEmailOutboxScheduler||startEmailOutboxScheduler)({...(dependencies.emailOutboxOptions||{}),outboxStore:emailOutboxStore,emailService,telemetry,intervalMs:config.emailOutboxPollIntervalMs,batchSize:config.emailOutboxBatchSize});
   server.once("close", () => {
     sessionCleanup.stop();
     retentionCleanup.stop();
+    emailOutbox.stop();
   });
   server.markStopping = () => {
     stopping = true;

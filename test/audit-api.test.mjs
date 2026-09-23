@@ -147,6 +147,7 @@ after(async () => {
 });
 
 describe("asynchronous audit API", () => {
+  it("blocks unverified audit creation before URL work, quota, or enqueue",async()=>{let safetyCalls=0;const api=await startApi({configOverrides:{EMAIL_VERIFICATION_REQUIRED:"true"},dependencies:{deliverEmailVerification:async()=>{},initialUrlSafetyValidator:async()=>{safetyCalls++}}});const response=await postAudit(api,{websiteUrl:"example.com"});assert.equal(response.status,403);assert.equal((await response.json()).error.code,"EMAIL_VERIFICATION_REQUIRED");assert.equal(safetyCalls,0);assert.equal(countRows(api.config.databaseFilePath,"audit_jobs"),0);assert.equal(withDatabase(api.config.databaseFilePath,d=>d.prepare("SELECT COUNT(*) count FROM audit_monthly_usage").get().count),0);await stopApi(api)});
   let api;
   let auditGeneratorCalls;
   let telemetryEntries;

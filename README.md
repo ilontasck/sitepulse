@@ -327,6 +327,13 @@ NODE_ENV=development
 DATABASE_FILE_PATH=./data/sitepulse.sqlite
 MIGRATIONS_MANAGED_EXTERNALLY=false
 ADMIN_API_KEY=
+TRANSACTIONAL_EMAIL_ENABLED=false
+EMAIL_VERIFICATION_REQUIRED=false
+AUDIT_EMAIL_NOTIFICATIONS_ENABLED=false
+EMAIL_VERIFICATION_TTL_MS=86400000
+EMAIL_OUTBOX_POLL_INTERVAL_MS=30000
+EMAIL_OUTBOX_BATCH_SIZE=20
+EMAIL_OUTBOX_MAX_ATTEMPTS=5
 REQUEST_BODY_LIMIT_BYTES=32768
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX=60
@@ -448,6 +455,14 @@ The authenticated workspace can open a historical report with the existing repor
 `/admin` shows queue and API health, aggregate active/Free/Pro/deletion/disabled user counts, and current UTC-month usage from `audit_monthly_usage`. It never displays customer email, target URL, report contents, or user IDs. Failed jobs use opaque keyset pagination and can be requeued only after confirmation when the owner is active and the job is still terminal failed.
 
 An operator retry recovers the same job: it does not create a duplicate or consume another quota slot, and a terminal failure's refund remains in effect. Successful retries are recorded in `admin_operation_log`; the existing retention cleanup physically removes these entries after 30 days in bounded batches.
+
+### Transactional email foundation (STE-35 Phase 1)
+
+Transactional email and email verification are disabled by default. Phase 1 provides a provider-neutral delivery adapter, 24-hour hashed one-time email-verification tokens, the existing one-hour hashed password-reset flow with fragment links, and a durable audit-notification outbox. No provider or final sender/domain identity has been selected; Phase 2 depends on STE-60 approval.
+
+Reset and verification raw tokens exist only in request-process memory and never enter the outbox. Browser links use `#reset-password=` and `#verify-email=` fragments and scrub them immediately. The audit outbox stores user/job/audit identifiers only, never recipient email, target URL, domain, score, or report contents; the current active recipient is resolved at send time.
+
+Audit delivery uses lease-based claims, bounded retries and dead-lettering. It is at-least-once: a process crash after provider acceptance but before the delivered mark can produce a duplicate. Terminal outbox records and verification-token history are cleaned in bounded retention batches. Admin retry cancels an undelivered failure notice, and account deletion cancels pending notifications and invalidates verification tokens.
 
 ### `GET /api/audits/:id`
 

@@ -32,6 +32,7 @@ function mapAuthError(error, response) {
     if (error.code === "INVALID_PASSWORD_RESET_TOKEN") {
       return new HttpError(400, error.message, error.code);
     }
+    if(error.code==="INVALID_EMAIL_VERIFICATION_TOKEN")return new HttpError(400,error.message,error.code);
   }
   return error;
 }
@@ -65,7 +66,7 @@ export async function handleAuthApi({
 
   if (url.pathname === "/api/auth/config") {
     if (request.method !== "GET") throw methodNotAllowed();
-    return sendJson(response, 200, { registrationMode: config.authRegistrationMode });
+    return sendJson(response, 200, { registrationMode: config.authRegistrationMode, emailVerificationRequired: config.emailVerificationRequired });
   }
 
   if (url.pathname === "/api/auth/register") {
@@ -142,6 +143,22 @@ export async function handleAuthApi({
     );
     await performAuthOperation(() => authService.confirmPasswordReset(body), response);
     return sendNoContent(response);
+  }
+
+  if(url.pathname==="/api/auth/email-verification/request"){
+    if(request.method!=="POST")throw methodNotAllowed();
+    const user=await resolveAuthenticatedUser(request,{authService,cookiePolicy});if(!user)throw new HttpError(401,"Sign in to continue.","AUTHENTICATION_REQUIRED");
+    rateLimiters.emailVerificationRequest(request,response,user);requireTrustedOrigin(request,config.publicOrigin);
+    requireObjectBody(await readJsonBody(request,config.requestBodyLimitBytes,{strictContentType:true}));
+    await performAuthOperation(()=>authService.requestEmailVerification({userId:user.id}),response);
+    return sendJson(response,202,{accepted:true});
+  }
+
+  if(url.pathname==="/api/auth/email-verification/confirm"){
+    if(request.method!=="POST")throw methodNotAllowed();
+    rateLimiters.emailVerificationConfirm(request,response);requireTrustedOrigin(request,config.publicOrigin);
+    const body=requireObjectBody(await readJsonBody(request,config.requestBodyLimitBytes,{strictContentType:true}));
+    await performAuthOperation(()=>authService.confirmEmailVerification(body),response);return sendNoContent(response);
   }
 
   if (url.pathname === "/api/auth/account") {
