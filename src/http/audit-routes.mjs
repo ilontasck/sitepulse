@@ -6,6 +6,7 @@ import { readJsonBody } from "./body.mjs";
 import { requireTrustedOrigin } from "./origin-policy.mjs";
 import { sendJson, sendNoContent } from "./respond.mjs";
 import { AuditQuotaExceededError } from "../storage/audit-job-store.mjs";
+import { AuditHistoryCursorError } from "../storage/audit-store.mjs";
 
 function parseLimit(searchParams) {
   const rawLimit = searchParams.get("limit");
@@ -20,6 +21,16 @@ function parseLimit(searchParams) {
     throw new HttpError(400, "Limit must be an integer between 1 and 100.", "INVALID_LIMIT");
   }
 
+  return limit;
+}
+
+function parseHistoryLimit(searchParams) {
+  const rawLimit = searchParams.get("limit");
+  if (!rawLimit) return 10;
+  const limit = Number(rawLimit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+    throw new HttpError(400, "Limit must be an integer between 1 and 50.", "INVALID_LIMIT");
+  }
   return limit;
 }
 
@@ -155,6 +166,27 @@ export async function handleAuditApi({
     const quota = jobStore.quotaForUser(user.id, { renderedAuditEnabled: config.renderedAuditEnabled });
     if (!quota) throw authenticationRequired();
     return sendJson(response, 200, quota);
+  }
+
+  if (url.pathname === "/api/audits/history") {
+    if (request.method !== "GET") {
+      throw new HttpError(405, "Method is not allowed for this endpoint.", "METHOD_NOT_ALLOWED");
+    }
+    const user = await requireAuthenticatedUser(request, response, { authService, cookiePolicy });
+    rateLimiters.general(request, response, user);
+    try {
+      const page = await store.listForUser({
+        userId: user.id,
+        limit: parseHistoryLimit(url.searchParams),
+        cursor: url.searchParams.get("cursor")
+      });
+      return sendJson(response, 200, { audits: page.audits, page: { nextCursor: page.nextCursor } });
+    } catch (error) {
+      if (error instanceof AuditHistoryCursorError) {
+        throw new HttpError(400, "Audit history cursor is invalid.", "INVALID_CURSOR");
+      }
+      throw error;
+    }
   }
 
   const jobPathMatch = url.pathname.match(/^\/api\/audit-jobs\/([^/]+)$/);

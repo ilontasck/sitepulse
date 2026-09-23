@@ -437,6 +437,12 @@ Requires a valid session and returns the safe job status only to its owner. A co
 
 Requires a valid session and returns the server-calculated plan, UTC monthly usage, remaining audits, reset timestamp, and effective feature flags. Responses are `private, no-store`. Audit creation returns `429 AUDIT_QUOTA_EXCEEDED` with `Retry-After` when no monthly capacity remains.
 
+### `GET /api/audits/history`
+
+Requires a valid session and returns only the current account's active, non-expired reports, newest first. Pagination uses an opaque keyset cursor over `created_at DESC, id DESC`; `limit` defaults to 10 and is capped at 50. Deleted, expired, disabled-account, and deletion-pending data is excluded in SQLite. Responses are `private, no-store` and never include ownership fields.
+
+The authenticated workspace can open a historical report with the existing report renderer, rerun its URL through the normal quota-enforced `POST /api/audits`, or soft-delete it through the existing owner-scoped `DELETE /api/audits/:id` confirmation flow. Opening history does not consume quota, and deleting a successful report does not refund quota.
+
 ### `GET /api/audits/:id`
 
 Requires a valid session and returns one audit report only to its owner. An unguessable UUID alone does not grant access.

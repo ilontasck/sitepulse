@@ -104,6 +104,15 @@
             </form>
             <div class="error" id="errorBox" role="alert" hidden>Use a valid website address, like studio.example.com.</div>
             <div class="loading" id="loading" hidden aria-hidden="true"><span id="loadingText">Preparing analysis</span></div>
+            <section class="nqHistory" id="auditHistory" aria-labelledby="auditHistoryTitle" hidden>
+              <header>
+                <div><span>MY AUDITS</span><h2 id="auditHistoryTitle" tabindex="-1">Recent reports</h2></div>
+                <button class="glassControl" id="retryHistory" type="button" hidden>Retry history</button>
+              </header>
+              <div id="historyStatus" role="status" aria-live="polite">Loading your audits…</div>
+              <div class="nqHistoryList" id="historyList"></div>
+              <button class="glassControl nqHistoryMore" id="loadMoreHistory" type="button" hidden>Load more</button>
+            </section>
           </div>
           <div class="noqoriHeroVisual" data-hero-motion aria-hidden="true">
             <div class="noqoriDepthGrid"></div>

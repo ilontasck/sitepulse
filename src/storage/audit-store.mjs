@@ -33,6 +33,47 @@ function toAuditSummary(row) {
   };
 }
 
+function encodeHistoryCursor(row) {
+  return Buffer.from(JSON.stringify({ v: 1, createdAt: row.created_at, id: row.id }), "utf8").toString("base64url");
+}
+
+function decodeHistoryCursor(cursor) {
+  if (cursor == null) return null;
+  if (typeof cursor !== "string" || cursor.length < 1 || cursor.length > 512 || !/^[A-Za-z0-9_-]+$/u.test(cursor)) {
+    throw new AuditHistoryCursorError();
+  }
+  try {
+    const payload = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+    const createdAt = new Date(payload?.createdAt);
+    if (payload?.v !== 1 || typeof payload.id !== "string" || payload.id.length < 1 || payload.id.length > 128 ||
+        !/^[0-9A-Za-z-]+$/u.test(payload.id) || Number.isNaN(createdAt.getTime()) || createdAt.toISOString() !== payload.createdAt) {
+      throw new Error("invalid");
+    }
+    return { createdAt: payload.createdAt, id: payload.id };
+  } catch {
+    throw new AuditHistoryCursorError();
+  }
+}
+
+function toHistorySummary(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    domain: row.domain,
+    normalizedUrl: row.normalized_url,
+    overallScore: row.overall_score,
+    scannerMode: row.scanner_mode,
+    expiresAt: row.expires_at
+  };
+}
+
+export class AuditHistoryCursorError extends Error {
+  constructor() {
+    super("Audit history cursor is invalid.");
+    this.name = "AuditHistoryCursorError";
+  }
+}
+
 export function createAuditStore(databaseFilePath, options = {}) {
   const clock = options.clock || (() => new Date());
   const reportTtlMs = options.reportTtlMs ?? FREE_REPORT_TTL_MS;
@@ -63,6 +104,35 @@ export function createAuditStore(databaseFilePath, options = {}) {
         `).all(safeLimit);
 
         return rows.map(toAuditSummary);
+      });
+    },
+
+    async listForUser({ userId, limit = 10, cursor = null }) {
+      const now = toIsoTime(clock());
+      const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 50);
+      const position = decodeHistoryCursor(cursor);
+      return withDatabase(databaseFilePath, (database) => {
+        const rows = database.prepare(`
+          SELECT audits.id, audits.created_at, audits.normalized_url, audits.domain,
+                 audits.overall_score, audits.scanner_mode, audits.expires_at
+          FROM audits
+          INNER JOIN users ON users.id = audits.user_id
+          WHERE audits.user_id = ?
+            AND audits.deleted_at IS NULL
+            AND audits.expires_at > ?
+            AND users.disabled_at IS NULL
+            AND users.deletion_requested_at IS NULL
+            AND (? IS NULL OR audits.created_at < ? OR (audits.created_at = ? AND audits.id < ?))
+          ORDER BY audits.created_at DESC, audits.id DESC
+          LIMIT ?
+        `).all(userId, now, position?.createdAt ?? null, position?.createdAt ?? null,
+          position?.createdAt ?? null, position?.id ?? null, safeLimit + 1);
+        const hasNextPage = rows.length > safeLimit;
+        const pageRows = rows.slice(0, safeLimit);
+        return {
+          audits: pageRows.map(toHistorySummary),
+          nextCursor: hasNextPage ? encodeHistoryCursor(pageRows.at(-1)) : null
+        };
       });
     },
 
