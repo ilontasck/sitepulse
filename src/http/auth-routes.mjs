@@ -169,6 +169,7 @@ export async function handleAuthApi({
     const body = requireObjectBody(
       await readJsonBody(request, config.requestBodyLimitBytes, { strictContentType: true })
     );
+    rateLimiters.deleteAccount(request, response, user);
     await performAuthOperation(() => authService.deleteAccount({ userId: user.id, password: body.password }), response);
     response.setHeader("Set-Cookie", cookiePolicy.clear());
     return sendNoContent(response);

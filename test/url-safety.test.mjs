@@ -206,3 +206,9 @@ describe("unfinished HTML response cleanup", () => {
     assert.equal(finalSignal.aborted, false);
   });
 });
+
+it("rejects IPv6 site-local, translation and special-use ranges", () => {
+  for (const address of ["fec0::1", "64:ff9b:1::a00:1", "::127.0.0.1", "2001::1", "2001:2::1", "2001:20::1"]) {
+    assert.equal(isUnsafeIpAddress(address), true, address);
+  }
+});

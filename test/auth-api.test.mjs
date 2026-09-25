@@ -659,3 +659,24 @@ describe("authentication HTTP API", () => {
     assert.equal(authenticated.status, 202);
   });
 });
+
+it("limits account-deletion password guesses per account before password work", async () => {
+  const api = await startApi({ configOverrides: { AUTH_LOGIN_EMAIL_RATE_LIMIT_MAX: 2 } });
+  const cookie = sessionTokenFrom(await register(api));
+  for (let i = 0; i < 2; i++) {
+    const response = await authRequest(api, "/api/auth/account", {
+      method: "DELETE", cookie, body: { password: "incorrect password" }
+    });
+    assert.equal(response.status, 401);
+  }
+  const blocked = await authRequest(api, "/api/auth/account", {
+    method: "DELETE", cookie, body: { password: "correct horse battery staple" }
+  });
+  assert.equal(blocked.status, 429);
+  assert.ok(blocked.headers.get("retry-after"));
+  assert.equal((await authRequest(api, "/api/auth/me", { method: "GET", cookie })).status, 200);
+});
+
+it("refuses enabled transactional email without a configured delivery adapter", async () => {
+  assert.throws(() => createApp({ transactionalEmailEnabled: true }), /delivery adapter/);
+});

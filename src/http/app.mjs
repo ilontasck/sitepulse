@@ -31,6 +31,11 @@ import { sendJson } from "./respond.mjs";
 import { isLegalRoute, serveStaticFile } from "./static-files.mjs";
 
 export function createApp(config, dependencies = {}) {
+  const deliveryAdapter = dependencies.emailService?.adapter || dependencies.emailDeliveryAdapter;
+  if (config.transactionalEmailEnabled &&
+      (!deliveryAdapter || deliveryAdapter.enabled === false || typeof deliveryAdapter.send !== "function")) {
+    throw new Error("Transactional email requires a configured delivery adapter.");
+  }
   const publicRoot = config.projectRoot;
   if (!config.migrationsManagedExternally) {
     (dependencies.runMigrations || runMigrations)(config.databaseFilePath);
@@ -62,6 +67,11 @@ export function createApp(config, dependencies = {}) {
     });
   const authEmailRateLimitKey = randomBytes(32);
   const authRateLimiters = dependencies.authRateLimiters || {
+    deleteAccount: createRateLimiter({
+      windowMs: config.authLoginRateLimitWindowMs,
+      max: config.authLoginEmailRateLimitMax,
+      keySelector: (_request, user) => `delete-account:${user.id}`
+    }),
     general: createRateLimiter({
       windowMs: config.authGeneralRateLimitWindowMs,
       max: config.authGeneralRateLimitMax
