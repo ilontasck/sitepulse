@@ -78,7 +78,8 @@ describe("authentication storage", () => {
     assert.deepEqual(toPublicUser(user), {
       id: "user-1",
       email: "Owner@example.com",
-      createdAt: "2026-08-14T10:00:00.000Z"
+      createdAt: "2026-08-14T10:00:00.000Z",
+      emailVerified: true
     });
   });
 

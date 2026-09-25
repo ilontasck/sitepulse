@@ -65,20 +65,17 @@
           <main class="nqLegalMain" id="main-content">
 
             <!-- Development readiness notice -->
-            <div class="nqLegalNotReady" role="note" aria-label="Development notice">
+            {{#LEGAL_DRAFT}}<div class="nqLegalNotReady" role="note" aria-label="Development notice">
               <span aria-hidden="true">⚠</span>
               <div>
                 <b>NOT READY FOR PUBLIC LAUNCH</b>
                 <p>
-                  This Privacy Policy contains required placeholders that must be
-                  filled in with verified owner information before this page is
-                  published. Do not present this document to users or publish it
-                  to a production domain until all
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: …]</span>
-                  items are resolved and a qualified lawyer has reviewed the text.
+                  Runtime legal information is not configured and publication has
+                  not been approved. This development draft must not be presented
+                  as launch-ready. A qualified lawyer must review the final text.
                 </p>
               </div>
-            </div>
+            </div>{{/LEGAL_DRAFT}}
 
             <!-- Page heading -->
             <div class="nqLegalPageHead">
@@ -89,10 +86,10 @@
                 <dd>NOQORI</dd>
                 <dt>Last updated</dt>
                 <dd><b data-legal-date="privacy">
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: publication date]</span>
+                  {{LEGAL_PUBLICATION_DATE}}
                 </b></dd>
                 <dt>Version</dt>
-                <dd>Draft — development only</dd>
+                <dd>{{LEGAL_STATUS}}</dd>
               </dl>
             </div>
 
@@ -105,13 +102,13 @@
               </p>
               <dl class="nqLegalDl">
                 <dt>Legal name</dt>
-                <dd><span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Controller legal name / business name]</span></dd>
+                <dd>{{LEGAL_OPERATOR_NAME}}</dd>
                 <dt>Address</dt>
-                <dd><span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Full postal address]</span></dd>
+                <dd>{{LEGAL_OPERATOR_ADDRESS}}</dd>
                 <dt>Email</dt>
-                <dd><span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Privacy contact email address]</span></dd>
-                <dt>Register</dt>
-                <dd><span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Commercial register entry, if applicable]</span></dd>
+                <dd>{{LEGAL_CONTACT_EMAIL}}</dd>
+                {{#LEGAL_REGISTER}}<dt>Register</dt>
+                <dd>{{LEGAL_REGISTER_NAME}} — {{LEGAL_REGISTER_NUMBER}}</dd>{{/LEGAL_REGISTER}}
               </dl>
               <div class="nqLegalNote" data-tone="review" role="note">
                 <span aria-hidden="true">⚖</span>
@@ -132,9 +129,9 @@
               </p>
               <dl class="nqLegalDl">
                 <dt>Hosting provider</dt>
-                <dd><span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Hosting provider name and country]</span></dd>
+                <dd>{{LEGAL_HOSTING_PROVIDER}}, {{LEGAL_HOSTING_COUNTRY}}</dd>
                 <dt>Server location</dt>
-                <dd><span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Country/region where the server is located]</span></dd>
+                <dd>{{LEGAL_SERVER_LOCATION}}</dd>
               </dl>
               <p>
                 The server receives and processes each HTTP request you make to the
@@ -184,6 +181,11 @@
                       <td>Account management</td>
                       <td>ISO 8601 UTC timestamps.</td>
                     </tr>
+                    <tr>
+                      <td>Password reset token</td>
+                      <td>One-time password recovery</td>
+                      <td>A SHA-256 token hash only. The random token expires after one hour, is single-use, and a newer request invalidates older pending tokens.</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -207,12 +209,15 @@
               </div>
               <h3>Account deletion</h3>
               <p>
-                The application currently does not expose a self-service account
-                deletion interface. To request deletion of your account and
-                associated data, contact
-                <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Privacy contact email]</span>.
-                Account deletion is subject to data that is required to be retained
-                for legal or contractual reasons.
+                An authenticated account holder can request deletion through the
+                account deletion API after confirming the current password. The
+                account is disabled immediately, all sessions are revoked, pending
+                password-reset tokens are invalidated, and account-owned reports and
+                jobs become inaccessible. Application database records become eligible for physical
+                purge 29 days after the request and are removed by scheduled, bounded
+                cleanup. Completion within 30 days is an operational target that
+                must be verified before publication. You may also contact
+                {{LEGAL_CONTACT_EMAIL}}.
               </p>
               <div class="nqLegalNote" data-tone="review" role="note">
                 <span aria-hidden="true">⚖</span>
@@ -369,22 +374,15 @@
               </p>
               <h3>Retention</h3>
               <p>
-                Audit reports are currently retained indefinitely — there is no
-                automatic deletion schedule. You may request deletion of specific
-                reports or your entire audit history by contacting
-                <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Privacy contact email]</span>.
+                Current authenticated/free audit reports are available for up to
+                30 days from creation. At expiry they immediately become inaccessible,
+                and expired data is physically removed by the scheduled retention
+                cleanup. The internal pro policy retains reports for 12 calendar months; it must not be offered without matching reviewed public terms. The configured public wording is:
+                <b>{{LEGAL_AUDIT_REPORT_RETENTION}}</b>. An
+                authenticated owner can delete an individual report through the API;
+                it becomes inaccessible immediately and is physically removed with
+                its linked job by scheduled retention cleanup; a backlog may require multiple runs.
               </p>
-              <div class="nqLegalNote" data-tone="review" role="note">
-                <span aria-hidden="true">⚖</span>
-                <p>
-                  <b>PUBLIC-LAUNCH BLOCKER:</b> Before public launch: 1) Define the
-                  legitimate purpose for storing completed reports; 2) Define an
-                  audit/report retention period or defensible retention criteria;
-                  3) Define deletion behavior; 4) Update this Privacy Policy with
-                  the actual retention rule; 5) Implement automated/manual deletion
-                  behavior if required by the final retention decision.
-                </p>
-              </div>
             </section>
 
             <!-- § 7 Operational logs -->
@@ -410,9 +408,14 @@
               <dl class="nqLegalDl">
                 <dt>Log retention</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Confirm how long process logs are retained by the hosting infrastructure and document here]</span>
+                  {{LEGAL_PROCESS_LOG_RETENTION}}
                 </dd>
               </dl>
+              <p>
+                The policy is 30 days, except where an incident or legal retention
+                requires a longer period. Enforcement by the actual hosting or
+                journald infrastructure remains part of STE-14 deployment work.
+              </p>
             </section>
 
             <!-- § 8 No tracking or analytics -->
@@ -449,8 +452,8 @@
                   <tbody>
                     <tr>
                       <td>Account data (email, password hash)</td>
-                      <td>Until account is deleted</td>
-                      <td>Manual request to controller. No self-service yet.</td>
+                      <td>Purge eligibility 29 days after an authenticated deletion request</td>
+                      <td>Immediate disablement; scheduled FK-safe purge, subject to cleanup availability and backlog</td>
                     </tr>
                     <tr>
                       <td>Active session token hash</td>
@@ -463,23 +466,28 @@
                       <td>Automatically purged by the hourly session cleanup scheduler</td>
                     </tr>
                     <tr>
+                      <td>Password reset token hash</td>
+                      <td>One hour; invalidated sooner after use or a newer request</td>
+                      <td>Rejected after expiry, use, or invalidation; physical cleanup currently occurs on account purge</td>
+                    </tr>
+                    <tr>
                       <td>Audit job records</td>
                       <td>
-                        <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Define retention period]</span>
+                        {{LEGAL_AUDIT_REPORT_RETENTION}}
                       </td>
-                      <td>No automatic deletion currently implemented</td>
+                      <td>Linked job is removed with its report during cleanup. Failed jobs without a report currently remain until account purge</td>
                     </tr>
                     <tr>
                       <td>Completed audit reports</td>
                       <td>
-                        <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Define retention period]</span>
+                        {{LEGAL_AUDIT_REPORT_RETENTION}}
                       </td>
-                      <td>No automatic deletion currently implemented</td>
+                      <td>Hidden at expiry or manual deletion, then physically removed by retention cleanup</td>
                     </tr>
                     <tr>
                       <td>Process log output</td>
                       <td>
-                        <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Confirm hosting provider log retention]</span>
+                        {{LEGAL_PROCESS_LOG_RETENTION}}
                       </td>
                       <td>Managed by hosting infrastructure</td>
                     </tr>
@@ -503,9 +511,9 @@
                 <li>
                   <b>Hosting infrastructure provider</b> — the server and database
                   are operated on infrastructure provided by
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Hosting provider name]</span>,
-                  who acts as a data processor under an appropriate data processing
-                  agreement.
+                  {{LEGAL_HOSTING_PROVIDER}}. The provider processes infrastructure
+                  data only to the extent required to supply the configured hosting
+                  service.
                 </li>
                 <li>
                   <b>Owners of audited websites</b> — when the service fetches a
@@ -536,7 +544,7 @@
               <dl class="nqLegalDl">
                 <dt>Transfer destination</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Confirm server location. If outside EEA, document the transfer mechanism — adequacy decision, standard contractual clauses, or other — before publication]</span>
+                  {{LEGAL_SERVER_LOCATION}} ({{LEGAL_HOSTING_COUNTRY}})
                 </dd>
               </dl>
             </section>
@@ -560,7 +568,7 @@
               </ul>
               <p>
                 To exercise any of these rights, contact:
-                <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Privacy contact email]</span>.
+                  {{LEGAL_CONTACT_EMAIL}}.
               </p>
               <p>
                 The controller will respond within the timeframe required by
@@ -571,7 +579,7 @@
                 <p>
                   <b>Requires legal review:</b> Confirm which rights apply under
                   the specific legal basis and jurisdiction before publication.
-                  A self-service data deletion feature should be implemented.
+                  Confirm the operational process for any additional data-subject requests.
                 </p>
               </div>
             </section>
@@ -587,7 +595,11 @@
               <dl class="nqLegalDl">
                 <dt>Competent authority</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Name and contact details of the relevant data protection supervisory authority for the controller's jurisdiction]</span>
+                  Landesbeauftragte für Datenschutz und Informationsfreiheit Nordrhein-Westfalen<br />
+                  Kavalleriestraße 2–4<br />
+                  40213 Düsseldorf<br />
+                  Germany<br />
+                  E-Mail: poststelle@ldi.nrw.de
                 </dd>
               </dl>
             </section>

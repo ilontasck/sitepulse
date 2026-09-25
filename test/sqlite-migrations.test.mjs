@@ -46,12 +46,69 @@ describe("SQLite migrations", () => {
       { version: 2, name: "audit jobs" },
       { version: 3, name: "users" },
       { version: 4, name: "sessions" },
-      { version: 5, name: "audit ownership" }
+      { version: 5, name: "audit ownership" },
+      { version: 6, name: "production observability" },
+      { version: 7, name: "password_reset_tokens" },
+      { version: 8, name: "retention and deletion foundation" },
+      { version: 9, name: "plans and monthly audit quotas" },
+      { version: 10, name: "admin operations audit log" },
+      { version: 11, name: "transactional email" }
     ]);
     assert.equal(schema.tables.some(({ name }) => name === "audits"), true);
     assert.equal(schema.tables.some(({ name }) => name === "audit_jobs"), true);
     assert.equal(schema.tables.some(({ name }) => name === "users"), true);
     assert.equal(schema.tables.some(({ name }) => name === "sessions"), true);
+    assert.equal(schema.tables.some(({ name }) => name === "password_reset_tokens"), true);
+    assert.equal(schema.tables.some(({ name }) => name === "audit_monthly_usage"), true);
+    assert.equal(schema.tables.some(({ name }) => name === "admin_operation_log"), true);
+    assert.equal(schema.tables.some(({ name }) => name === "email_verification_tokens"), true);
+    assert.equal(schema.tables.some(({ name }) => name === "transactional_email_outbox"), true);
+  });
+
+  it("adds retention and deletion state and backfills existing reports with thirty-day expiry", async () => {
+    const databaseFilePath = await temporaryDatabase();
+    runMigrations(databaseFilePath, { migrations: sitePulseMigrations.slice(0, 7) });
+    inspectDatabase(databaseFilePath, (database) => {
+      database.prepare(`
+        INSERT INTO audits (id, created_at, updated_at, normalized_url, domain, overall_score, scanner_mode, report_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run("existing-report", "2026-08-01T10:00:00.000Z", "2026-08-01T10:00:00.000Z", "https://example.com", "example.com", 80, "html", "{}");
+    });
+
+    runMigrations(databaseFilePath);
+
+    const state = inspectDatabase(databaseFilePath, (database) => ({
+      report: database.prepare("SELECT expires_at, deleted_at FROM audits WHERE id = ?").get("existing-report"),
+      auditIndexes: database.prepare("PRAGMA index_list(audits)").all().map(({ name }) => name),
+      userIndexes: database.prepare("PRAGMA index_list(users)").all().map(({ name }) => name),
+      userColumns: database.prepare("PRAGMA table_info(users)").all().map(({ name }) => name)
+    }));
+    assert.deepEqual({ ...state.report }, { expires_at: "2026-08-31T10:00:00.000Z", deleted_at: null });
+    assert.equal(state.auditIndexes.includes("idx_audits_active_expiry"), true);
+    assert.equal(state.userIndexes.includes("idx_users_purge_after"), true);
+    assert.equal(state.userColumns.includes("deletion_requested_at"), true);
+    assert.equal(state.userColumns.includes("purge_after"), true);
+  });
+
+  it("adds constrained plans, free job snapshots, and persistent monthly usage", async () => {
+    const databaseFilePath = await temporaryDatabase();
+    runMigrations(databaseFilePath, { migrations: sitePulseMigrations.slice(0, 8) });
+    inspectDatabase(databaseFilePath, (database) => {
+      const now = "2026-09-20T10:00:00.000Z";
+      database.prepare(`INSERT INTO users
+        (id,email_original,email_normalized,password_hash,created_at,updated_at)
+        VALUES ('owner','owner@example.com','owner@example.com',?,?,?)`).run("x".repeat(64), now, now);
+      database.prepare(`INSERT INTO audit_jobs
+        (id,status,normalized_url,attempt_count,max_attempts,available_at,created_at,updated_at,user_id)
+        VALUES ('job','queued','https://example.com',0,2,?,?,?,'owner')`).run(now, now, now);
+    });
+    runMigrations(databaseFilePath);
+    inspectDatabase(databaseFilePath, (database) => {
+      assert.equal(database.prepare("SELECT plan_code FROM users WHERE id='owner'").get().plan_code, "free");
+      assert.equal(database.prepare("SELECT plan_code_snapshot, quota_charged FROM audit_jobs WHERE id='job'").get().plan_code_snapshot, "free");
+      assert.throws(() => database.prepare("UPDATE users SET plan_code='enterprise' WHERE id='owner'").run(), /check constraint/i);
+      assert.throws(() => database.prepare("INSERT INTO audit_monthly_usage VALUES ('owner','2026-09-01T00:00:00.000Z',-1)").run(), /check constraint/i);
+    });
   });
 
   it("adopts a legacy audits database without losing readable records", async () => {
@@ -123,7 +180,13 @@ describe("SQLite migrations", () => {
         { version: 2, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 3, appliedAt: "2026-08-13T10:00:00.000Z" },
         { version: 4, appliedAt: "2026-08-13T10:00:00.000Z" },
-        { version: 5, appliedAt: "2026-08-13T10:00:00.000Z" }
+        { version: 5, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 6, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 7, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 8, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 9, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 10, appliedAt: "2026-08-13T10:00:00.000Z" },
+        { version: 11, appliedAt: "2026-08-13T10:00:00.000Z" }
       ]
     );
   });
@@ -172,7 +235,7 @@ describe("SQLite migrations", () => {
 
     assert.deepEqual({ ...state.audit }, { id: "legacy-audit", normalized_url: "https://example.com" });
     assert.deepEqual({ ...state.job }, { id: "legacy-job", status: "queued", normalized_url: "https://example.com" });
-    assert.deepEqual(state.versions, [1, 2, 3, 4, 5]);
+    assert.deepEqual(state.versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 
   it("adds nullable restricted ownership without changing legacy audits or jobs", async () => {
@@ -224,7 +287,7 @@ describe("SQLite migrations", () => {
       database.prepare("UPDATE audits SET user_id = ? WHERE id = ?").run("owner-1", "legacy-audit");
       database.prepare("UPDATE audit_jobs SET user_id = ? WHERE id = ?").run("owner-1", "legacy-job");
       assert.throws(() => database.prepare("DELETE FROM users WHERE id = ?").run("owner-1"), /foreign key constraint/i);
-      assert.deepEqual(versions, [1, 2, 3, 4, 5]);
+      assert.deepEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     });
   });
 
@@ -284,6 +347,48 @@ describe("SQLite migrations", () => {
 
       database.prepare("DELETE FROM users WHERE id = ?").run("user-1");
       assert.equal(database.prepare("SELECT COUNT(*) AS count FROM sessions").get().count, 0);
+    });
+  });
+
+  it("enforces password reset token hashes, lifecycle constraints, indexes, and user ownership", async () => {
+    const databaseFilePath = await temporaryDatabase();
+    runMigrations(databaseFilePath);
+
+    inspectDatabase(databaseFilePath, (database) => {
+      const createdAt = "2026-08-14T10:00:00.000Z";
+      const expiresAt = "2026-08-14T11:00:00.000Z";
+      database.prepare(`
+        INSERT INTO users (id, email_original, email_normalized, password_hash, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run("user-1", "owner@example.com", "owner@example.com", "x".repeat(64), createdAt, createdAt);
+      const insert = database.prepare(`
+        INSERT INTO password_reset_tokens
+          (id, user_id, token_hash, created_at, expires_at, used_at, invalidated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      insert.run("reset-1", "user-1", Buffer.alloc(32, 1), createdAt, expiresAt, null, null);
+      assert.throws(
+        () => insert.run("short", "user-1", Buffer.alloc(31), createdAt, expiresAt, null, null),
+        /check constraint/i
+      );
+      assert.throws(
+        () => insert.run("duplicate", "user-1", Buffer.alloc(32, 1), createdAt, expiresAt, null, null),
+        /unique constraint/i
+      );
+      assert.throws(
+        () => insert.run("missing-user", "missing", Buffer.alloc(32, 2), createdAt, expiresAt, null, null),
+        /foreign key constraint/i
+      );
+      assert.throws(
+        () => insert.run("both-states", "user-1", Buffer.alloc(32, 3), createdAt, expiresAt, createdAt, createdAt),
+        /check constraint/i
+      );
+      const indexes = database.prepare("PRAGMA index_list(password_reset_tokens)").all().map(({ name }) => name);
+      assert.equal(indexes.includes("idx_password_reset_tokens_hash"), true);
+      assert.equal(indexes.includes("idx_password_reset_tokens_user_pending"), true);
+      assert.equal(indexes.includes("idx_password_reset_tokens_expiry"), true);
+      database.prepare("DELETE FROM users WHERE id = ?").run("user-1");
+      assert.equal(database.prepare("SELECT COUNT(*) AS count FROM password_reset_tokens").get().count, 0);
     });
   });
 
@@ -352,7 +457,7 @@ describe("SQLite migrations", () => {
     const databaseFilePath = await temporaryDatabase();
     runMigrations(databaseFilePath);
     const failingMigration = {
-      version: 6,
+      version: 12,
       name: "intentional failure",
       up(database) {
         database.exec("CREATE TABLE must_rollback (id TEXT PRIMARY KEY);");
@@ -366,11 +471,11 @@ describe("SQLite migrations", () => {
     );
 
     const state = inspectDatabase(databaseFilePath, (database) => ({
-      version6: database.prepare("SELECT version FROM schema_migrations WHERE version = 6").get(),
+      version12: database.prepare("SELECT version FROM schema_migrations WHERE version = 12").get(),
       rolledBackTable: database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'must_rollback'").get()
     }));
 
-    assert.equal(state.version6, undefined);
+    assert.equal(state.version12, undefined);
     assert.equal(state.rolledBackTable, undefined);
   });
 

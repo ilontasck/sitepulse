@@ -5,12 +5,25 @@ import { migration003Users } from "./migrations/003_users.mjs";
 import { migration004Sessions } from "./migrations/004_sessions.mjs";
 import { migration005AuditOwnership } from "./migrations/005_audit_ownership.mjs";
 
+import { migration006Observability } from "./migrations/006_observability.mjs";
+import { migration007PasswordResetTokens } from "./migrations/007_password_reset_tokens.mjs";
+import { migration008RetentionDeletion } from "./migrations/008_retention_deletion.mjs";
+import { migration009PlansQuotas } from "./migrations/009_plans_quotas.mjs";
+import { migration010AdminOperations } from "./migrations/010_admin_operations.mjs";
+import { migration011TransactionalEmail } from "./migrations/011_transactional_email.mjs";
+
 export const sitePulseMigrations = [
   migration001InitialAudits,
   migration002AuditJobs,
   migration003Users,
   migration004Sessions,
-  migration005AuditOwnership
+  migration005AuditOwnership,
+  migration006Observability,
+  migration007PasswordResetTokens,
+  migration008RetentionDeletion,
+  migration009PlansQuotas,
+  migration010AdminOperations,
+  migration011TransactionalEmail
 ];
 
 function validateMigrations(migrations) {

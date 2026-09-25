@@ -46,6 +46,18 @@ function createAudit(domain = "example.com", lab = null) {
   };
 }
 
+function historyItem(index, domain = `history-${index}.example.com`) {
+  return {
+    id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    createdAt: `2026-09-${String(index).padStart(2, "0")}T12:00:00.000Z`,
+    domain,
+    normalizedUrl: `https://${domain}`,
+    overallScore: 70 + index,
+    scannerMode: "html-real-checks",
+    expiresAt: "2026-10-20T12:00:00.000Z"
+  };
+}
+
 async function fulfillJson(route, status, payload, headers = {}) {
   await route.fulfill({
     status,
@@ -60,6 +72,180 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/auth/me", route => fulfillJson(route, 200, {
     user: { id: "e2e-user", email: "e2e@example.com", createdAt: "2026-08-22T09:00:00.000Z" }
   }));
+  await page.route("**/api/audits/quota", route => fulfillJson(route, 200, {
+    plan: "free", quota: { limit: 3, used: 1, remaining: 2, periodStart: "2026-09-01T00:00:00.000Z",
+      resetsAt: "2026-10-01T00:00:00.000Z" },
+    features: { renderedEligible: true, renderedAvailable: true, retention: "30 days" }
+  }));
+  await page.route("**/api/audits/history*", route => fulfillJson(route, 200, {
+    audits: [], page: { nextCursor: null }
+  }));
+});
+
+test("history shows loading, newest-first reports, and empty state", async ({ page }) => {
+  await page.unroute("**/api/audits/history*");
+  await page.route("**/api/audits/history*", async route => {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    await fulfillJson(route, 200, { audits: [historyItem(2), historyItem(1)], page: { nextCursor: null } });
+  });
+  await page.goto("/");
+  await expect(page.locator("#historyStatus")).toHaveText("Loading your audits…");
+  await expect(page.locator(".nqHistoryCard h3")).toHaveText(["history-2.example.com", "history-1.example.com"]);
+  await page.unroute("**/api/audits/history*");
+  await page.route("**/api/audits/history*", route => fulfillJson(route, 200, { audits: [], page: { nextCursor: null } }));
+  await page.locator("#retryHistory").evaluate(button => { button.hidden = false; });
+  await page.locator("#retryHistory").click();
+  await expect(page.locator("#historyStatus")).toContainText("No audits yet");
+});
+
+test("history failure is isolated and Retry recovers", async ({ page }) => {
+  let requests = 0;
+  await page.unroute("**/api/audits/history*");
+  await page.route("**/api/audits/history*", route => {
+    requests += 1;
+    return requests === 1
+      ? fulfillJson(route, 503, { error: { code: "UNAVAILABLE", message: "hidden" } })
+      : fulfillJson(route, 200, { audits: [historyItem(1)], page: { nextCursor: null } });
+  });
+  await page.goto("/");
+  await expect(page.locator("#historyStatus")).toHaveText("We could not load your audit history.");
+  await expect(page.locator("#auditForm")).toBeVisible();
+  await page.locator("#retryHistory").click();
+  await expect(page.locator(".nqHistoryCard h3")).toHaveText("history-1.example.com");
+});
+
+test("history loads more without duplicates", async ({ page }) => {
+  await page.unroute("**/api/audits/history*");
+  await page.route("**/api/audits/history*", route => {
+    const second = new URL(route.request().url()).searchParams.has("cursor");
+    return fulfillJson(route, 200, second
+      ? { audits: [historyItem(2), historyItem(1)], page: { nextCursor: null } }
+      : { audits: [historyItem(3), historyItem(2)], page: { nextCursor: "opaque-next" } });
+  });
+  await page.goto("/");
+  await page.locator("#loadMoreHistory").click();
+  await expect(page.locator(".nqHistoryCard")).toHaveCount(3);
+  await expect(page.locator(".nqHistoryCard h3")).toHaveText(["history-3.example.com", "history-2.example.com", "history-1.example.com"]);
+});
+
+test("open history uses the existing report renderer and Analyze another returns", async ({ page }) => {
+  const item = historyItem(1, "archive.example.com");
+  await page.unroute("**/api/audits/history*");
+  await page.route("**/api/audits/history*", route => fulfillJson(route, 200, { audits: [item], page: { nextCursor: null } }));
+  await page.route(`**/api/audits/${item.id}`, route => fulfillJson(route, 200, { audit: createAudit(item.domain) }));
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open archive.example.com report" }).click();
+  await expect(page.getByRole("heading", { name: "archive.example.com" })).toBeVisible();
+  await page.getByRole("button", { name: /Analyze another/ }).first().click();
+  await expect(page.locator("#auditHistory")).toBeVisible();
+  await expect(page.locator("#urlInput")).toBeFocused();
+});
+
+test("Run again uses the normal quota-enforced audit flow", async ({ page }) => {
+  const item = historyItem(1, "rerun.example.com");
+  await page.unroute("**/api/audits/history*");
+  await page.route("**/api/audits/history*", route => fulfillJson(route, 200, { audits: [item], page: { nextCursor: null } }));
+  await page.route("**/api/audits", route => fulfillJson(route, 429, {
+    error: { code: "AUDIT_QUOTA_EXCEEDED", message: "Monthly limit reached." },
+    quota: { quota: { resetsAt: "2026-10-01T00:00:00.000Z" } }
+  }));
+  await page.goto("/");
+  await page.getByRole("button", { name: "Run rerun.example.com again" }).click();
+  await expect(page.getByText(/used all audits for this month/)).toBeVisible();
+});
+
+test("delete requires confirmation, Cancel preserves, and Confirm removes permanently", async ({ page }) => {
+  const item = historyItem(1, "delete.example.com");
+  let deleted = false;
+  await page.unroute("**/api/audits/history*");
+  await page.route("**/api/audits/history*", route => fulfillJson(route, 200, { audits: deleted ? [] : [item], page: { nextCursor: null } }));
+  await page.route(`**/api/audits/${item.id}`, route => {
+    if (route.request().method() === "DELETE") { deleted = true; return route.fulfill({ status: 204 }); }
+    return fulfillJson(route, 404, { error: { code: "AUDIT_NOT_FOUND", message: "Not found." } });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Delete delete.example.com" }).click();
+  await expect(page.getByRole("button", { name: "Confirm delete" })).toBeFocused();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.locator(".nqHistoryCard")).toHaveCount(1);
+  await page.getByRole("button", { name: "Delete delete.example.com" }).click();
+  await page.getByRole("button", { name: "Confirm delete" }).click();
+  await expect(page.locator(".nqHistoryCard")).toHaveCount(0);
+  await page.locator("#retryHistory").evaluate(button => { button.hidden = false; });
+  await page.locator("#retryHistory").click();
+  await expect(page.locator(".nqHistoryCard")).toHaveCount(0);
+});
+
+test("successful audit refreshes history and logout clears it", async ({ page }) => {
+  let historyReads = 0;
+  await page.unroute("**/api/audits/history*");
+  await page.route("**/api/audits/history*", route => {
+    historyReads += 1;
+    return fulfillJson(route, 200, {
+      audits: historyReads > 1 ? [historyItem(1, "fresh.example.com")] : [], page: { nextCursor: null }
+    });
+  });
+  await mockCompletedAuditFlow(page, { domain: "fresh.example.com", statuses: ["completed"] });
+  await page.route("**/api/auth/logout", route => route.fulfill({ status: 204 }));
+  await page.goto("/");
+  await page.locator("#urlInput").fill("fresh.example.com");
+  await page.locator("#runBtn").click();
+  await expect(page.getByRole("heading", { name: "fresh.example.com" })).toBeVisible();
+  await page.getByRole("button", { name: /Analyze another/ }).first().click();
+  await expect(page.locator(".nqHistoryCard h3")).toHaveText("fresh.example.com");
+  await page.locator("#logoutButton").click();
+  await expect(page.locator("#auditHistory")).toBeHidden();
+  await expect(page.locator(".nqHistoryCard")).toHaveCount(0);
+});
+
+test("history actions are keyboard accessible and do not overflow at 390px", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.unroute("**/api/audits/history*");
+  await page.route("**/api/audits/history*", route => fulfillJson(route, 200, { audits: [historyItem(1)], page: { nextCursor: null } }));
+  await page.goto("/");
+  const open = page.getByRole("button", { name: "Open history-1.example.com report" });
+  await open.focus();
+  await expect(open).toBeFocused();
+  const widths = await page.locator("#auditHistory").evaluate(element => ({ scroll: element.scrollWidth, client: element.clientWidth }));
+  expect(widths.scroll).toBeLessThanOrEqual(widths.client + 1);
+});
+
+test("shows the server-provided free beta quota", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("#quotaPlan")).toHaveText("Free beta");
+  await expect(page.locator("#quotaRemaining")).toHaveText("2 of 3 audits remaining");
+  await expect(page.locator("#quotaStatus")).toBeVisible();
+});
+
+test("shows a clear monthly quota exceeded message", async ({ page }) => {
+  await page.route("**/api/audits", route => fulfillJson(route, 429, {
+    error: { code: "AUDIT_QUOTA_EXCEEDED", message: "Your monthly audit quota has been used." },
+    quota: { plan: "free", quota: { limit: 3, used: 3, remaining: 0,
+      periodStart: "2026-09-01T00:00:00.000Z", resetsAt: "2026-10-01T00:00:00.000Z" } }
+  }));
+  await page.goto("/");
+  await page.locator("#urlInput").fill("example.com");
+  await page.locator("#runBtn").click();
+  await expect(page.getByText(/You have used all audits for this month\. Your quota resets .+\./)).toBeVisible();
+});
+
+test("refreshes remaining quota after an accepted audit", async ({ page }) => {
+  let reads = 0;
+  await page.unroute("**/api/audits/quota");
+  await page.route("**/api/audits/quota", route => {
+    reads += 1;
+    return fulfillJson(route, 200, {
+      plan: "free", quota: { limit: 3, used: Math.min(reads, 2), remaining: Math.max(1, 3 - reads),
+        periodStart: "2026-09-01T00:00:00.000Z", resetsAt: "2026-10-01T00:00:00.000Z" },
+      features: { renderedEligible: true, renderedAvailable: true, retention: "30 days" }
+    });
+  });
+  await mockQueuedJobCreation(page);
+  await page.goto("/");
+  await expect(page.locator("#quotaRemaining")).toHaveText("2 of 3 audits remaining");
+  await page.locator("#urlInput").fill("example.com");
+  await page.locator("#runBtn").click();
+  await expect(page.locator("#quotaRemaining")).toHaveText("1 of 3 audits remaining");
 });
 
 async function useRealAuth(page) {
@@ -829,6 +1015,17 @@ test("a new submit invalidates a stale completion from the previous job", async 
 });
 
 test("a failed job shows its safe error and stops polling", async ({ page }) => {
+  let quotaReads = 0;
+  await page.unroute("**/api/audits/quota");
+  await page.route("**/api/audits/quota", route => {
+    quotaReads += 1;
+    const remaining = quotaReads === 2 ? 1 : 2;
+    return fulfillJson(route, 200, {
+      plan: "free", quota: { limit: 3, used: 3 - remaining, remaining,
+        periodStart: "2026-09-01T00:00:00.000Z", resetsAt: "2026-10-01T00:00:00.000Z" },
+      features: { renderedEligible: true, renderedAvailable: true, retention: "30 days" }
+    });
+  });
   const jobId = await mockQueuedJobCreation(page);
   let pollCount = 0;
   let postCount = 0;
@@ -869,6 +1066,8 @@ test("a failed job shows its safe error and stops polling", async ({ page }) => 
   await expect(page.getByText("AUDIT_TIMEOUT", { exact: true })).toBeVisible();
   await page.waitForTimeout(1200);
   expect(pollCount).toBe(1);
+  await expect(page.locator("#quotaRemaining")).toHaveText("2 of 3 audits remaining");
+  expect(quotaReads).toBeGreaterThanOrEqual(3);
 
   await retry.click();
   await expect(analysis).toBeHidden();

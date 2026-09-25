@@ -1,4 +1,6 @@
-export const auditRunnerProtocolVersion = 1;
+import { isCorrelationId } from "../telemetry/log-context.mjs";
+
+export const auditRunnerProtocolVersion = 2;
 export const auditRunnerMaxRequestBytes = 16 * 1024;
 export const auditRunnerMaxResponseBytes = 4 * 1024 * 1024;
 
@@ -86,7 +88,8 @@ export function validateAuditRequest(message) {
   const keys = Object.keys(message || {}).sort();
   const optionKeys = Object.keys(message?.options || {}).sort();
   if (
-    keys.join(",") !== "normalizedUrl,options,protocolVersion,requestId,type" ||
+    !["normalizedUrl,options,protocolVersion,requestId,type", "correlation,normalizedUrl,options,protocolVersion,requestId,type"].includes(keys.join(",")) ||
+    (message.correlation !== undefined && (Object.keys(message.correlation || {}).join(",") !== "requestId" || !isCorrelationId(message.correlation.requestId))) ||
     optionKeys.some((key) => !["renderedAuditEnabled", "renderedAuditTimeoutMs"].includes(key)) ||
     message.type !== "audit" ||
     message.protocolVersion !== auditRunnerProtocolVersion ||

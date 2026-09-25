@@ -46,6 +46,13 @@ const retryableTypes = new Map([
   ["BrowserCrashError", "BROWSER_CRASH"]
 ]);
 
+const infrastructureCodes = new Set(["AUDIT_RUNNER_UNAVAILABLE", "AUDIT_RUNNER_TIMEOUT", "AUDIT_RUNNER_PROTOCOL_MISMATCH", "AUDIT_RUNNER_INVALID_RESPONSE", "AUDIT_RUNNER_BUSY", "RENDERED_AUDIT_NOT_ACCEPTED", "WORKER_LEASE_EXPIRED", "DB_FAILURE", "QUEUE_FAILURE", "WORKER_FAILURE", "INTERNAL_SERVER_ERROR", "AUDIT_FAILED", "UNKNOWN_ERROR"]);
+export function safeErrorCode(error, fallback = "INTERNAL_SERVER_ERROR") {
+  const code = error?.code;
+  if (code === "ERR_SQLITE_ERROR" || code === "SQLITE_BUSY" || code === "SQLITE_CANTOPEN") return "DB_FAILURE";
+  return terminalFailures.has(code) || retryableFailures.has(code) || infrastructureCodes.has(code) ? code : fallback;
+}
+
 export function classifyAuditFailure(error, { phase } = {}) {
   if (phase !== "preflight" && phase !== "worker") {
     throw new TypeError("Audit failure phase must be preflight or worker.");

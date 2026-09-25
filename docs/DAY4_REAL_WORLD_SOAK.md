@@ -1,3 +1,5 @@
+> Historical evidence for the dated release below; not current release acceptance. See [current status](SOURCE-OF-TRUTH.md).
+
 # Day 4 Real-World Async Audit Soak
 
 Date: 2026-08-13

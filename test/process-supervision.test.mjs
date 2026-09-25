@@ -292,7 +292,7 @@ describe("production process supervision", () => {
     const workerEntrypoint = await readFile(new URL("../worker.mjs", import.meta.url), "utf8");
     const initialReadiness = workerEntrypoint.indexOf("await waitForInitialWorkerReadiness()");
     const markReady = workerEntrypoint.indexOf("healthServer.markReady()");
-    const readyEvent = workerEntrypoint.indexOf('status: "ready-before-claim"');
+    const readyEvent = workerEntrypoint.indexOf('telemetry.record("worker.ready"');
     const runLoop = workerEntrypoint.indexOf("await worker.run()");
 
     assert.ok(initialReadiness > 0);
@@ -381,7 +381,7 @@ describe("production process supervision", () => {
       const database = new DatabaseSync(databaseFilePath);
       const versions = database.prepare("SELECT version FROM schema_migrations ORDER BY version").all();
       database.close();
-      assert.deepEqual(versions.map(({ version }) => version), [1, 2, 3, 4, 5]);
+      assert.deepEqual(versions.map(({ version }) => version), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

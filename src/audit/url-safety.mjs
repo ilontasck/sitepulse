@@ -1,3 +1,4 @@
+import { fetchHtmlTransport } from "./safe-html-transport.mjs";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { HttpError } from "../http/http-error.mjs";
@@ -78,6 +79,9 @@ function isUnsafeIpv6(address) {
   }
 
   return (
+    // Fail closed outside global unicast and for IETF special-use assignments.
+    (first & 0xe000) !== 0x2000 ||
+    (first === 0x2001 && second < 0x0200) ||
     isUnspecified ||
     isLoopback ||
     (first & 0xfe00) === 0xfc00 ||
@@ -194,7 +198,9 @@ async function readLimitedText(response, maxBytes) {
 }
 
 export async function fetchSafeHtml(inputUrl, options = {}) {
-  const fetcher = options.fetcher || fetch;
+  const fetcher = options.fetcher || ((url, init) => fetchHtmlTransport(url, {
+    ...init, resolver: options.resolver, isUnsafeAddress: isUnsafeIpAddress
+  }));
   const maxRedirects = options.maxRedirects ?? defaultMaxRedirects;
   const maxHtmlBytes = options.maxHtmlBytes ?? defaultMaxHtmlBytes;
   const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;

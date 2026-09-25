@@ -1,4 +1,5 @@
-import { classifyAuditFailure } from "./audit-failure-classifier.mjs";
+import { withLogContext } from "../telemetry/log-context.mjs";
+import { classifyAuditFailure, safeErrorCode } from "./audit-failure-classifier.mjs";
 import { assertSafeUrl } from "./url-safety.mjs";
 import { normalizeWebsiteUrl } from "./url-validation.mjs";
 
@@ -41,6 +42,9 @@ export function createAuditJobWorker(options) {
 
   let stopRequested = false;
   let activeJob = false;
+  let executorAvailable;
+  let lastJobAt = null;
+  let lastPollAt = null;
 
   function startHeartbeat(job) {
     let ownershipLost = false;
@@ -67,6 +71,7 @@ export function createAuditJobWorker(options) {
         }
       } catch {
         ownershipLost = true;
+        telemetry?.record("worker.error", { phase: "heartbeat", errorCode: "DB_FAILURE" });
         telemetry?.record("audit_job_ownership_lost", { outcome: "failure", reason: "lease-renewal-error" });
       } finally {
         renewalPromise = null;
@@ -94,92 +99,128 @@ export function createAuditJobWorker(options) {
   async function runOnce() {
     if (stopRequested) return { status: "stopped" };
 
-    const recovery = jobStore.recoverExpired();
+    lastPollAt = new Date().toISOString();
+    let recovery;
+    try { recovery = jobStore.recoverExpired(); }
+    catch (error) {
+      telemetry?.record("worker.error", { worker: workerId, phase: "recover", errorCode: safeErrorCode(error, "QUEUE_FAILURE") });
+      throw error;
+    }
     let executorReady = false;
     try {
       executorReady = (await executorReadiness())?.ready === true;
     } catch {
       executorReady = false;
     }
+    if (executorAvailable !== executorReady) {
+      telemetry?.record(executorReady ? "worker.ready" : "worker.error", { worker: workerId,
+        phase: "readiness", outcome: executorReady ? "ready" : "not-ready",
+        ...(executorReady ? {} : { errorCode: "AUDIT_RUNNER_UNAVAILABLE" }) });
+      executorAvailable = executorReady;
+    }
     if (!executorReady) {
-      telemetry?.record("audit_executor_unavailable", { outcome: "not-ready", reason: "readiness-check" });
       return { status: "executor-unavailable", recovery };
     }
-    const job = jobStore.claimNext({ workerId, leaseMs });
+    let job;
+    try { job = jobStore.claimNext({ workerId, leaseMs }); }
+    catch (error) {
+      telemetry?.record("worker.error", { worker: workerId, phase: "claim", errorCode: safeErrorCode(error, "QUEUE_FAILURE") });
+      throw error;
+    }
 
     if (!job) {
       return { status: "idle", recovery };
     }
 
     activeJob = true;
-    telemetry?.record("audit_job_claimed", { outcome: "running", attempt: job.attemptCount });
-    const heartbeat = startHeartbeat(job);
-    let heartbeatStopped = false;
+    lastJobAt = new Date().toISOString();
+    const started = performance.now();
+    return withLogContext({ jobId: job.id, requestId: job.requestId, worker: workerId,
+      auditMode: auditOptions.renderedAuditEnabled ? "rendered" : "basic", attempt: job.attemptCount }, async () => {
+      telemetry?.record("worker.job_claimed", { outcome: "running", durationMs: 0 });
+      telemetry?.record("audit.started", { outcome: "running", durationMs: 0,
+        queueWaitMs: Math.max(0, Date.now() - Date.parse(job.createdAt)) });
+      let phase = "preflight";
+      const heartbeat = startHeartbeat(job);
+      let heartbeatStopped = false;
 
-    const stopHeartbeat = async () => {
-      if (heartbeatStopped) return;
-      heartbeatStopped = true;
-      await heartbeat.stop();
-    };
+      const stopHeartbeat = async () => {
+        if (heartbeatStopped) return;
+        heartbeatStopped = true;
+        await heartbeat.stop();
+      };
 
-    try {
-      await securityValidator(job.normalizedUrl);
-      // Known v1 limitation: rendered failures converted by scanner-service into
-      // a successful HTML fallback do not reach this worker failure classifier.
-      const audit = await auditGenerator(job.normalizedUrl, {
-        ...auditOptions,
-        renderedAuditLimiter,
-        telemetry
-      });
-      await stopHeartbeat();
+      try {
+        await securityValidator(job.normalizedUrl);
+        // Known v1 limitation: rendered failures converted by scanner-service into
+        // a successful HTML fallback do not reach this worker failure classifier.
+        phase = "generate";
+        const audit = await auditGenerator(job.normalizedUrl, {
+          ...auditOptions,
+          renderedAuditLimiter,
+          telemetry
+        });
+        await stopHeartbeat();
 
-      if (heartbeat.lost()) {
-        return { status: "ownership-lost", jobId: job.id };
+        if (heartbeat.lost()) {
+          return { status: "ownership-lost", jobId: job.id };
+        }
+
+        phase = "persist";
+        const completion = jobStore.complete({
+          jobId: job.id,
+          workerId,
+          leaseToken: job.leaseToken,
+          audit
+        });
+
+        if (!completion?.completed) {
+          telemetry?.record("audit_job_ownership_lost", { outcome: "failure", reason: "completion-rejected" });
+          return { status: "ownership-lost", jobId: job.id };
+        }
+
+        const fields = { outcome: "success", auditId: completion.job.auditId, durationMs: Math.round(performance.now() - started) };
+        telemetry?.record("audit.completed", fields);
+        telemetry?.record("worker.job_completed", fields);
+        return { status: "completed", jobId: job.id, auditId: completion.job.auditId };
+      } catch (error) {
+        await stopHeartbeat();
+
+        if (heartbeat.lost()) {
+          return { status: "ownership-lost", jobId: job.id };
+        }
+
+        const failure = phase === "persist"
+          ? { disposition: "retry", code: safeErrorCode(error, "DB_FAILURE"), message: "Audit storage is temporarily unavailable." }
+          : failureClassifier(error, { phase: "worker" });
+        const failureFields = { phase, errorCode: safeErrorCode({ code: failure.code }, "AUDIT_FAILED"), durationMs: Math.round(performance.now() - started), outcome: "failure" };
+        telemetry?.record("worker.job_failed", failureFields);
+        let transition;
+        try { transition = jobStore.handleFailure({
+          jobId: job.id,
+          workerId,
+          leaseToken: job.leaseToken,
+          failure
+        }); } catch (storageError) {
+          telemetry?.record("worker.error", { phase: "failure-transition", errorCode: safeErrorCode(storageError, "DB_FAILURE") });
+          throw storageError;
+        }
+
+        if (!transition?.transitioned) {
+          telemetry?.record("audit_job_ownership_lost", { outcome: "failure", reason: "failure-transition-rejected" });
+          return { status: "ownership-lost", jobId: job.id };
+        }
+
+        telemetry?.record(
+          transition.job.status === "queued" ? "audit.retry_scheduled" : "audit.failed",
+          { ...failureFields, outcome: transition.job.status }
+        );
+        return { status: transition.job.status, jobId: job.id, failure };
+      } finally {
+        await stopHeartbeat();
+        activeJob = false;
       }
-
-      const completion = jobStore.complete({
-        jobId: job.id,
-        workerId,
-        leaseToken: job.leaseToken,
-        audit
-      });
-
-      if (!completion?.completed) {
-        telemetry?.record("audit_job_ownership_lost", { outcome: "failure", reason: "completion-rejected" });
-        return { status: "ownership-lost", jobId: job.id };
-      }
-
-      telemetry?.record("audit_job_completed", { outcome: "success", attempt: job.attemptCount });
-      return { status: "completed", jobId: job.id, auditId: completion.job.auditId };
-    } catch (error) {
-      await stopHeartbeat();
-
-      if (heartbeat.lost()) {
-        return { status: "ownership-lost", jobId: job.id };
-      }
-
-      const failure = failureClassifier(error, { phase: "worker" });
-      const transition = jobStore.handleFailure({
-        jobId: job.id,
-        workerId,
-        leaseToken: job.leaseToken,
-        failure
-      });
-
-      if (!transition?.transitioned) {
-        telemetry?.record("audit_job_ownership_lost", { outcome: "failure", reason: "failure-transition-rejected" });
-        return { status: "ownership-lost", jobId: job.id };
-      }
-
-      telemetry?.record(
-        transition.job.status === "queued" ? "audit_job_retry_scheduled" : "audit_job_failed",
-        { outcome: transition.job.status, reason: failure.code, attempt: job.attemptCount }
-      );
-      return { status: transition.job.status, jobId: job.id, failure };
-    } finally {
-      await stopHeartbeat();
-      activeJob = false;
-    }
+    });
   }
 
   async function run() {
@@ -202,7 +243,7 @@ export function createAuditJobWorker(options) {
       return { stopping: true, activeJob };
     },
     snapshot() {
-      return { stopping: stopRequested, activeJob };
+      return { stopping: stopRequested, activeJob, executorAvailable, lastJobAt, lastPollAt };
     }
   };
 }

@@ -1,6 +1,8 @@
+import { isCorrelationId } from "../telemetry/log-context.mjs";
 import { randomUUID } from "node:crypto";
 import { createAuditRecord, insertAuditRecord } from "./audit-record.mjs";
 import { withDatabase, withImmediateTransaction } from "./sqlite-database.mjs";
+import { getPlanPolicy, getQuotaPeriod, reportExpiryForPlan } from "../plans/plan-policy.mjs";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
@@ -27,6 +29,7 @@ function toJob(row) {
 
   return {
     id: row.id,
+    requestId: row.request_id || null,
     status: row.status,
     normalizedUrl: row.normalized_url,
     userId: row.user_id,
@@ -70,26 +73,112 @@ function validateFailure(failure) {
   return failure;
 }
 
+export class AuditQuotaExceededError extends Error {
+  constructor(quota) {
+    super("The monthly audit quota has been used.");
+    this.name = "AuditQuotaExceededError";
+    this.quota = quota;
+  }
+}
+
+function quotaSnapshot(planCode, used, period, renderedAuditEnabled = false) {
+  const policy = getPlanPolicy(planCode);
+  return {
+    plan: planCode,
+    quota: {
+      limit: policy.monthlyAuditLimit,
+      used,
+      remaining: Math.max(0, policy.monthlyAuditLimit - used),
+      periodStart: period.startsAt,
+      resetsAt: period.resetsAt
+    },
+    features: {
+      renderedEligible: policy.renderedAuditEligible,
+      renderedAvailable: policy.renderedAuditEligible && renderedAuditEnabled,
+      retention: policy.retention
+    }
+  };
+}
+
+function refundQuota(database, row) {
+  if (!row?.quota_charged || !row.quota_period_start || !row.user_id) return;
+  const cleared = database.prepare(`
+    UPDATE audit_jobs SET quota_charged = 0
+    WHERE id = ? AND quota_charged = 1
+  `).run(row.id);
+  if (cleared.changes === 1) {
+    database.prepare(`
+      UPDATE audit_monthly_usage SET used_count = MAX(used_count - 1, 0)
+      WHERE user_id = ? AND period_start = ?
+    `).run(row.user_id, row.quota_period_start);
+  }
+}
+
 export function createAuditJobStore(databaseFilePath, options = {}) {
   const clock = options.clock || (() => new Date());
   const idGenerator = options.idGenerator || randomUUID;
   const leaseTokenGenerator = options.leaseTokenGenerator || randomUUID;
+  const notificationsEnabled=options.auditEmailNotificationsEnabled===true;
+  const emailOutboxMaxAttempts=options.emailOutboxMaxAttempts||5;
+  function enqueueNotification(database,{kind,jobId,userId,auditId=null,now}){if(!notificationsEnabled||!userId)return;database.prepare(`INSERT OR IGNORE INTO transactional_email_outbox(id,user_id,kind,job_id,audit_id,created_at,available_at,attempt_count,max_attempts) VALUES(?,?,?,?,?,?,?,0,?)`).run(idGenerator(),userId,kind,jobId,auditId,now,now,emailOutboxMaxAttempts);}
 
   return {
-    enqueue({ normalizedUrl, userId }) {
+    enqueue({ normalizedUrl, userId, requestId = null, renderedAuditEnabled = false }) {
       const now = toIsoTime(clock());
       const id = idGenerator();
       const ownerId = requireUserId(userId);
 
-      return withDatabase(databaseFilePath, (database) => {
+      return withDatabase(databaseFilePath, (database) => withImmediateTransaction(database, () => {
+        const user = database.prepare(`
+          SELECT plan_code FROM users
+          WHERE id = ? AND disabled_at IS NULL AND deletion_requested_at IS NULL
+        `).get(ownerId);
+        if (!user) throw new Error("Audit owner is unavailable.");
+        const period = getQuotaPeriod(now);
+        const policy = getPlanPolicy(user.plan_code);
+        database.prepare(`
+          INSERT INTO audit_monthly_usage (user_id, period_start, used_count)
+          VALUES (?, ?, 0)
+          ON CONFLICT (user_id, period_start) DO NOTHING
+        `).run(ownerId, period.startsAt);
+        const usage = database.prepare(`
+          UPDATE audit_monthly_usage SET used_count = used_count + 1
+          WHERE user_id = ? AND period_start = ? AND used_count < ?
+          RETURNING used_count
+        `).get(ownerId, period.startsAt, policy.monthlyAuditLimit);
+        if (!usage) {
+          const used = database.prepare(`
+            SELECT used_count FROM audit_monthly_usage WHERE user_id = ? AND period_start = ?
+          `).get(ownerId, period.startsAt).used_count;
+          throw new AuditQuotaExceededError(quotaSnapshot(user.plan_code, used, period, renderedAuditEnabled));
+        }
         database.prepare(`
           INSERT INTO audit_jobs (
             id, status, normalized_url, attempt_count, max_attempts,
-            available_at, created_at, updated_at, user_id
-          ) VALUES (?, 'queued', ?, 0, 2, ?, ?, ?, ?)
-        `).run(id, normalizedUrl, now, now, now, ownerId);
+            available_at, created_at, updated_at, user_id, request_id,
+            plan_code_snapshot, quota_period_start, quota_charged
+          ) VALUES (?, 'queued', ?, 0, 2, ?, ?, ?, ?, ?, ?, ?, 1)
+        `).run(id, normalizedUrl, now, now, now, ownerId, isCorrelationId(requestId) ? requestId : null,
+          user.plan_code, period.startsAt);
 
         return toJob(database.prepare("SELECT * FROM audit_jobs WHERE id = ?").get(id));
+      }));
+    },
+
+    quotaForUser(userId, { renderedAuditEnabled = false } = {}) {
+      const ownerId = requireUserId(userId);
+      const now = toIsoTime(clock());
+      const period = getQuotaPeriod(now);
+      return withDatabase(databaseFilePath, (database) => {
+        const user = database.prepare(`
+          SELECT plan_code FROM users
+          WHERE id = ? AND disabled_at IS NULL AND deletion_requested_at IS NULL
+        `).get(ownerId);
+        if (!user) return null;
+        const used = database.prepare(`
+          SELECT used_count FROM audit_monthly_usage WHERE user_id = ? AND period_start = ?
+        `).get(ownerId, period.startsAt)?.used_count || 0;
+        return quotaSnapshot(user.plan_code, used, period, renderedAuditEnabled);
       });
     },
 
@@ -100,13 +189,22 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
     },
 
     findByIdForUser(jobId, userId) {
+      const now = toIsoTime(clock());
       return withDatabase(databaseFilePath, (database) =>
         toJob(database.prepare(`
-          SELECT *
+          SELECT audit_jobs.*
           FROM audit_jobs
-          WHERE id = ? AND user_id = ?
+          INNER JOIN users ON users.id = audit_jobs.user_id
+          LEFT JOIN audits ON audits.id = audit_jobs.audit_id
+          WHERE audit_jobs.id = ? AND audit_jobs.user_id = ?
+            AND users.disabled_at IS NULL
+            AND users.deletion_requested_at IS NULL
+            AND (
+              audit_jobs.audit_id IS NULL
+              OR (audits.deleted_at IS NULL AND audits.expires_at > ?)
+            )
           LIMIT 1
-        `).get(jobId, userId))
+        `).get(jobId, userId, now))
       );
     },
 
@@ -129,12 +227,16 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
                 error_code = NULL,
                 error_message = NULL
             WHERE id = (
-              SELECT id
+              SELECT audit_jobs.id
               FROM audit_jobs
-              WHERE status = 'queued'
-                AND available_at <= ?
-                AND attempt_count < max_attempts
-              ORDER BY created_at ASC, id ASC
+              LEFT JOIN users ON users.id = audit_jobs.user_id
+              WHERE audit_jobs.status = 'queued'
+                AND audit_jobs.available_at <= ?
+                AND audit_jobs.attempt_count < audit_jobs.max_attempts
+                AND (audit_jobs.user_id IS NULL OR (
+                  users.disabled_at IS NULL AND users.deletion_requested_at IS NULL
+                ))
+              ORDER BY audit_jobs.created_at ASC, audit_jobs.id ASC
               LIMIT 1
             )
               AND status = 'queued'
@@ -158,6 +260,12 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
             AND status = 'running'
             AND worker_id = ?
             AND lease_token = ?
+            AND (audit_jobs.user_id IS NULL OR EXISTS (
+              SELECT 1 FROM users
+              WHERE users.id = audit_jobs.user_id
+                AND users.disabled_at IS NULL
+                AND users.deletion_requested_at IS NULL
+            ))
           RETURNING *
         `).get(leaseExpiresAt, now, jobId, workerId, leaseToken);
 
@@ -171,20 +279,27 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
       return withDatabase(databaseFilePath, (database) =>
         withImmediateTransaction(database, () => {
           const ownedJob = database.prepare(`
-            SELECT id, user_id
+            SELECT audit_jobs.id, audit_jobs.user_id, audit_jobs.plan_code_snapshot,
+                   users.disabled_at, users.deletion_requested_at
             FROM audit_jobs
-            WHERE id = ?
-              AND status = 'running'
-              AND worker_id = ?
-              AND lease_token = ?
+            LEFT JOIN users ON users.id = audit_jobs.user_id
+            WHERE audit_jobs.id = ?
+              AND audit_jobs.status = 'running'
+              AND audit_jobs.worker_id = ?
+              AND audit_jobs.lease_token = ?
           `).get(jobId, workerId, leaseToken);
 
           if (!ownedJob) {
             return { completed: false, job: null, audit: null };
           }
+          if (ownedJob.user_id && (ownedJob.disabled_at || ownedJob.deletion_requested_at)) {
+            database.prepare("DELETE FROM audit_jobs WHERE id = ?").run(jobId);
+            return { completed: false, job: null, audit: null };
+          }
 
           const auditRecord = createAuditRecord(audit, { id: idGenerator(), now });
-          insertAuditRecord(database, auditRecord, { userId: ownedJob.user_id });
+          const expiresAt = reportExpiryForPlan(ownedJob.plan_code_snapshot, now);
+          insertAuditRecord(database, auditRecord, { userId: ownedJob.user_id, expiresAt });
           const completedJob = database.prepare(`
             UPDATE audit_jobs
             SET status = 'completed',
@@ -206,6 +321,7 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
           if (!completedJob) {
             throw new Error("Audit job ownership was lost during completion.");
           }
+          enqueueNotification(database,{kind:"audit_ready",jobId,userId:ownedJob.user_id,auditId:auditRecord.id,now});
 
           return { completed: true, job: toJob(completedJob), audit: auditRecord };
         })
@@ -219,15 +335,21 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
       return withDatabase(databaseFilePath, (database) =>
         withImmediateTransaction(database, () => {
           const ownedJob = database.prepare(`
-            SELECT attempt_count, max_attempts
+            SELECT audit_jobs.attempt_count, audit_jobs.max_attempts, audit_jobs.user_id,
+                   users.disabled_at, users.deletion_requested_at
             FROM audit_jobs
-            WHERE id = ?
-              AND status = 'running'
-              AND worker_id = ?
-              AND lease_token = ?
+            LEFT JOIN users ON users.id = audit_jobs.user_id
+            WHERE audit_jobs.id = ?
+              AND audit_jobs.status = 'running'
+              AND audit_jobs.worker_id = ?
+              AND audit_jobs.lease_token = ?
           `).get(jobId, workerId, leaseToken);
 
           if (!ownedJob) {
+            return { transitioned: false, job: null };
+          }
+          if (ownedJob.user_id && (ownedJob.disabled_at || ownedJob.deletion_requested_at)) {
+            database.prepare("DELETE FROM audit_jobs WHERE id = ?").run(jobId);
             return { transitioned: false, job: null };
           }
 
@@ -271,6 +393,8 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
             throw new Error("Audit job ownership was lost during failure handling.");
           }
 
+          if (!shouldRetry){refundQuota(database, row);enqueueNotification(database,{kind:"audit_failed",jobId,userId:ownedJob.user_id,now});}
+
           return { transitioned: true, job: toJob(row) };
         })
       );
@@ -279,8 +403,17 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
     recoverExpired() {
       const now = toIsoTime(clock());
 
-      return withDatabase(databaseFilePath, (database) =>
+      const recovered = withDatabase(databaseFilePath, (database) =>
         withImmediateTransaction(database, () => {
+          database.prepare(`
+            DELETE FROM audit_jobs
+            WHERE status = 'running'
+              AND EXISTS (
+                SELECT 1 FROM users
+                WHERE users.id = audit_jobs.user_id
+                  AND (users.disabled_at IS NOT NULL OR users.deletion_requested_at IS NOT NULL)
+              )
+          `).run();
           const failed = database.prepare(`
             UPDATE audit_jobs
             SET status = 'failed',
@@ -294,7 +427,16 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
             WHERE status = 'running'
               AND lease_expires_at <= ?
               AND attempt_count >= max_attempts
-          `).run(now, now, now).changes;
+              AND (audit_jobs.user_id IS NULL OR EXISTS (
+                SELECT 1 FROM users
+                WHERE users.id = audit_jobs.user_id
+                  AND users.disabled_at IS NULL
+                  AND users.deletion_requested_at IS NULL
+              ))
+            RETURNING id, request_id, attempt_count, created_at, user_id, quota_period_start, quota_charged
+          `).all(now, now, now);
+          for (const row of failed) refundQuota(database, row);
+          for(const row of failed)enqueueNotification(database,{kind:"audit_failed",jobId:row.id,userId:row.user_id,now});
           const requeued = database.prepare(`
             UPDATE audit_jobs
             SET status = 'queued',
@@ -309,11 +451,20 @@ export function createAuditJobStore(databaseFilePath, options = {}) {
             WHERE status = 'running'
               AND lease_expires_at <= ?
               AND attempt_count < max_attempts
-          `).run(now, now, now).changes;
+              AND (audit_jobs.user_id IS NULL OR EXISTS (
+                SELECT 1 FROM users
+                WHERE users.id = audit_jobs.user_id
+                  AND users.disabled_at IS NULL
+                  AND users.deletion_requested_at IS NULL
+              ))
+            RETURNING id, request_id, attempt_count, created_at
+          `).all(now, now, now);
 
-          return { requeued, failed };
+          return { failed, requeued };
         })
       );
+      try { options.onRecovered?.(recovered); } catch { /* Committed recovery must survive telemetry failures. */ }
+      return { failed: recovered.failed.length, requeued: recovered.requeued.length };
     }
   };
 }

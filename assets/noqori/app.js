@@ -16,11 +16,28 @@ const registrationTemplate = document.getElementById("registrationTemplate");
 const closedRegistration = document.getElementById("closedRegistration");
 const sessionEmail = document.getElementById("sessionEmail");
 const logoutButton = document.getElementById("logoutButton");
+const quotaStatus = document.getElementById("quotaStatus");
+const quotaPlan = document.getElementById("quotaPlan");
+const quotaRemaining = document.getElementById("quotaRemaining");
+const quotaReset = document.getElementById("quotaReset");
+const auditHistory = document.getElementById("auditHistory");
+const historyList = document.getElementById("historyList");
+const historyStatus = document.getElementById("historyStatus");
+const retryHistory = document.getElementById("retryHistory");
+const loadMoreHistory = document.getElementById("loadMoreHistory");
+const fragmentMatch=/^#(reset-password|verify-email)=([A-Za-z0-9_-]{43})$/.exec(location.hash);
+let pendingResetToken=fragmentMatch?.[1]==="reset-password"?fragmentMatch[2]:null;
+let pendingVerificationToken=fragmentMatch?.[1]==="verify-email"?fragmentMatch[2]:null;
+if(fragmentMatch)history.replaceState(null,"",location.pathname+location.search);
 let currentUser = null;
 let registrationMode = "closed";
+let emailVerificationRequired=false;
+let historyItems = [];
+let historyCursor = null;
+let historyRequestVersion = 0;
 
 function validPublicUser(user) {
-  return user && typeof user.id === "string" && typeof user.email === "string" && typeof user.createdAt === "string";
+  return user && typeof user.id === "string" && typeof user.email === "string" && typeof user.createdAt === "string" && (user.emailVerified===undefined||typeof user.emailVerified==="boolean");
 }
 
 function hideAuthError() {
@@ -57,7 +74,12 @@ function showAuthenticated(user) {
   signedOutView.hidden = true;
   signedInView.hidden = false;
   sessionEmail.textContent = user.email;
-  form.hidden = false;
+  const needsVerification=emailVerificationRequired&&user.emailVerified===false;
+  document.getElementById("emailVerificationState").hidden=!needsVerification;
+  form.hidden = needsVerification;
+  void refreshQuota();
+  auditHistory.hidden = false;
+  void loadHistory();
 }
 
 function showSignedOut({ message = "", focusLogin = false } = {}) {
@@ -66,13 +88,227 @@ function showSignedOut({ message = "", focusLogin = false } = {}) {
   analysisExperience?.reset();
   authLoading.hidden = true;
   signedInView.hidden = true;
+  document.getElementById("emailVerificationState").hidden=true;
   signedOutView.hidden = false;
   form.hidden = true;
+  quotaStatus.hidden = true;
+  clearHistory();
   report.hidden = true;
   document.getElementById("landing").hidden = false;
   document.body.classList.remove("noqori-report-view");
   if (message) showAuthError(message, { focusLogin });
   else hideAuthError();
+}
+
+function clearHistory() {
+  historyRequestVersion += 1;
+  historyItems = [];
+  historyCursor = null;
+  historyList.replaceChildren();
+  historyStatus.textContent = "";
+  retryHistory.hidden = true;
+  loadMoreHistory.hidden = true;
+  auditHistory.hidden = true;
+}
+
+function validHistoryItem(item) {
+  if (!item || !/^[0-9a-f-]{36}$/i.test(item.id) || typeof item.domain !== "string" ||
+      typeof item.normalizedUrl !== "string" || typeof item.createdAt !== "string" ||
+      typeof item.expiresAt !== "string" || !Number.isFinite(item.overallScore) ||
+      item.overallScore < 0 || item.overallScore > 100 || typeof item.scannerMode !== "string") return false;
+  try {
+    const url = new URL(item.normalizedUrl);
+    return ["http:", "https:"].includes(url.protocol) && !Number.isNaN(new Date(item.createdAt).getTime()) &&
+      !Number.isNaN(new Date(item.expiresAt).getTime());
+  } catch {
+    return false;
+  }
+}
+
+function historyButton(label, action, id) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  button.dataset.historyAction = action;
+  button.dataset.auditId = id;
+  return button;
+}
+
+function renderHistory({ focusAction = null, focusId = null } = {}) {
+  historyList.replaceChildren();
+  retryHistory.hidden = true;
+  historyStatus.textContent = historyItems.length ? "" : "No audits yet. Run your first audit above.";
+  for (const item of historyItems) {
+    const card = document.createElement("article");
+    card.className = "nqHistoryCard";
+    card.dataset.auditId = item.id;
+    const main = document.createElement("div");
+    main.className = "nqHistoryCardMain";
+    const copy = document.createElement("div");
+    const title = document.createElement("h3");
+    title.textContent = item.domain;
+    const meta = document.createElement("div");
+    meta.className = "nqHistoryMeta";
+    for (const value of [new Date(item.createdAt).toLocaleDateString(), item.scannerMode, `Available until ${new Date(item.expiresAt).toLocaleDateString()}`]) {
+      const span = document.createElement("span");
+      span.textContent = value;
+      meta.append(span);
+    }
+    copy.append(title, meta);
+    const score = document.createElement("strong");
+    score.className = "nqHistoryScore";
+    score.textContent = `${item.overallScore}/100`;
+    main.append(copy, score);
+    const actions = document.createElement("div");
+    actions.className = "nqHistoryActions";
+    if (item.confirmingDelete) {
+      actions.append(historyButton("Confirm delete", "confirm-delete", item.id), historyButton("Cancel", "cancel-delete", item.id));
+    } else {
+      actions.append(historyButton(`Open ${item.domain} report`, "open", item.id),
+        historyButton(`Run ${item.domain} again`, "rerun", item.id), historyButton(`Delete ${item.domain}`, "delete", item.id));
+    }
+    card.append(main, actions);
+    if (item.error) {
+      const error = document.createElement("p");
+      error.className = "nqHistoryItemError";
+      error.setAttribute("role", "alert");
+      error.textContent = item.error;
+      card.append(error);
+    }
+    historyList.append(card);
+  }
+  loadMoreHistory.hidden = !historyCursor;
+  if (focusAction && focusId) {
+    historyList.querySelector(`[data-history-action="${focusAction}"][data-audit-id="${CSS.escape(focusId)}"]`)?.focus();
+  }
+}
+
+async function loadHistory({ append = false } = {}) {
+  if (!currentUser) return;
+  const version = ++historyRequestVersion;
+  retryHistory.hidden = true;
+  if (!append) {
+    historyStatus.textContent = "Loading your audits…";
+    historyList.replaceChildren();
+    loadMoreHistory.hidden = true;
+  } else {
+    loadMoreHistory.disabled = true;
+    historyStatus.textContent = "Loading more audits…";
+  }
+  try {
+    const query = append && historyCursor ? `?cursor=${encodeURIComponent(historyCursor)}` : "";
+    const response = await fetch(`/api/audits/history${query}`);
+    requireFreshSession(response);
+    const payload = await response.json();
+    const nextCursor = payload?.page?.nextCursor;
+    if (!response.ok || !Array.isArray(payload.audits) || !payload.audits.every(validHistoryItem) ||
+        !payload.page || (nextCursor !== null && (typeof nextCursor !== "string" || !nextCursor))) throw new Error();
+    if (version !== historyRequestVersion || !currentUser) return;
+    const incoming = payload.audits.filter(item => !historyItems.some(existing => existing.id === item.id));
+    historyItems = append ? [...historyItems, ...incoming] : incoming;
+    historyCursor = payload.page.nextCursor;
+    renderHistory();
+  } catch (error) {
+    if (version !== historyRequestVersion || error.code === "AUTHENTICATION_REQUIRED") return;
+    historyStatus.textContent = "We could not load your audit history.";
+    retryHistory.hidden = false;
+    if (!append) historyList.replaceChildren();
+  } finally {
+    loadMoreHistory.disabled = false;
+  }
+}
+
+function removeHistoryItem(id, message) {
+  historyItems = historyItems.filter(item => item.id !== id);
+  renderHistory();
+  historyStatus.textContent = message || (historyItems.length ? "" : "No audits yet. Run your first audit above.");
+  document.getElementById("auditHistoryTitle").focus();
+}
+
+async function openHistoryReport(item) {
+  try {
+    const response = await fetch(`/api/audits/${encodeURIComponent(item.id)}`);
+    requireFreshSession(response);
+    const payload = await response.json();
+    if (response.status === 404) {
+      removeHistoryItem(item.id, "That report is no longer available.");
+      return;
+    }
+    if (!response.ok || !payload.audit) throw new Error();
+    render(toReportViewModel(payload.audit));
+  } catch (error) {
+    if (error.code === "AUTHENTICATION_REQUIRED") return;
+    const target = historyItems.find(entry => entry.id === item.id);
+    if (target) target.error = "We could not open this report. Please try again.";
+    renderHistory({ focusAction: "open", focusId: item.id });
+  }
+}
+
+async function deleteHistoryReport(item) {
+  const target = historyItems.find(entry => entry.id === item.id);
+  if (target) target.error = "";
+  renderHistory({ focusAction: "confirm-delete", focusId: item.id });
+  try {
+    const response = await fetch(`/api/audits/${encodeURIComponent(item.id)}`, { method: "DELETE" });
+    requireFreshSession(response);
+    if (response.status === 204 || response.status === 404) {
+      removeHistoryItem(item.id, response.status === 404 ? "That report was already unavailable." : "Report deleted.");
+      void loadHistory();
+      return;
+    }
+    throw new Error();
+  } catch (error) {
+    if (error.code === "AUTHENTICATION_REQUIRED") return;
+    const current = historyItems.find(entry => entry.id === item.id);
+    if (current) {
+      current.confirmingDelete = false;
+      current.error = "We could not delete this report. Please try again.";
+    }
+    renderHistory({ focusAction: "delete", focusId: item.id });
+  }
+}
+
+historyList.addEventListener("click", event => {
+  const control = event.target.closest("[data-history-action]");
+  if (!control) return;
+  const item = historyItems.find(entry => entry.id === control.dataset.auditId);
+  if (!item) return;
+  const action = control.dataset.historyAction;
+  if (action === "open") void openHistoryReport(item);
+  if (action === "rerun") {
+    input.value = item.normalizedUrl;
+    input.focus();
+    form.requestSubmit();
+  }
+  if (action === "delete") {
+    item.confirmingDelete = true;
+    item.error = "";
+    renderHistory({ focusAction: "confirm-delete", focusId: item.id });
+  }
+  if (action === "cancel-delete") {
+    item.confirmingDelete = false;
+    renderHistory({ focusAction: "delete", focusId: item.id });
+  }
+  if (action === "confirm-delete") void deleteHistoryReport(item);
+});
+retryHistory.addEventListener("click", () => void loadHistory());
+loadMoreHistory.addEventListener("click", () => void loadHistory({ append: true }));
+
+async function refreshQuota() {
+  if (!currentUser) return;
+  try {
+    const response = await fetch("/api/audits/quota");
+    requireFreshSession(response);
+    const payload = await response.json();
+    if (!response.ok || !payload.quota) return;
+    const quota = payload.quota;
+    quotaPlan.textContent = payload.plan === "pro" ? "Pro" : "Free beta";
+    quotaRemaining.textContent = `${quota.remaining} of ${quota.limit} audits remaining`;
+    quotaReset.textContent = `Resets ${new Date(quota.resetsAt).toLocaleDateString()}`;
+    quotaStatus.hidden = false;
+  } catch {
+    quotaStatus.hidden = true;
+  }
 }
 
 async function parseAuthResponse(response) {
@@ -141,6 +377,11 @@ loginForm.addEventListener("submit", event => {
   void submitCredentials(loginForm, "login");
 });
 
+document.getElementById("forgotPassword").addEventListener("click",()=>{document.getElementById("passwordResetRequestForm").hidden=false;document.getElementById("resetEmail").focus()});
+document.getElementById("passwordResetRequestForm").addEventListener("submit",async event=>{event.preventDefault();const target=event.currentTarget;setAuthFormBusy(target,true);try{await fetch("/api/auth/password-reset/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:new FormData(target).get("email")})});showAuthError("If an account exists, check your email.")}catch{showAuthError("If an account exists, check your email.")}finally{setAuthFormBusy(target,false)}});
+document.getElementById("passwordResetConfirmForm").addEventListener("submit",async event=>{event.preventDefault();const target=event.currentTarget,values=new FormData(target);if(values.get("password")!==values.get("confirmPassword")){showAuthError("Passwords must match.");return}setAuthFormBusy(target,true);try{const response=await fetch("/api/auth/password-reset/confirm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:pendingResetToken,password:values.get("password")})});if(!response.ok)throw new Error();pendingResetToken=null;target.hidden=true;showAuthError("Password updated. Sign in with your new password.",{focusLogin:true})}catch{showAuthError("This password reset link is invalid or expired.")}finally{setAuthFormBusy(target,false)}});
+document.getElementById("resendVerification").addEventListener("click",async()=>{const response=await fetch("/api/auth/email-verification/request",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});showAuthError(response.ok?"Verification email requested.":"Verification email could not be requested.")});
+
 logoutButton.addEventListener("click", async () => {
   logoutButton.disabled = true;
   hideAuthError();
@@ -167,6 +408,7 @@ async function restoreSession() {
       fetch("/api/auth/me")
     ]);
     const configPayload = await parseAuthResponse(configResponse);
+    emailVerificationRequired=configResponse.ok&&configPayload?.emailVerificationRequired===true;
     configureRegistration(configResponse.ok ? configPayload?.registrationMode : "closed");
 
     if (sessionResponse.ok) {
@@ -184,6 +426,11 @@ async function restoreSession() {
   } finally {
     authPanel.setAttribute("aria-busy", "false");
   }
+}
+
+async function consumeFragmentActions(){
+  if(pendingResetToken){document.getElementById("passwordResetConfirmForm").hidden=false;document.getElementById("resetPassword").focus()}
+  if(pendingVerificationToken){const token=pendingVerificationToken;pendingVerificationToken=null;try{const response=await fetch("/api/auth/email-verification/confirm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token})});if(!response.ok)throw new Error();await restoreSession();showAuthError("Email verified.")}catch{showAuthError("This verification link is invalid or expired.")}}
 }
 
 function requireFreshSession(response) {
@@ -324,6 +571,13 @@ async function requestAudit(websiteUrl, { signal } = {}) {
   }
 
   if (!response.ok) {
+    if (payload.error?.code === "AUDIT_QUOTA_EXCEEDED") {
+      const reset = payload.quota?.quota?.resetsAt;
+      const resetLabel = reset && !Number.isNaN(new Date(reset).getTime())
+        ? new Date(reset).toLocaleDateString()
+        : "next month";
+      throw createPublicError(`You have used all audits for this month. Your quota resets ${resetLabel}.`, payload.error.code);
+    }
     throw createPublicError(payload.error?.message || "Audit request failed.", payload.error?.code);
   }
 
@@ -863,6 +1117,7 @@ form.addEventListener("submit", async event => {
     const job = await requestAudit(input.value, { signal: run.controller.signal });
     assertActiveRun(run);
     run.job = job;
+    void refreshQuota();
     loadingText.textContent = "Your audit is queued…";
     analysisExperience.setState("queued");
     const audit = await pollAuditJob(job.statusUrl, {
@@ -879,10 +1134,12 @@ form.addEventListener("submit", async event => {
     await analysisExperience.complete();
     assertActiveRun(run);
     render(result);
+    void loadHistory();
     input.removeAttribute("aria-invalid");
   } catch (error) {
     if (isAbortError(error) || activeAuditRun !== run) return;
     if (error.code === "AUTHENTICATION_REQUIRED") return;
+    if (run.job) void refreshQuota();
     loading.hidden = true;
     runButton.disabled = false;
     analysisExperience.fail(error.message || "Could not run the audit. Please try again.", { code: error.code });
@@ -908,4 +1165,4 @@ window.addEventListener("afterprint", () => {
     delete details.dataset.wasOpen;
   });
 });
-void restoreSession();
+void restoreSession().then(consumeFragmentActions);

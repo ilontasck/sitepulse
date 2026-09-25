@@ -22,7 +22,10 @@ function toUser(row) {
     passwordHash: row.password_hash,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    disabledAt: row.disabled_at
+    disabledAt: row.disabled_at,
+    deletionRequestedAt: row.deletion_requested_at,
+    purgeAfter: row.purge_after
+    ,emailVerifiedAt: row.email_verified_at
   };
 }
 
@@ -71,7 +74,7 @@ export function createAuthStore(databaseFilePath, options = {}) {
       toUser(database.prepare(`
         SELECT
           id, email_original, email_normalized, password_hash,
-          created_at, updated_at, disabled_at
+          created_at, updated_at, disabled_at, deletion_requested_at, purge_after, email_verified_at
         FROM users
         WHERE email_normalized = ?
         LIMIT 1
@@ -80,12 +83,21 @@ export function createAuthStore(databaseFilePath, options = {}) {
   }
 
   return {
+    async findUserById(userId) {
+      return withDatabase(databaseFilePath, (database) => toUser(database.prepare(`
+        SELECT id, email_original, email_normalized, password_hash,
+               created_at, updated_at, disabled_at, deletion_requested_at, purge_after, email_verified_at
+        FROM users WHERE id = ? LIMIT 1
+      `).get(userId)));
+    },
+
     async createUserWithSession({
       emailOriginal,
       emailNormalized,
       passwordHash,
       sessionTokenHash,
-      sessionExpiresAt
+      sessionExpiresAt,
+      emailVerified = true
     }) {
       requireTokenHash(sessionTokenHash, "sessionTokenHash");
       requireTimestamp(sessionExpiresAt, "sessionExpiresAt");
@@ -99,9 +111,9 @@ export function createAuthStore(databaseFilePath, options = {}) {
             database.prepare(`
               INSERT INTO users (
                 id, email_original, email_normalized, password_hash,
-                created_at, updated_at, disabled_at
-              ) VALUES (?, ?, ?, ?, ?, ?, NULL)
-            `).run(userId, emailOriginal, emailNormalized, passwordHash, now, now);
+                created_at, updated_at, disabled_at, email_verified_at
+              ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
+            `).run(userId, emailOriginal, emailNormalized, passwordHash, now, now, emailVerified ? now : null);
             database.prepare(`
               INSERT INTO sessions (
                 id, user_id, token_hash, created_at, expires_at, revoked_at
@@ -116,7 +128,8 @@ export function createAuthStore(databaseFilePath, options = {}) {
                 passwordHash,
                 createdAt: now,
                 updatedAt: now,
-                disabledAt: null
+                disabledAt: null,
+                emailVerifiedAt: emailVerified ? now : null
               },
               session: {
                 id: sessionId,
@@ -143,6 +156,135 @@ export function createAuthStore(databaseFilePath, options = {}) {
 
     findUserByNormalizedEmail,
 
+    async requestAccountDeletion({ userId, purgeAfter }) {
+      const now = requireTimestamp(clock(), "clock");
+      requireTimestamp(purgeAfter, "purgeAfter");
+      return withDatabase(databaseFilePath, (database) => withImmediateTransaction(database, () => {
+        const disabled = database.prepare(`
+          UPDATE users
+          SET disabled_at = ?, deletion_requested_at = ?, purge_after = ?, updated_at = ?
+          WHERE id = ? AND disabled_at IS NULL AND deletion_requested_at IS NULL
+        `).run(now, now, purgeAfter, now, userId);
+        if (disabled.changes !== 1) return false;
+        database.prepare(`
+          UPDATE sessions SET revoked_at = ?
+          WHERE user_id = ? AND revoked_at IS NULL
+        `).run(now, userId);
+        database.prepare(`
+          UPDATE password_reset_tokens SET invalidated_at = ?
+          WHERE user_id = ? AND used_at IS NULL AND invalidated_at IS NULL
+        `).run(now, userId);
+        database.prepare(`UPDATE email_verification_tokens SET invalidated_at=? WHERE user_id=? AND used_at IS NULL AND invalidated_at IS NULL`).run(now,userId);
+        database.prepare(`UPDATE transactional_email_outbox SET canceled_at=?,claimed_until=NULL,claim_token=NULL WHERE user_id=? AND delivered_at IS NULL AND dead_lettered_at IS NULL AND canceled_at IS NULL`).run(now,userId);
+        return true;
+      }));
+    },
+
+    async replaceEmailVerificationToken({userId,tokenHash,expiresAt}){
+      requireTokenHash(tokenHash,"tokenHash");requireTimestamp(expiresAt,"expiresAt");const now=requireTimestamp(clock(),"clock"),id=idGenerator("email-verification-token");
+      return withDatabase(databaseFilePath,database=>withImmediateTransaction(database,()=>{
+        const user=database.prepare("SELECT id,email_original FROM users WHERE id=? AND disabled_at IS NULL AND deletion_requested_at IS NULL").get(userId);if(!user)return null;
+        database.prepare("UPDATE email_verification_tokens SET invalidated_at=? WHERE user_id=? AND used_at IS NULL AND invalidated_at IS NULL").run(now,userId);
+        database.prepare("INSERT INTO email_verification_tokens(id,user_id,token_hash,created_at,expires_at) VALUES(?,?,?,?,?)").run(id,userId,tokenHash,now,expiresAt);
+        return{id,userId,emailOriginal:user.email_original,createdAt:now,expiresAt};
+      }));
+    },
+
+    async consumeEmailVerificationToken({tokenHash}){
+      requireTokenHash(tokenHash,"tokenHash");const now=requireTimestamp(clock(),"clock");
+      return withDatabase(databaseFilePath,database=>withImmediateTransaction(database,()=>{
+        const token=database.prepare(`SELECT t.id,t.user_id FROM email_verification_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=? AND t.used_at IS NULL AND t.invalidated_at IS NULL AND t.expires_at>? AND u.disabled_at IS NULL AND u.deletion_requested_at IS NULL`).get(tokenHash,now);if(!token)return false;
+        if(database.prepare("UPDATE email_verification_tokens SET used_at=? WHERE id=? AND used_at IS NULL AND invalidated_at IS NULL AND expires_at>?").run(now,token.id,now).changes!==1)return false;
+        database.prepare("UPDATE users SET email_verified_at=?,updated_at=? WHERE id=? AND disabled_at IS NULL AND deletion_requested_at IS NULL").run(now,now,token.user_id);
+        database.prepare("UPDATE email_verification_tokens SET invalidated_at=? WHERE user_id=? AND id<>? AND used_at IS NULL AND invalidated_at IS NULL").run(now,token.user_id,token.id);
+        return true;
+      }));
+    },
+
+    async replacePasswordResetToken({ userId, tokenHash, expiresAt }) {
+      requireTokenHash(tokenHash, "tokenHash");
+      requireTimestamp(expiresAt, "expiresAt");
+      const now = requireTimestamp(clock(), "clock");
+      const tokenId = idGenerator("password-reset-token");
+
+      return withDatabase(databaseFilePath, (database) =>
+        withImmediateTransaction(database, () => {
+          database.prepare(`
+            UPDATE password_reset_tokens
+            SET invalidated_at = ?
+            WHERE user_id = ?
+              AND used_at IS NULL
+              AND invalidated_at IS NULL
+          `).run(now, userId);
+          database.prepare(`
+            INSERT INTO password_reset_tokens (
+              id, user_id, token_hash, created_at, expires_at, used_at, invalidated_at
+            ) VALUES (?, ?, ?, ?, ?, NULL, NULL)
+          `).run(tokenId, userId, tokenHash, now, expiresAt);
+          return { id: tokenId, userId, createdAt: now, expiresAt };
+        })
+      );
+    },
+
+    async consumePasswordResetToken({ tokenHash, passwordHash }) {
+      requireTokenHash(tokenHash, "tokenHash");
+      if (typeof passwordHash !== "string" || passwordHash.length < 64) {
+        throw new TypeError("passwordHash must be an encoded password hash.");
+      }
+      const now = requireTimestamp(clock(), "clock");
+
+      return withDatabase(databaseFilePath, (database) =>
+        withImmediateTransaction(database, () => {
+          const token = database.prepare(`
+            SELECT password_reset_tokens.id, password_reset_tokens.user_id
+            FROM password_reset_tokens
+            INNER JOIN users ON users.id = password_reset_tokens.user_id
+            WHERE password_reset_tokens.token_hash = ?
+              AND password_reset_tokens.used_at IS NULL
+              AND password_reset_tokens.invalidated_at IS NULL
+              AND password_reset_tokens.expires_at > ?
+              AND users.disabled_at IS NULL
+              AND users.deletion_requested_at IS NULL
+            LIMIT 1
+          `).get(tokenHash, now);
+          if (!token) return false;
+
+          const claimed = database.prepare(`
+            UPDATE password_reset_tokens
+            SET used_at = ?
+            WHERE id = ?
+              AND used_at IS NULL
+              AND invalidated_at IS NULL
+              AND expires_at > ?
+          `).run(now, token.id, now);
+          if (claimed.changes !== 1) return false;
+
+          const passwordUpdated = database.prepare(`
+            UPDATE users
+            SET password_hash = ?, updated_at = ?
+            WHERE id = ? AND disabled_at IS NULL AND deletion_requested_at IS NULL
+          `).run(passwordHash, now, token.user_id).changes;
+          if (passwordUpdated !== 1) {
+            throw new AuthStoreError("AUTH_STORAGE_CONSTRAINT", "Authentication data could not be stored.");
+          }
+          database.prepare(`
+            UPDATE sessions
+            SET revoked_at = ?
+            WHERE user_id = ? AND revoked_at IS NULL
+          `).run(now, token.user_id);
+          database.prepare(`
+            UPDATE password_reset_tokens
+            SET invalidated_at = ?
+            WHERE user_id = ?
+              AND id <> ?
+              AND used_at IS NULL
+              AND invalidated_at IS NULL
+          `).run(now, token.user_id, token.id);
+          return true;
+        })
+      );
+    },
+
     async findActiveSessionByTokenHash(tokenHash) {
       if (!Buffer.isBuffer(tokenHash) || tokenHash.length !== 32) {
         return null;
@@ -162,13 +304,17 @@ export function createAuthStore(databaseFilePath, options = {}) {
             users.password_hash,
             users.created_at,
             users.updated_at,
-            users.disabled_at
+            users.disabled_at,
+            users.deletion_requested_at,
+            users.purge_after,
+            users.email_verified_at
           FROM sessions
           INNER JOIN users ON users.id = sessions.user_id
           WHERE sessions.token_hash = ?
             AND sessions.revoked_at IS NULL
             AND sessions.expires_at > ?
             AND users.disabled_at IS NULL
+            AND users.deletion_requested_at IS NULL
           LIMIT 1
         `).get(tokenHash, now);
 

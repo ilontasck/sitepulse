@@ -147,6 +147,7 @@ after(async () => {
 });
 
 describe("asynchronous audit API", () => {
+  it("blocks unverified audit creation before URL work, quota, or enqueue",async()=>{let safetyCalls=0;const api=await startApi({configOverrides:{EMAIL_VERIFICATION_REQUIRED:"true"},dependencies:{deliverEmailVerification:async()=>{},initialUrlSafetyValidator:async()=>{safetyCalls++}}});const response=await postAudit(api,{websiteUrl:"example.com"});assert.equal(response.status,403);assert.equal((await response.json()).error.code,"EMAIL_VERIFICATION_REQUIRED");assert.equal(safetyCalls,0);assert.equal(countRows(api.config.databaseFilePath,"audit_jobs"),0);assert.equal(withDatabase(api.config.databaseFilePath,d=>d.prepare("SELECT COUNT(*) count FROM audit_monthly_usage").get().count),0);await stopApi(api)});
   let api;
   let auditGeneratorCalls;
   let telemetryEntries;
@@ -170,9 +171,45 @@ describe("asynchronous audit API", () => {
       },
       seedAudit: true
     });
+    withDatabase(api.config.databaseFilePath, (database) =>
+      database.prepare("UPDATE users SET plan_code = 'pro' WHERE id = ?").run(api.auth.user.id)
+    );
   });
 
   after(async () => stopApi(api));
+
+  it("returns private quota state and rejects the fourth free audit", async () => {
+    const freeApi = await startApi({ dependencies: { initialUrlSafetyValidator: async () => true } });
+    assert.equal((await authenticatedGet(freeApi, "/api/audits/quota", null)).status, 401);
+    const initial = await authenticatedGet(freeApi, "/api/audits/quota");
+    assert.equal(initial.status, 200);
+    assert.equal(initial.headers.get("cache-control"), "private, no-store");
+    assert.deepEqual(await initial.json(), {
+      plan: "free",
+      quota: { limit: 3, used: 0, remaining: 3,
+        periodStart: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString(),
+        resetsAt: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1)).toISOString() },
+      features: { renderedEligible: true, renderedAvailable: false, retention: "30 days" }
+    });
+    for (let index = 0; index < 3; index += 1) {
+      assert.equal((await postAudit(freeApi, { websiteUrl: `${index}.example.com` })).status, 202);
+    }
+    const rejected = await postAudit(freeApi, { websiteUrl: "four.example.com" });
+    assert.equal(rejected.status, 429);
+    assert.equal((await rejected.json()).error.code, "AUDIT_QUOTA_EXCEEDED");
+    assert.ok(Number(rejected.headers.get("retry-after")) > 0);
+    assert.equal(countRows(freeApi.config.databaseFilePath, "audit_jobs"), 3);
+    withDatabase(freeApi.config.databaseFilePath, (database) =>
+      database.prepare("UPDATE users SET plan_code='pro' WHERE id=?").run(freeApi.auth.user.id)
+    );
+    const pro = await authenticatedGet(freeApi, "/api/audits/quota");
+    const proBody = await pro.json();
+    assert.equal(proBody.plan, "pro");
+    assert.equal(proBody.quota.limit, 25);
+    assert.equal(proBody.quota.used, 3);
+    assert.equal(proBody.features.retention, "12 calendar months");
+    await stopApi(freeApi);
+  });
 
   it("enqueues websiteUrl and returns the 202 job contract without running an audit", async () => {
     const auditCountBefore = countRows(api.config.databaseFilePath, "audits");
@@ -195,9 +232,9 @@ describe("asynchronous audit API", () => {
     assert.equal(persistedJob.normalizedUrl, "https://luna-cafe.com");
     assert.equal(auditGeneratorCalls, 0);
     assert.equal(countRows(api.config.databaseFilePath, "audits"), auditCountBefore);
-    assert.deepEqual(telemetryEntries.at(-1), {
-      event: "audit_job_enqueued",
-      fields: { jobId: body.job.id, outcome: "queued" }
+    assert.deepEqual(telemetryEntries.find((entry) => entry.event === "audit.queued" && entry.fields.jobId === body.job.id), {
+      event: "audit.queued",
+      fields: { jobId: body.job.id, requestId: response.headers.get("x-request-id"), durationMs: 0, auditMode: "basic", outcome: "queued" }
     });
     assert.equal(JSON.stringify(telemetryEntries.at(-1)).includes("luna-cafe.com"), false);
   });

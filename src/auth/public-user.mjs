@@ -6,6 +6,7 @@ export function toPublicUser(user) {
   return {
     id: user.id,
     email: user.emailOriginal,
-    createdAt: user.createdAt
+    createdAt: user.createdAt,
+    emailVerified: Boolean(user.emailVerifiedAt)
   };
 }

@@ -4,7 +4,9 @@ import { HttpError } from "./http-error.mjs";
 import { resolveAuthenticatedUser } from "./auth-request.mjs";
 import { readJsonBody } from "./body.mjs";
 import { requireTrustedOrigin } from "./origin-policy.mjs";
-import { sendJson } from "./respond.mjs";
+import { sendJson, sendNoContent } from "./respond.mjs";
+import { AuditQuotaExceededError } from "../storage/audit-job-store.mjs";
+import { AuditHistoryCursorError } from "../storage/audit-store.mjs";
 
 function parseLimit(searchParams) {
   const rawLimit = searchParams.get("limit");
@@ -22,7 +24,17 @@ function parseLimit(searchParams) {
   return limit;
 }
 
-function requireAdminAccess(request, config) {
+function parseHistoryLimit(searchParams) {
+  const rawLimit = searchParams.get("limit");
+  if (!rawLimit) return 10;
+  const limit = Number(rawLimit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+    throw new HttpError(400, "Limit must be an integer between 1 and 50.", "INVALID_LIMIT");
+  }
+  return limit;
+}
+
+export function requireAdminAccess(request, config) {
   if (!config.adminApiKey) {
     throw new HttpError(404, "Audit history endpoint is not enabled.", "AUDIT_HISTORY_DISABLED");
   }
@@ -103,6 +115,7 @@ export async function handleAuditApi({
 }) {
   if (url.pathname === "/api/audits" && request.method === "POST") {
     const user = await requireAuthenticatedUser(request, response, { authService, cookiePolicy });
+    if(config.emailVerificationRequired&&!user.emailVerified)throw new HttpError(403,"Verify your email to run audits.","EMAIL_VERIFICATION_REQUIRED");
     requireTrustedOrigin(request, config.publicOrigin);
     rateLimiters.general(request, response, user);
     rateLimiters.create(request, response, user);
@@ -115,9 +128,20 @@ export async function handleAuditApi({
     const websiteUrl = body.websiteUrl ?? body.url;
     const target = normalizeWebsiteUrl(websiteUrl);
     await initialUrlSafetyValidator(target.normalizedUrl);
-    const job = jobStore.enqueue({ normalizedUrl: target.normalizedUrl, userId: user.id });
+    let job;
+    try {
+      job = jobStore.enqueue({ normalizedUrl: target.normalizedUrl, userId: user.id,
+        requestId: request.requestId, renderedAuditEnabled: config.renderedAuditEnabled });
+    } catch (error) {
+      if (!(error instanceof AuditQuotaExceededError)) throw error;
+      const retryAfter = Math.max(1, Math.ceil((new Date(error.quota.quota.resetsAt).getTime() - Date.now()) / 1000));
+      return sendJson(response, 429, {
+        error: { code: "AUDIT_QUOTA_EXCEEDED", message: "Your monthly audit quota has been used." },
+        quota: error.quota
+      }, { "Retry-After": String(retryAfter) });
+    }
     const statusUrl = `/api/audit-jobs/${job.id}`;
-    telemetry?.record("audit_job_enqueued", { jobId: job.id, outcome: "queued" });
+    telemetry?.record("audit.queued", { jobId: job.id, requestId: request.requestId, durationMs: 0, auditMode: config.renderedAuditEnabled ? "rendered" : "basic", outcome: "queued" });
 
     return sendJson(
       response,
@@ -132,6 +156,38 @@ export async function handleAuditApi({
       },
       { Location: statusUrl, "Retry-After": "1" }
     );
+  }
+
+  if (url.pathname === "/api/audits/quota") {
+    if (request.method !== "GET") {
+      throw new HttpError(405, "Method is not allowed for this endpoint.", "METHOD_NOT_ALLOWED");
+    }
+    const user = await requireAuthenticatedUser(request, response, { authService, cookiePolicy });
+    rateLimiters.general(request, response, user);
+    const quota = jobStore.quotaForUser(user.id, { renderedAuditEnabled: config.renderedAuditEnabled });
+    if (!quota) throw authenticationRequired();
+    return sendJson(response, 200, quota);
+  }
+
+  if (url.pathname === "/api/audits/history") {
+    if (request.method !== "GET") {
+      throw new HttpError(405, "Method is not allowed for this endpoint.", "METHOD_NOT_ALLOWED");
+    }
+    const user = await requireAuthenticatedUser(request, response, { authService, cookiePolicy });
+    rateLimiters.general(request, response, user);
+    try {
+      const page = await store.listForUser({
+        userId: user.id,
+        limit: parseHistoryLimit(url.searchParams),
+        cursor: url.searchParams.get("cursor")
+      });
+      return sendJson(response, 200, { audits: page.audits, page: { nextCursor: page.nextCursor } });
+    } catch (error) {
+      if (error instanceof AuditHistoryCursorError) {
+        throw new HttpError(400, "Audit history cursor is invalid.", "INVALID_CURSOR");
+      }
+      throw error;
+    }
   }
 
   const jobPathMatch = url.pathname.match(/^\/api\/audit-jobs\/([^/]+)$/);
@@ -168,6 +224,17 @@ export async function handleAuditApi({
   }
 
   const auditIdMatch = url.pathname.match(/^\/api\/audits\/([0-9a-f-]{36})$/i);
+
+  if (auditIdMatch && request.method === "DELETE") {
+    const user = await requireAuthenticatedUser(request, response, { authService, cookiePolicy });
+    requireTrustedOrigin(request, config.publicOrigin);
+    rateLimiters.general(request, response, user);
+    const deleted = await store.softDeleteForUser(auditIdMatch[1], user.id);
+    if (!deleted) {
+      throw new HttpError(404, "Audit report was not found.", "AUDIT_NOT_FOUND");
+    }
+    return sendNoContent(response);
+  }
 
   if (auditIdMatch && request.method === "GET") {
     const user = await requireAuthenticatedUser(request, response, { authService, cookiePolicy });

@@ -46,8 +46,8 @@
             <ol class="nqLegalTocList" role="list">
               <li><a href="#angaben">1. Angaben zum Anbieter</a></li>
               <li><a href="#kontakt">2. Kontakt</a></li>
-              <li><a href="#register">3. Registerangaben</a></li>
-              <li><a href="#umsatzsteuer">4. Umsatzsteuer-ID</a></li>
+              {{#LEGAL_REGISTER}}<li><a href="#register">3. Registerangaben</a></li>{{/LEGAL_REGISTER}}
+              {{#LEGAL_VAT}}<li><a href="#umsatzsteuer">4. Umsatzsteuer-ID</a></li>{{/LEGAL_VAT}}
               <li><a href="#inhalt">5. Inhalt des Dienstes</a></li>
               <li><a href="#haftung-links">6. Haftung für Links</a></li>
               <li><a href="#urheberrecht">7. Urheberrecht</a></li>
@@ -58,20 +58,18 @@
           <main class="nqLegalMain" id="main-content" lang="de">
 
             <!-- Development readiness notice -->
-            <div class="nqLegalNotReady" role="note" aria-label="Entwicklungshinweis">
+            {{#LEGAL_DRAFT}}<div class="nqLegalNotReady" role="note" aria-label="Entwicklungshinweis">
               <span aria-hidden="true">⚠</span>
               <div>
                 <b>NOT READY FOR PUBLIC LAUNCH — IMPRESSUM NICHT VERÖFFENTLICHUNGSREIF</b>
                 <p>
-                  Dieses Impressum enthält Pflichtangaben, die vor der Veröffentlichung
-                  mit verifizierten Inhaberdaten zu ergänzen sind. Alle
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: …]</span>-Felder
-                  müssen ausgefüllt und von einem Rechtsanwalt geprüft werden,
-                  bevor diese Seite unter einer produktiven Domain erreichbar ist.
+                  Die rechtlichen Laufzeitangaben sind nicht konfiguriert und die
+                  Veröffentlichung ist nicht freigegeben. Dieser Entwicklungsentwurf
+                  darf nicht als veröffentlichungsreif dargestellt werden.
                   ständig verfügbar sein (§ 5 DDG / Art. 5 E-Commerce-Richtlinie).
                 </p>
               </div>
-            </div>
+            </div>{{/LEGAL_DRAFT}}
 
             <!-- Page heading -->
             <div class="nqLegalPageHead">
@@ -81,7 +79,7 @@
                 <dt>Dienst</dt>
                 <dd>NOQORI</dd>
                 <dt>Status</dt>
-                <dd><b>Entwurf — nur zur internen Entwicklung</b></dd>
+                <dd><b>{{LEGAL_STATUS}}</b></dd>
               </dl>
             </div>
 
@@ -94,13 +92,13 @@
               <dl class="nqLegalDl">
                 <dt>Name / Firma</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Vollständiger Vor- und Nachname oder Firmenname]</span>
+                  {{LEGAL_OPERATOR_NAME}}
                 </dd>
                 <dt>Anschrift</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Straße und Hausnummer]</span><br />
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: PLZ und Ort]</span><br />
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Land]</span>
+                  {{LEGAL_OPERATOR_ADDRESS_LINE1}}<br />
+                  {{LEGAL_OPERATOR_POSTAL_CITY}}<br />
+                  {{LEGAL_OPERATOR_COUNTRY}}
                 </dd>
               </dl>
               <div class="nqLegalNote" data-tone="review" role="note">
@@ -119,14 +117,14 @@
               <dl class="nqLegalDl">
                 <dt>E-Mail</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Offizielle Kontakt-E-Mail-Adresse]</span>
+                  {{LEGAL_CONTACT_EMAIL}}
                 </dd>
-                <dt>Telefon</dt>
+                {{#LEGAL_PHONE}}<dt>Telefon</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Telefonnummer (optional, falls nicht vorhanden weglassen)]</span>
-                </dd>
+                  {{LEGAL_CONTACT_PHONE}}
+                </dd>{{/LEGAL_PHONE}}
               </dl>
-              <div class="nqLegalNote" data-tone="info" role="note">
+              {{#LEGAL_DRAFT}}<div class="nqLegalNote" data-tone="info" role="note">
                 <span aria-hidden="true">ℹ</span>
                 <p>
                   § 5 Abs. 1 Nr. 2 DDG verlangt eine E-Mail-Adresse sowie eine
@@ -134,11 +132,11 @@
                   Telefon vorgesehen, kann alternativ ein Kontaktformular
                   genügen — dies sollte rechtlich geprüft werden.
                 </p>
-              </div>
+              </div>{{/LEGAL_DRAFT}}
             </section>
 
             <!-- § 3 Registerangaben -->
-            <section class="nqLegalSection" id="register" aria-labelledby="h-register">
+            {{#LEGAL_REGISTER}}<section class="nqLegalSection" id="register" aria-labelledby="h-register">
               <h2 id="h-register">3. Registerangaben</h2>
               <p>
                 Falls der Anbieter im Handelsregister, Vereinsregister,
@@ -148,15 +146,11 @@
               <dl class="nqLegalDl">
                 <dt>Registergericht</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Registergericht und Ort, falls eingetragen — sonst diesen Abschnitt entfernen]</span>
+                  {{LEGAL_REGISTER_NAME}}
                 </dd>
                 <dt>Registernummer</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: HRB- / HRA- / VR-Nummer, falls eingetragen — sonst diesen Abschnitt entfernen]</span>
-                </dd>
-                <dt>Vertretungsberechtigte Person</dt>
-                <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: Geschäftsführer, Vorstand oder vertretungsberechtigte Person(en), sofern juristische Person]</span>
+                  {{LEGAL_REGISTER_NUMBER}}
                 </dd>
               </dl>
               <div class="nqLegalNote" data-tone="review" role="note">
@@ -169,10 +163,10 @@
                   Rechtsform erforderlich sind.
                 </p>
               </div>
-            </section>
+            </section>{{/LEGAL_REGISTER}}
 
             <!-- § 4 Umsatzsteuer-ID -->
-            <section class="nqLegalSection" id="umsatzsteuer" aria-labelledby="h-umsatzsteuer">
+            {{#LEGAL_VAT}}<section class="nqLegalSection" id="umsatzsteuer" aria-labelledby="h-umsatzsteuer">
               <h2 id="h-umsatzsteuer">4. Umsatzsteuer-Identifikationsnummer</h2>
               <p>
                 Sofern eine Umsatzsteuer-Identifikationsnummer gemäß § 27a
@@ -181,10 +175,10 @@
               <dl class="nqLegalDl">
                 <dt>USt-IdNr.</dt>
                 <dd>
-                  <span class="nqLegalPlaceholder">[REQUIRED BEFORE PUBLIC LAUNCH: USt-IdNr., falls vorhanden — sonst diesen Abschnitt entfernen]</span>
+                  {{LEGAL_VAT_ID}}
                 </dd>
               </dl>
-            </section>
+            </section>{{/LEGAL_VAT}}
 
             <!-- § 5 Inhalt des Dienstes -->
             <section class="nqLegalSection" id="inhalt" aria-labelledby="h-inhalt">

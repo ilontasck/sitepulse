@@ -1,3 +1,4 @@
+import { createAuditTelemetry } from "./src/telemetry/audit-telemetry.mjs";
 import { loadConfig } from "./src/config/env.mjs";
 import { createApp } from "./src/http/app.mjs";
 
@@ -27,7 +28,5 @@ process.once("SIGINT", requestShutdown);
 process.once("SIGTERM", requestShutdown);
 
 app.listen(config.port, config.host, () => {
-  const address = app.address();
-  const port = typeof address === "object" && address ? address.port : config.port;
-  console.log(`NOQORI API listening at http://${config.host}:${port}`);
+  createAuditTelemetry({ enabled: config.telemetryEnabled && config.env !== "test" }).record("api.started");
 });

@@ -1,18 +1,27 @@
-const allowedFields = new Set([
-  "auditMode",
-  "durationMs",
-  "lighthouseDurationMs",
-  "queueWaitMs",
-  "attempt",
-  "jobId",
-  "auditId",
-  "outcome",
-  "fallbackReason",
-  "reason"
-]);
+import { safeErrorCode } from "../audit/audit-failure-classifier.mjs";
+import { isCorrelationId, logContext } from "./log-context.mjs";
 
+const numericFields = new Set(["durationMs", "lighthouseDurationMs", "queueWaitMs", "attempt", "statusCode"]);
+const enumFields = {
+  auditMode: new Set(["basic", "html", "rendered"]),
+  level: new Set(["info", "warn", "error"]),
+  method: new Set(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]),
+  phase: new Set(["preflight", "generate", "persist", "recover", "claim", "heartbeat", "failure-transition", "readiness", "startup", "shutdown"]),
+  outcome: new Set(["queued", "running", "failed", "completed", "success", "failure", "not-ready", "ready", "partial", "timed-out", "temporarily-unavailable"]),
+  kind: new Set(["password_reset","email_verification","audit_ready","audit_failed"]),
+  reason: new Set(["timeout", "chromium-crash", "concurrency-limit", "network-safety", "navigation", "rendered-error", "html-scan-error", "storage_error", "readiness-check", "lease-renewal-rejected", "lease-renewal-error", "completion-rejected", "failure-transition-rejected"])
+};
 function safeFields(fields) {
-  return Object.fromEntries(Object.entries(fields).filter(([key, value]) => allowedFields.has(key) && ["string", "number", "boolean"].includes(typeof value)));
+  const safe = {};
+  for (const [key, value] of Object.entries(fields)) {
+    if (numericFields.has(key) && Number.isFinite(value) && value >= 0) safe[key] = value;
+    else if (["requestId", "jobId", "auditId", "worker", "rpcId"].includes(key) && isCorrelationId(value)) safe[key] = value;
+    else if (enumFields[key]?.has?.(value)) safe[key] = value;
+    else if (key === "fallbackReason" && enumFields.reason.has(value)) safe[key] = value;
+    else if (key === "errorCode" && typeof value === "string" && /^[A-Z][A-Z0-9_]{0,63}$/.test(value)) safe[key] = safeErrorCode({ code: value }, "UNKNOWN_ERROR");
+    else if (key === "route" && typeof value === "string" && /^\/(?:api\/(?:health|ready|operations(?:\/failed|\/audit-log|\/jobs\/:id\/retry)?|audits(?::id|\/:id|\/(?:quota|history))?|audit-jobs\/:id|auth\/(?:config|register|login|logout|me|password-reset\/(?:request|confirm)|email-verification\/(?:request|confirm))|unknown)|static)$/.test(value)) safe[key] = value;
+  }
+  return safe;
 }
 
 export function createAuditTelemetry({ enabled = true, write = console.log, now = () => new Date().toISOString() } = {}) {
@@ -32,11 +41,11 @@ export function createAuditTelemetry({ enabled = true, write = console.log, now 
 
   return {
     record(event, fields = {}) {
-      if (event === "audit_completed") {
+      if (["audit_completed", "audit.completed"].includes(event)) {
         counters.auditTotal += 1;
         counters.auditSuccess += 1;
         counters.totalAuditDurationMs += Number(fields.durationMs) || 0;
-      } else if (event === "audit_failed") {
+      } else if (["audit_failed", "audit.failed"].includes(event)) {
         counters.auditTotal += 1;
         counters.auditFailure += 1;
         counters.totalAuditDurationMs += Number(fields.durationMs) || 0;
@@ -61,10 +70,12 @@ export function createAuditTelemetry({ enabled = true, write = console.log, now 
         counters.totalLighthouseDurationMs += Number(fields.lighthouseDurationMs) || 0;
       }
 
-      const entry = { timestamp: now(), type: "sitepulse.audit", event, ...safeFields(fields) };
+      const entry = { timestamp: now(), level: /failed|error|crash/.test(event) ? "error" : "info", type: "sitepulse.audit",
+        event: /^[a-z][a-z0-9_.]{0,79}$/.test(event) ? event : "telemetry.invalid_event",
+        ...safeFields({ ...logContext(), ...fields }) };
 
       if (enabled) {
-        write(JSON.stringify(entry));
+        try { write(JSON.stringify(entry)); } catch { /* Logging failure must not change job or HTTP outcomes. */ }
       }
 
       return entry;

@@ -92,6 +92,7 @@ describe("audit job store", () => {
 
     assert.deepEqual(created, {
       id: "job-1",
+      requestId: null,
       status: "queued",
       normalizedUrl: "https://example.com",
       userId: TEST_USER_ID,
@@ -129,7 +130,7 @@ describe("audit job store", () => {
         normalizedUrl: "https://example.com",
         userId: "33333333-3333-4333-8333-333333333333"
       }),
-      /foreign key constraint/i
+      /owner is unavailable/i
     );
   });
 
@@ -204,16 +205,18 @@ describe("audit job store", () => {
     assert.equal(completed.job.workerId, null);
     assert.equal(completed.job.leaseToken, null);
     assert.equal(completed.job.userId, TEST_USER_ID);
-    const storedAudit = await createAuditStore(fixture.databaseFilePath).findById("audit-1");
+    const auditStore = createAuditStore(fixture.databaseFilePath, { clock: () => "2026-08-13T10:00:00.000Z" });
+    const storedAudit = await auditStore.findById("audit-1");
     assert.equal(storedAudit.id, "audit-1");
     assert.equal(storedAudit.domain, "example.com");
     const database = new DatabaseSync(fixture.databaseFilePath);
-    const relationalAudit = database.prepare("SELECT user_id, report_json FROM audits WHERE id = ?").get("audit-1");
+    const relationalAudit = database.prepare("SELECT user_id, report_json, created_at, expires_at FROM audits WHERE id = ?").get("audit-1");
     database.close();
     assert.equal(relationalAudit.user_id, TEST_USER_ID);
     assert.equal(JSON.parse(relationalAudit.report_json).userId, undefined);
-    assert.equal(await createAuditStore(fixture.databaseFilePath).findByIdForUser("audit-1", TEST_USER_ID) !== null, true);
-    assert.equal(await createAuditStore(fixture.databaseFilePath).findByIdForUser("audit-1", OTHER_USER_ID), null);
+    assert.equal(new Date(relationalAudit.expires_at).getTime() - new Date(relationalAudit.created_at).getTime(), 30 * 24 * 60 * 60 * 1_000);
+    assert.equal(await auditStore.findByIdForUser("audit-1", TEST_USER_ID) !== null, true);
+    assert.equal(await auditStore.findByIdForUser("audit-1", OTHER_USER_ID), null);
     assert.deepEqual(
       fixture.store.complete({
         jobId: claimed.id,
@@ -369,5 +372,53 @@ describe("audit job store", () => {
     assert.equal(exhausted.errorCode, "WORKER_LEASE_EXPIRED");
     assert.equal(exhausted.workerId, null);
     assert.deepEqual(fixture.store.recoverExpired(), { requeued: 0, failed: 0 });
+  });
+
+  it("does not claim jobs owned by disabled or deletion-pending users", () => {
+    const fixture = testStore({ ids: ["disabled-job", "pending-job", "active-job", "active-lease"] });
+    enqueue(fixture.store, "https://disabled.example.com", TEST_USER_ID);
+    enqueue(fixture.store, "https://pending.example.com", OTHER_USER_ID);
+    const activeId = "33333333-3333-4333-8333-333333333333";
+    insertTestUser(fixture.databaseFilePath, activeId, "active@example.com");
+    enqueue(fixture.store, "https://active.example.com", activeId);
+    const database = new DatabaseSync(fixture.databaseFilePath);
+    database.prepare("UPDATE users SET disabled_at = ? WHERE id = ?").run("2026-08-13T09:00:00.000Z", TEST_USER_ID);
+    database.prepare("UPDATE users SET deletion_requested_at = ?, purge_after = ? WHERE id = ?").run("2026-08-13T09:00:00.000Z", "2026-09-12T09:00:00.000Z", OTHER_USER_ID);
+    database.close();
+
+    assert.equal(fixture.store.claimNext({ workerId: "worker-1", leaseMs: 30_000 }).userId, activeId);
+    assert.equal(fixture.store.claimNext({ workerId: "worker-1", leaseMs: 30_000 }), null);
+  });
+
+  it("drops a running job without creating a report when account deletion begins", () => {
+    const fixture = testStore({ ids: ["job-1", "lease-1", "audit-must-not-exist"] });
+    enqueue(fixture.store, "https://example.com");
+    const claimed = fixture.store.claimNext({ workerId: "worker-1", leaseMs: 30_000 });
+    const database = new DatabaseSync(fixture.databaseFilePath);
+    database.prepare("UPDATE users SET disabled_at = ?, deletion_requested_at = ?, purge_after = ? WHERE id = ?")
+      .run("2026-08-13T10:00:01.000Z", "2026-08-13T10:00:01.000Z", "2026-09-12T10:00:01.000Z", TEST_USER_ID);
+    database.close();
+
+    assert.deepEqual(fixture.store.complete({ jobId: claimed.id, workerId: "worker-1", leaseToken: claimed.leaseToken, audit: fakeAudit() }), {
+      completed: false,
+      job: null,
+      audit: null
+    });
+    assert.equal(fixture.store.findById(claimed.id), null);
+    assert.equal(auditCount(fixture.databaseFilePath), 0);
+  });
+
+  it("does not recover an expired lease for a deletion-pending user", () => {
+    const fixture = testStore({ now: "2026-08-13T10:00:00.000Z", ids: ["job-1", "lease-1"] });
+    enqueue(fixture.store, "https://example.com");
+    fixture.store.claimNext({ workerId: "worker-1", leaseMs: 1_000 });
+    const database = new DatabaseSync(fixture.databaseFilePath);
+    database.prepare("UPDATE users SET disabled_at = ?, deletion_requested_at = ?, purge_after = ? WHERE id = ?")
+      .run("2026-08-13T10:00:01.000Z", "2026-08-13T10:00:01.000Z", "2026-09-12T10:00:01.000Z", TEST_USER_ID);
+    database.close();
+    fixture.setTime("2026-08-13T10:00:02.000Z");
+
+    assert.deepEqual(fixture.store.recoverExpired(), { failed: 0, requeued: 0 });
+    assert.equal(fixture.store.findById("job-1"), null);
   });
 });

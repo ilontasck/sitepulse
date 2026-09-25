@@ -128,11 +128,47 @@ function rowCount(databaseFilePath, table) {
   );
 }
 
+function insertOwnedAudit(databaseFilePath, { id, userId, createdAt, expiresAt = "2026-12-01T00:00:00.000Z", deletedAt = null, domain = "history.example.com" }) {
+  const audit = { ...fakeAudit(domain), id, createdAt };
+  withDatabase(databaseFilePath, (database) => database.prepare(`
+    INSERT INTO audits (id,created_at,updated_at,normalized_url,domain,overall_score,scanner_mode,report_json,user_id,expires_at,deleted_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)
+  `).run(id, createdAt, createdAt, audit.normalizedUrl, audit.domain, audit.overallScore,
+    audit.scanner.mode, JSON.stringify(audit), userId, expiresAt, deletedAt));
+}
+
 afterEach(async () => {
   await Promise.all([...runningApis].map(stopApi));
 });
 
 describe("authenticated audit ownership", () => {
+  it("lists only active owner history with keyset pagination and safe cursor errors", async () => {
+    const api = await startApi();
+    const owner = await register(api, "history-owner@example.com");
+    const other = await register(api, "history-other@example.com");
+    insertOwnedAudit(api.config.databaseFilePath, { id: "00000000-0000-4000-8000-000000000004", userId: owner.user.id, createdAt: "2026-09-04T00:00:00.000Z", domain: "new.example.com" });
+    insertOwnedAudit(api.config.databaseFilePath, { id: "00000000-0000-4000-8000-000000000003", userId: owner.user.id, createdAt: "2026-09-03T00:00:00.000Z", domain: "middle.example.com" });
+    insertOwnedAudit(api.config.databaseFilePath, { id: "00000000-0000-4000-8000-000000000002", userId: owner.user.id, createdAt: "2026-09-02T00:00:00.000Z", expiresAt: "2026-09-10T00:00:00.000Z" });
+    insertOwnedAudit(api.config.databaseFilePath, { id: "00000000-0000-4000-8000-000000000001", userId: other.user.id, createdAt: "2026-09-05T00:00:00.000Z", domain: "private.example.com" });
+    assert.equal((await ownedGet(api, "/api/audits/history")).status, 401);
+    const first = await ownedGet(api, "/api/audits/history?limit=1", owner.cookie);
+    const firstBody = await first.json();
+    assert.equal(first.status, 200);
+    assert.equal(first.headers.get("cache-control"), "private, no-store");
+    assert.equal(firstBody.audits[0].domain, "new.example.com");
+    assert.equal("userId" in firstBody.audits[0], false);
+    assert.ok(firstBody.page.nextCursor);
+    const second = await ownedGet(api, `/api/audits/history?limit=1&cursor=${encodeURIComponent(firstBody.page.nextCursor)}`, owner.cookie);
+    const secondBody = await second.json();
+    assert.equal(secondBody.audits[0].domain, "middle.example.com");
+    assert.equal(secondBody.page.nextCursor, null);
+    const malformed = await ownedGet(api, "/api/audits/history?cursor=bad!", owner.cookie);
+    assert.equal(malformed.status, 400);
+    assert.equal((await malformed.json()).error.code, "INVALID_CURSOR");
+    assert.equal((await ownedGet(api, "/api/audits/history?limit=51", owner.cookie)).status, 400);
+    const admin = await ownedGet(api, "/api/audits?limit=20", owner.cookie);
+    assert.equal(admin.status, 404);
+  });
   it("authenticates before URL work and requires exact Origin before enqueue", async () => {
     let safetyCalls = 0;
     const api = await startApi({
@@ -233,6 +269,56 @@ describe("authenticated audit ownership", () => {
     assert.equal(relational.job.user_id, owner.user.id);
     assert.equal(relational.audit.user_id, owner.user.id);
     assert.equal(JSON.parse(relational.audit.report_json).userId, undefined);
+  });
+
+  it("expires free reports and lets only the owner soft-delete them without leaking linked jobs", async () => {
+    const api = await startApi();
+    const owner = await register(api, "retention-owner@example.com");
+    const other = await register(api, "retention-other@example.com");
+    const created = await (await auditRequest(api, { cookie: owner.cookie })).json();
+    const worker = createAuditJobWorker({
+      jobStore: api.jobStore,
+      workerId: "retention-worker",
+      securityValidator: async () => true,
+      auditGenerator: async () => fakeAudit(),
+      leaseMs: 30_000,
+      heartbeatMs: 10_000
+    });
+    await worker.runOnce();
+    const jobBefore = await (await ownedGet(api, created.job.statusUrl, owner.cookie)).json();
+    const auditPath = jobBefore.job.auditUrl;
+    const stored = withDatabase(api.config.databaseFilePath, (database) =>
+      database.prepare("SELECT created_at, expires_at FROM audits WHERE id = ?").get(jobBefore.job.auditId)
+    );
+    assert.equal(new Date(stored.expires_at).getTime() - new Date(stored.created_at).getTime(), 30 * 24 * 60 * 60 * 1_000);
+    assert.equal((await ownedGet(api, auditPath, owner.cookie)).status, 200);
+
+    const denied = await fetch(`${api.baseUrl}${auditPath}`, {
+      method: "DELETE",
+      headers: { Cookie: other.cookie, Origin: publicOrigin }
+    });
+    assert.equal(denied.status, 404);
+    assert.equal((await denied.json()).error.code, "AUDIT_NOT_FOUND");
+    const deleted = await fetch(`${api.baseUrl}${auditPath}`, {
+      method: "DELETE",
+      headers: { Cookie: owner.cookie, Origin: publicOrigin }
+    });
+    assert.equal(deleted.status, 204);
+    assert.equal((await ownedGet(api, auditPath, owner.cookie)).status, 404);
+    assert.equal((await ownedGet(api, created.job.statusUrl, owner.cookie)).status, 404);
+    assert.equal(withDatabase(api.config.databaseFilePath, (database) =>
+      database.prepare("SELECT deleted_at IS NOT NULL AS deleted FROM audits WHERE id = ?").get(jobBefore.job.auditId).deleted
+    ), 1);
+
+    const secondCreated = await (await auditRequest(api, { cookie: owner.cookie, body: { websiteUrl: "fresh.example.com" } })).json();
+    await worker.runOnce();
+    const secondJob = await (await ownedGet(api, secondCreated.job.statusUrl, owner.cookie)).json();
+    assert.equal((await ownedGet(api, secondJob.job.auditUrl, owner.cookie)).status, 200);
+    withDatabase(api.config.databaseFilePath, (database) =>
+      database.prepare("UPDATE audits SET expires_at = ? WHERE id = ?").run("2020-01-01T00:00:00.000Z", secondJob.job.auditId)
+    );
+    assert.equal((await ownedGet(api, secondJob.job.auditUrl, owner.cookie)).status, 404);
+    assert.equal((await ownedGet(api, secondCreated.job.statusUrl, owner.cookie)).status, 404);
   });
 
   it("keeps legacy NULL ownership recoverable by workers but private from users", async () => {

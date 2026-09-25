@@ -126,7 +126,7 @@ describe("session cleanup scheduler", () => {
     assert.equal(cleanupCalls, 1);
     assert.deepEqual(telemetryEntries, [{
       event: "auth_session_cleanup_failed",
-      fields: { outcome: "failure", reason: "storage_error" }
+      fields: { outcome: "failure", reason: "storage_error", errorCode: "DB_FAILURE" }
     }]);
 
     timerCallback();
