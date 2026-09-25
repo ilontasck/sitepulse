@@ -213,9 +213,10 @@
                 account deletion API after confirming the current password. The
                 account is disabled immediately, all sessions are revoked, pending
                 password-reset tokens are invalidated, and account-owned reports and
-                jobs become inaccessible. Application personal data is physically
-                purged no later than 30 days after the request, unless retention is
-                required for an incident or by law. You may also contact
+                jobs become inaccessible. Application database records become eligible for physical
+                purge 29 days after the request and are removed by scheduled, bounded
+                cleanup. Completion within 30 days is an operational target that
+                must be verified before publication. You may also contact
                 {{LEGAL_CONTACT_EMAIL}}.
               </p>
               <div class="nqLegalNote" data-tone="review" role="note">
@@ -376,11 +377,11 @@
                 Current authenticated/free audit reports are available for up to
                 30 days from creation. At expiry they immediately become inaccessible,
                 and expired data is physically removed by the scheduled retention
-                cleanup. The configured public wording is:
+                cleanup. The internal pro policy retains reports for 12 calendar months; it must not be offered without matching reviewed public terms. The configured public wording is:
                 <b>{{LEGAL_AUDIT_REPORT_RETENTION}}</b>. An
                 authenticated owner can delete an individual report through the API;
                 it becomes inaccessible immediately and is physically removed with
-                its linked job by the next retention cleanup run.
+                its linked job by scheduled retention cleanup; a backlog may require multiple runs.
               </p>
             </section>
 
@@ -451,8 +452,8 @@
                   <tbody>
                     <tr>
                       <td>Account data (email, password hash)</td>
-                      <td>No later than 30 days after an authenticated deletion request</td>
-                      <td>Immediate disablement; automated FK-safe physical purge after the deadline</td>
+                      <td>Purge eligibility 29 days after an authenticated deletion request</td>
+                      <td>Immediate disablement; scheduled FK-safe purge, subject to cleanup availability and backlog</td>
                     </tr>
                     <tr>
                       <td>Active session token hash</td>
@@ -467,14 +468,14 @@
                     <tr>
                       <td>Password reset token hash</td>
                       <td>One hour; invalidated sooner after use or a newer request</td>
-                      <td>Rejected after expiry, use, or invalidation</td>
+                      <td>Rejected after expiry, use, or invalidation; physical cleanup currently occurs on account purge</td>
                     </tr>
                     <tr>
                       <td>Audit job records</td>
                       <td>
                         {{LEGAL_AUDIT_REPORT_RETENTION}}
                       </td>
-                      <td>Linked job is physically removed when its report expires or is deleted</td>
+                      <td>Linked job is removed with its report during cleanup. Failed jobs without a report currently remain until account purge</td>
                     </tr>
                     <tr>
                       <td>Completed audit reports</td>

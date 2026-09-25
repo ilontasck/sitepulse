@@ -14,7 +14,7 @@ STE-19 replaces repository-stored operator placeholders with an escaped runtime 
 - Terms use German law only where legally permissible, preserve mandatory consumer protections, use statutory jurisdiction, and contain no invented liability cap or court.
 - The checker rejects old launch markers, unknown template directives, incomplete public configuration, and a closed publication gate.
 - Current authenticated/free reports are available for up to 30 days. At expiry they become inaccessible immediately; scheduled bounded cleanup later removes expired or manually deleted reports with their linked jobs.
-- Account deletion disables access and revokes sessions immediately; application-owned jobs, reports, reset tokens, sessions, and the user record are physically purged no later than 30 days after the request.
+- Account deletion disables access and revokes sessions immediately; application-owned jobs, reports, reset tokens, sessions, and the user record are eligible for physical purge after 29 days; bounded scheduled cleanup must be monitored to meet the existing 30-day operational target. This is not an unconditional deadline guarantee.
 
 ## Runtime values still required
 
@@ -54,7 +54,7 @@ Run `node scripts/check-legal-placeholders.mjs` with the same private environmen
 
 | Data | Storage | Current behavior |
 | --- | --- | --- |
-| Account email | SQLite `users` | Disabled immediately on deletion request; physically purged no later than 30 days later |
+| Account email | SQLite `users` | Disabled immediately on deletion request; eligible for physical purge after 29 days; scheduled cleanup completion requires monitoring |
 | Password | Salted scrypt hash in `users` | Plaintext is never stored |
 | Session | SHA-256 token hash in `sessions` | Active for 14 days; revoked sessions are cleaned after the configured cleanup interval |
 | Password reset | SHA-256 token hash in `password_reset_tokens` | One-hour, single-use; newer request invalidates older pending tokens; successful reset revokes all sessions |
@@ -64,6 +64,14 @@ Run `node scripts/check-legal-placeholders.mjs` with the same private environmen
 | Operational telemetry | Process output / hosting journal | Policy: 30 days except incident/legal retention; actual infrastructure enforcement awaits STE-14 |
 
 NOQORI currently sets only the strictly necessary session cookie. It uses no analytics, advertising, external fonts, tracking storage, `localStorage`, `sessionStorage`, or IndexedDB. The current cookie assessment should be reviewed under the applicable GDPR and TDDDG rules before launch.
+
+## Reconciliation on 2026-09-25
+
+See [the exact STE-31 contract](RETENTION-DELETION.md) and [beta blockers](BETA-READINESS.md). The later branch includes an internal pro policy with 12-calendar-month report retention, email verification-token storage and an audit-notification outbox. Free reports remain 30 days. Do not enable pro for users until the public wording and policy match it.
+
+Known release gaps: failed jobs without a report and password-reset-token rows have no independent age-based physical purge for active accounts. Application deletion does not erase off-host backups, provider logs, SQLite free pages or WAL copies. Decide these policies and implement/verify enforcement before external personal data collection. A legal exception in prose is not a legal-hold feature in code.
+
+The example 30-day process-log wording is not evidence of server configuration or an approved policy. Confirm the value with the operator; no hosting provider, retention decision or legal identity was invented in this review. Draft wording now describes batching/eligibility instead of promising completion on the next run.
 
 ## Current status
 

@@ -6,7 +6,7 @@ One existing `createAuditTelemetry` layer emits newline-delimited JSON to stdout
 
 Migration 006 adds nullable `audit_jobs.request_id` and completion/failure timestamp indexes. Apply with the existing supervised migration service before starting the new API/worker. Old jobs have no originating request ID but retain job correlation. The existing production browser bundle hashes include changed source files: a future release needs fresh Linux sandbox acceptance/attestation. This task does not install units, enable monitoring, merge or deploy.
 
-Set `TELEMETRY_ENABLED=true` (default). Disabling telemetry disables API/worker journal evidence, not SQLite metrics; runner diagnostics remain enabled in its deliberately restricted environment. Retain persistent journald logs with restricted operator access; choose retention according to the deployment privacy policy (suggested operational starting point: 14 days and a disk cap). Rotation or disabled logging can remove earlier attempts. No raw stacks are emitted.
+Set `TELEMETRY_ENABLED=true` (default). Disabling telemetry disables API/worker journal evidence, not SQLite metrics; runner diagnostics remain enabled in its deliberately restricted environment. Retain persistent journald logs with restricted operator access; configure retention and disk caps to match the operator-approved deployment privacy policy; the example legal wording is not proof of enforcement. Rotation or disabled logging can remove earlier attempts. No raw stacks are emitted.
 
 ## Log contract
 
@@ -92,3 +92,7 @@ Existing safe codes remain authoritative: UNSAFE_URL/UNSAFE_REDIRECT/SSRF_BLOCKE
 6. If journal retention removed the original event, an operator may read only `id, request_id, audit_id, status, attempt_count, error_code` from SQLite by job ID; avoid dumping whole customer rows. Durable terminal state survives process restarts; attempt-by-attempt history lives in journald.
 
 Estimated triage for known categories after rollout with retained logs: 2–5 minutes versus roughly 15–30+ minutes of manual cross-checking before this change. This is an engineering estimate, not a measured incident benchmark. Unknown AUDIT_FAILED exceptions may still need reproduction and take longer. No Sentry grouping, stack capture, percentile histogram, distributed collector or automated notifications are claimed.
+
+## Beta cleanup operations
+
+Monitor `data_retention_cleanup_failed` and database growth. The six-hour cleanup schedule is bounded, not a deadline guarantee. Validate backlog clearance, account purge target, failed-job/reset-token policy and backup expiry on the server; see [retention contract](RETENTION-DELETION.md). No alert delivery or server log-retention setting was configured by the Mac audit.

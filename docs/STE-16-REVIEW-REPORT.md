@@ -1,3 +1,5 @@
+> Historical evidence for the dated release below; not current release acceptance. See [current status](SOURCE-OF-TRUTH.md).
+
 # STE-16 — implementation and review report
 
 1. **Branch/worktree:** `feature/ste-16-production-observability`, existing checkout `/Users/stefanyavisenko/SitePuls /sitepulse`.

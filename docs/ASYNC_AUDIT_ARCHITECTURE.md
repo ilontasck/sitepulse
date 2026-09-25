@@ -1,3 +1,5 @@
+> Historical architecture/design record. Original scope and deferred-feature lists describe the earlier implementation. For current auth, recovery, verification, history, quotas and deletion see [Application](APPLICATION.md), [STE-31](RETENTION-DELETION.md), and [current status](SOURCE-OF-TRUTH.md).
+
 # Asynchronous Audit Architecture v1
 
 Status: approved implementation specification for Day 2.

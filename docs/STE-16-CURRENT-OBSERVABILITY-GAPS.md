@@ -1,3 +1,5 @@
+> Historical evidence for the dated release below; not current release acceptance. See [current status](SOURCE-OF-TRUTH.md).
+
 # CURRENT OBSERVABILITY GAPS
 
 Baseline: 08ef007ba561bf86d2e5ddf76544e061d562dcac (before implementation).

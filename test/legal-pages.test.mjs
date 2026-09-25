@@ -221,14 +221,14 @@ describe("legal pages", () => {
     assert.doesNotMatch(body, /TTDSG/);
   });
 
-  it("matches the implemented thirty-day report and account deletion policy", async () => {
+  it("matches report expiry and bounded account-purge behavior", async () => {
     await withLegalServer(publicLegalValues, async (runtimeBaseUrl) => {
       const body = await (await fetch(`${runtimeBaseUrl}/privacy`)).text();
       assert.match(body, /available for up to\s+30 days from creation/);
       assert.match(body, /At expiry they immediately become inaccessible/);
       assert.match(body, /expired data is physically removed by the scheduled retention\s+cleanup/);
       assert.match(body, /inaccessible immediately and is physically removed/);
-      assert.match(body, /physically\s+purged no later than 30 days after the request/);
+      assert.match(body, /purge 29 days after the request/);
       assert.match(body, /infrastructure remains part of STE-14/);
       assert.doesNotMatch(body, /retained for no more than 30 days|physically retained (?:for )?(?:no more than|maximum) 30 days|No automatic deletion currently implemented|retention period or defensible retention criteria|Pro tier/i);
     });
