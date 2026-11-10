@@ -520,6 +520,34 @@ Then verify:
 - Field Core Web Vitals through CrUX/RUM
 - axe-core accessibility adapter
 - Authenticated report history UI (owner-scoped storage is implemented)
-- Branded PDF export
 - Postgres storage for hosted production
 - Public demo deployment
+
+### German client PDF export
+
+The existing mini-audit CLI can export a client-facing A4 PDF using the installed
+Playwright Chromium (no external service or new dependency). To export saved
+`buildAuditReport` JSON without DNS requests or a new scan:
+
+```sh
+pnpm mini-audit --from-json path/to/scanner-report.json --company "Müller & Söhne"
+```
+
+For a website you are authorized to scan, add `--pdf` to the normal mini-audit
+command. PDF mode disables outreach drafts. Outputs (`.pdf`, privacy-filtered scanner
+`.json`, and the existing `.md`) go to `reports/leads/`; nothing is sent or published.
+The PDF contains all failed checks, independent of the Markdown `--findings` limit.
+Fallback/unknown scans have no score or confirmed findings; heuristics are separate
+from scanner observations. Only available Lighthouse measurements are shown.
+Only recognized structured evidence is exported. Free-form diagnostics, cookies,
+internal metadata and unknown check text are omitted; URLs show only their public
+origin (no credentials, path, query or fragment). Companion JSON and Markdown use
+the same privacy-filtered data. The original input is not modified. Supply only a
+public customer display name via `--company`. Input JSON is limited to 5 MB and
+1,000 checks; invalid nested structures are rejected before creating output.
+
+Run `node --test test/client-pdf.test.mjs` for offline export checks. The fixture
+runs real scanner adapters against local HTML. Chromium must be available via the
+project's existing Playwright setup (`pnpm exec playwright install chromium` if
+not already installed). Generate local example data with `localClientReport()` from
+`test/fixtures/client-pdf-report.mjs`, then export it with `--from-json`.
